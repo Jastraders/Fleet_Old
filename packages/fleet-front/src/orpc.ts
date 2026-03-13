@@ -5,9 +5,18 @@ import type { AppRouter, RouterClient } from "fleet-back";
 
 function resolveApiUrl() {
 	const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+	const defaultPath = "/orpc";
+
+	const toAbsoluteUrl = (rawUrl: string) => {
+		if (typeof window === "undefined") {
+			return rawUrl;
+		}
+
+		return new URL(rawUrl, window.location.origin).toString();
+	};
 
 	if (!configuredUrl) {
-		return "/orpc";
+		return toAbsoluteUrl(defaultPath);
 	}
 
 	if (configuredUrl.startsWith("http://") || configuredUrl.startsWith("https://")) {
@@ -24,9 +33,9 @@ function resolveApiUrl() {
 
 	if (configuredUrl.startsWith("/")) {
 		try {
-			return new URL(configuredUrl, window.location.origin).toString();
+			return toAbsoluteUrl(configuredUrl);
 		} catch {
-			return "/orpc";
+			return toAbsoluteUrl(defaultPath);
 		}
 	}
 
@@ -37,13 +46,33 @@ function resolveApiUrl() {
 	}
 }
 
+const resolvedApiUrl = resolveApiUrl();
+
+if (import.meta.env.DEV) {
+	console.info("[orpc] API URL resolved", {
+		configuredUrl: import.meta.env.VITE_API_URL,
+		resolvedApiUrl,
+	});
+}
+
 const link = new RPCLink({
-	url: resolveApiUrl(),
-	fetch: (input, init) => {
-		return fetch(input, {
-			...init,
-			credentials: "include",
-		});
+	url: resolvedApiUrl,
+	fetch: async (input, init) => {
+		try {
+			return await fetch(input, {
+				...init,
+				credentials: "include",
+			});
+		} catch (error) {
+			console.error("[orpc] fetch failed", {
+				input,
+				resolvedApiUrl,
+				configuredUrl: import.meta.env.VITE_API_URL,
+				error,
+			});
+
+			throw error;
+		}
 	},
 });
 
