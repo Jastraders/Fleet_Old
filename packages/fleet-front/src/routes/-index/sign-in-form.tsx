@@ -37,6 +37,14 @@ export function SignInForm() {
 			queryClient.clear();
 			return router.invalidate();
 		},
+		onError: (error) => {
+			console.error("[auth] sign-in failed", {
+				error,
+				message: error.message,
+				stack: error.stack,
+				cause: (error as Error & { cause?: unknown }).cause,
+			});
+		},
 	});
 
 	const form = useForm({
