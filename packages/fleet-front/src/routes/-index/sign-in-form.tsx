@@ -56,7 +56,7 @@ export function SignInForm() {
 			onSubmit: formSchema,
 		},
 		onSubmit: async ({ value }) => {
-			signInMutation.mutate(value);
+			signInMutation.mutate(value as Parameters<typeof signInMutation.mutate>[0]);
 		},
 	});
 
