@@ -197,6 +197,51 @@ def create_vehicle(user):
     return jsonify(dict(row))
 
 
+@app.get("/api/vehicles/<vehicle_id>")
+@require_auth({"accountant"})
+def get_vehicle(user, vehicle_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Vehicle not found"}), 404
+    return jsonify(dict(row))
+
+
+@app.put("/api/vehicles/<vehicle_id>")
+@require_auth({"accountant"})
+def update_vehicle(user, vehicle_id):
+    payload = request.get_json(force=True)
+    updates = []
+    params: list[Any] = []
+    for field, db_col in (("name", "name"), ("licensePlate", "license_plate")):
+        if payload.get(field) is not None:
+            updates.append(f"{db_col} = ?")
+            params.append(payload[field])
+    if not updates:
+        return jsonify({"error": "No fields to update"}), 400
+    params.extend([now_iso(), vehicle_id])
+    with connect() as conn:
+        exists = conn.execute("SELECT id FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        if not exists:
+            return jsonify({"error": "Vehicle not found"}), 404
+        conn.execute(f"UPDATE vehicles SET {', '.join(updates)}, updated_at = ? WHERE id = ?", tuple(params))
+        conn.commit()
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+    return jsonify(dict(row))
+
+
+@app.delete("/api/vehicles/<vehicle_id>")
+@require_auth({"accountant"})
+def delete_vehicle(user, vehicle_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        if not row:
+            return jsonify({"error": "Vehicle not found"}), 404
+        conn.execute("DELETE FROM vehicles WHERE id = ?", (vehicle_id,))
+        conn.commit()
+    return jsonify(dict(row))
+
+
 @app.get("/api/expense-categories")
 @require_auth({"accountant"})
 def list_categories(user):
@@ -220,6 +265,47 @@ def create_category(user):
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
+    return jsonify(dict(row))
+
+
+@app.get("/api/expense-categories/<category_id>")
+@require_auth({"accountant"})
+def get_category(user, category_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+    if not row:
+        return jsonify({"error": "Category not found"}), 404
+    return jsonify(dict(row))
+
+
+@app.put("/api/expense-categories/<category_id>")
+@require_auth({"accountant"})
+def update_category(user, category_id):
+    payload = request.get_json(force=True)
+    if payload.get("name") is None:
+        return jsonify({"error": "No fields to update"}), 400
+    with connect() as conn:
+        exists = conn.execute("SELECT id FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+        if not exists:
+            return jsonify({"error": "Category not found"}), 404
+        conn.execute(
+            "UPDATE expense_category SET name = ?, updated_at = ? WHERE id = ?",
+            (payload["name"], now_iso(), category_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+    return jsonify(dict(row))
+
+
+@app.delete("/api/expense-categories/<category_id>")
+@require_auth({"accountant"})
+def delete_category(user, category_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+        if not row:
+            return jsonify({"error": "Category not found"}), 404
+        conn.execute("DELETE FROM expense_category WHERE id = ?", (category_id,))
+        conn.commit()
     return jsonify(dict(row))
 
 
@@ -265,6 +351,79 @@ def create_entry(user):
     return jsonify(entry)
 
 
+@app.get("/api/journal-entries/<entry_id>")
+@require_auth({"accountant"})
+def get_entry(user, entry_id):
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not row:
+            return jsonify({"error": "Journal entry not found"}), 404
+        entry = dict(row)
+        entry["items"] = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                (entry_id,),
+            ).fetchall()
+        )
+    return jsonify(entry)
+
+
+@app.put("/api/journal-entries/<entry_id>")
+@require_auth({"accountant"})
+def update_entry(user, entry_id):
+    payload = request.get_json(force=True)
+    with connect() as conn:
+        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not existing:
+            return jsonify({"error": "Journal entry not found"}), 404
+        if existing["created_by"] != user["id"]:
+            return jsonify({"error": "Forbidden"}), 403
+        if "notes" in payload:
+            conn.execute(
+                "UPDATE journal_entries SET notes = ?, updated_at = ? WHERE id = ?",
+                (payload.get("notes"), now_iso(), entry_id),
+            )
+        if isinstance(payload.get("items"), list) and payload["items"]:
+            conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
+            for item in payload["items"]:
+                conn.execute(
+                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                    (
+                        str(uuid.uuid4()),
+                        entry_id,
+                        existing["vehicle_id"],
+                        item["transactionDate"],
+                        item["type"],
+                        float(item["amount"]),
+                        item.get("expenseCategoryId"),
+                    ),
+                )
+        conn.commit()
+        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        entry = dict(row)
+        entry["items"] = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                (entry_id,),
+            ).fetchall()
+        )
+    return jsonify(entry)
+
+
+@app.delete("/api/journal-entries/<entry_id>")
+@require_auth({"accountant"})
+def delete_entry(user, entry_id):
+    with connect() as conn:
+        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not existing:
+            return jsonify({"error": "Journal entry not found"}), 404
+        if existing["created_by"] != user["id"]:
+            return jsonify({"error": "Forbidden"}), 403
+        conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+        conn.commit()
+    return jsonify({"success": True})
+
+
 @app.get("/api/admin/members")
 @require_auth({"admin"})
 def list_members(user):
@@ -305,6 +464,71 @@ def create_member(user):
             )
         conn.commit()
     return jsonify({"id": uid})
+
+
+@app.get("/api/admin/members/<member_id>")
+@require_auth({"admin"})
+def get_member(user, member_id):
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT u.id, u.name, u.email, u.created_at, u.updated_at
+            FROM users u
+            WHERE u.id = ? AND u.id NOT IN (SELECT user_id FROM user_roles WHERE role='owner')
+            """,
+            (member_id,),
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "User not found"}), 404
+        roles = rows_to_dicts(conn.execute("SELECT role FROM user_roles WHERE user_id = ?", (member_id,)).fetchall())
+    member = dict(row)
+    member["roles"] = roles
+    return jsonify(member)
+
+
+@app.put("/api/admin/members/<member_id>")
+@require_auth({"admin"})
+def update_member(user, member_id):
+    payload = request.get_json(force=True)
+    roles = payload.get("roles")
+    if not isinstance(roles, list) or not roles:
+        return jsonify({"error": "roles must be a non-empty list"}), 400
+    with connect() as conn:
+        owner = conn.execute(
+            "SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'owner'",
+            (member_id,),
+        ).fetchone()
+        if owner:
+            return jsonify({"error": "Cannot update owner"}), 403
+        existing = conn.execute("SELECT id FROM users WHERE id = ?", (member_id,)).fetchone()
+        if not existing:
+            return jsonify({"error": "User not found"}), 404
+        conn.execute("DELETE FROM user_roles WHERE user_id = ?", (member_id,))
+        for role in roles:
+            conn.execute(
+                "INSERT INTO user_roles (id,user_id,role) VALUES (?,?,?)",
+                (str(uuid.uuid4()), member_id, role),
+            )
+        conn.commit()
+    return get_member(user, member_id)
+
+
+@app.delete("/api/admin/members/<member_id>")
+@require_auth({"admin"})
+def delete_member(user, member_id):
+    with connect() as conn:
+        owner = conn.execute(
+            "SELECT 1 FROM user_roles WHERE user_id = ? AND role = 'owner'",
+            (member_id,),
+        ).fetchone()
+        if owner:
+            return jsonify({"error": "Cannot delete owner"}), 403
+        existing = conn.execute("SELECT id, name, email FROM users WHERE id = ?", (member_id,)).fetchone()
+        if not existing:
+            return jsonify({"error": "User not found"}), 404
+        conn.execute("DELETE FROM users WHERE id = ?", (member_id,))
+        conn.commit()
+    return jsonify(dict(existing))
 
 
 @app.get("/api/analytics/summary")
