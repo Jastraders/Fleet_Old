@@ -4,7 +4,7 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouter, RouterClient } from "fleet-back";
 
 const link = new RPCLink({
-	url: import.meta.env.VITE_API_URL ?? "http://localhost:3000/orpc",
+	url: import.meta.env.VITE_API_URL ?? "/orpc",
 	fetch: (input, init) => {
 		return fetch(input, {
 			...init,
