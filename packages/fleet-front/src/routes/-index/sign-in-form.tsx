@@ -36,7 +36,7 @@ export function SignInForm() {
 	const queryClient = useQueryClient();
 	const router = useRouter();
 
-	const signInMutation = useMutation({
+	const signInMutation = useMutation<unknown, Error, v.InferInput<typeof formSchema>>({
 		...orpc.user.auth.signInWithEmailAndPassword.mutationOptions(),
 		onSuccess: () => {
 			queryClient.clear();
