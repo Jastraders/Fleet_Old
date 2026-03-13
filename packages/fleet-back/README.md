@@ -25,7 +25,11 @@ Server runs on `http://localhost:3001`.
 - `POST /api/auth/sign-out`
 - `GET /api/auth/me`
 - `GET|POST /api/vehicles`
+- `GET|PUT|DELETE /api/vehicles/:id`
 - `GET|POST /api/expense-categories`
+- `GET|PUT|DELETE /api/expense-categories/:id`
 - `GET|POST /api/journal-entries`
+- `GET|PUT|DELETE /api/journal-entries/:id`
 - `GET|POST /api/admin/members`
+- `GET|PUT|DELETE /api/admin/members/:id`
 - `GET /api/analytics/summary`
