@@ -27,6 +27,11 @@ const formSchema = v.object({
 	password: v.pipe(v.string(), v.minLength(8)),
 });
 
+const defaultValues: v.InferInput<typeof formSchema> = {
+	email: "",
+	password: "",
+};
+
 export function SignInForm() {
 	const queryClient = useQueryClient();
 	const router = useRouter();
@@ -48,15 +53,12 @@ export function SignInForm() {
 	});
 
 	const form = useForm({
-		defaultValues: {
-			email: "",
-			password: "",
-		},
+		defaultValues,
 		validators: {
 			onSubmit: formSchema,
 		},
 		onSubmit: async ({ value }) => {
-			signInMutation.mutate(value as Parameters<typeof signInMutation.mutate>[0]);
+			signInMutation.mutate(value);
 		},
 	});
 
