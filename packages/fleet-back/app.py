@@ -699,6 +699,8 @@ def analytics_summary(user):
 
 
 @app.post("/orpc/analyst/analytics/summaryStats")
+@app.post("/api/orpc/analyst/analytics/summaryStats")
+@app.post("/analyst/analytics/summaryStats")
 @require_auth({"analyst"})
 def orpc_analytics_summary_stats(user):
     period = rpc_payload().get("period", "all_time")
@@ -737,6 +739,8 @@ def orpc_analytics_summary_stats(user):
 
 
 @app.post("/orpc/analyst/analytics/fleetStats")
+@app.post("/api/orpc/analyst/analytics/fleetStats")
+@app.post("/analyst/analytics/fleetStats")
 @require_auth({"analyst"})
 def orpc_analytics_fleet_stats(user):
     period = rpc_payload().get("period", "all_time")
@@ -782,6 +786,8 @@ def orpc_analytics_fleet_stats(user):
 
 
 @app.post("/orpc/analyst/analytics/expensesStats")
+@app.post("/api/orpc/analyst/analytics/expensesStats")
+@app.post("/analyst/analytics/expensesStats")
 @require_auth({"analyst"})
 def orpc_analytics_expenses_stats(user):
     period = rpc_payload().get("period", "all_time")
