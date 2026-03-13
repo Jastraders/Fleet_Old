@@ -141,6 +141,11 @@ def rpc_payload() -> dict[str, Any]:
     return {}
 
 
+def rpc_response(data: Any, status: int = 200):
+    """Encode oRPC responses using the {"json": ...} envelope."""
+    return jsonify({"json": data}), status
+
+
 @app.post("/api/auth/sign-in")
 def sign_in():
     payload = request.get_json(force=True)
@@ -178,7 +183,7 @@ def orpc_sign_in_with_email_and_password():
         )
         conn.commit()
 
-    response = make_response(jsonify({"ok": True}))
+    response = make_response(rpc_response({"ok": True}))
     response.set_cookie("session", token, httponly=True, samesite="Lax", max_age=SESSION_TTL_DAYS * 24 * 3600)
     return response
 
@@ -204,7 +209,7 @@ def orpc_sign_out():
         with connect() as conn:
             conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
             conn.commit()
-    response = make_response(jsonify({"ok": True}))
+    response = make_response(rpc_response({"ok": True}))
     response.set_cookie("session", "", expires=0)
     return response
 
@@ -218,7 +223,7 @@ def me(user):
 @app.post("/orpc/user/auth/getMe")
 @require_auth()
 def orpc_get_me(user):
-    return jsonify(user)
+    return rpc_response(user)
 
 
 @app.get("/api/vehicles")
