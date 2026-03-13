@@ -219,6 +219,10 @@ def rpc_response(data: Any, status: int = 200):
     return jsonify({"json": data}), status
 
 
+def rpc_error(message: str, status: int):
+    return rpc_response({"message": message}, status)
+
+
 @app.post("/api/auth/sign-in")
 def sign_in():
     payload = request.get_json(force=True)
@@ -297,6 +301,278 @@ def me(user):
 @require_auth()
 def orpc_get_me(user):
     return rpc_response(user)
+
+
+@app.post("/orpc/accountant/vehicles/list")
+@require_auth({"accountant"})
+def orpc_list_vehicles(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    with connect() as conn:
+        rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
+        total = conn.execute("SELECT COUNT(*) AS c FROM vehicles").fetchone()["c"]
+    return rpc_response(with_meta(rows, offset, limit, total))
+
+
+@app.post("/orpc/accountant/vehicles/create")
+@require_auth({"accountant"})
+def orpc_create_vehicle(user):
+    payload = rpc_payload()
+    with connect() as conn:
+        color = random_color()
+        vid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO vehicles (id,name,license_plate,color,created_by) VALUES (?,?,?,?,?)",
+            (vid, payload["name"], payload["licensePlate"], color, user["id"]),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vid,)).fetchone()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/vehicles/get")
+@require_auth({"accountant"})
+def orpc_get_vehicle(user):
+    payload = rpc_payload()
+    vehicle_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+    if not row:
+        return rpc_error("Vehicle not found", 404)
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/vehicles/update")
+@require_auth({"accountant"})
+def orpc_update_vehicle(user):
+    payload = rpc_payload()
+    vehicle_id = payload.get("id")
+    updates = []
+    params: list[Any] = []
+    for field, db_col in (("name", "name"), ("licensePlate", "license_plate")):
+        if payload.get(field) is not None:
+            updates.append(f"{db_col} = ?")
+            params.append(payload[field])
+    if not updates:
+        return rpc_error("No fields to update", 400)
+    params.extend([now_iso(), vehicle_id])
+    with connect() as conn:
+        exists = conn.execute("SELECT id FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        if not exists:
+            return rpc_error("Vehicle not found", 404)
+        conn.execute(f"UPDATE vehicles SET {', '.join(updates)}, updated_at = ? WHERE id = ?", tuple(params))
+        conn.commit()
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/vehicles/delete")
+@require_auth({"accountant"})
+def orpc_delete_vehicle(user):
+    payload = rpc_payload()
+    vehicle_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        if not row:
+            return rpc_error("Vehicle not found", 404)
+        conn.execute("DELETE FROM vehicles WHERE id = ?", (vehicle_id,))
+        conn.commit()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/expenseCategories/list")
+@require_auth({"accountant"})
+def orpc_list_categories(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    with connect() as conn:
+        rows = rows_to_dicts(conn.execute("SELECT * FROM expense_category ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
+        total = conn.execute("SELECT COUNT(*) AS c FROM expense_category").fetchone()["c"]
+    return rpc_response(with_meta(rows, offset, limit, total))
+
+
+@app.post("/orpc/accountant/expenseCategories/create")
+@require_auth({"accountant"})
+def orpc_create_category(user):
+    payload = rpc_payload()
+    with connect() as conn:
+        cid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO expense_category (id,name,color,created_by) VALUES (?,?,?,?)",
+            (cid, payload["name"], random_color(), user["id"]),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/expenseCategories/get")
+@require_auth({"accountant"})
+def orpc_get_category(user):
+    payload = rpc_payload()
+    category_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+    if not row:
+        return rpc_error("Category not found", 404)
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/expenseCategories/update")
+@require_auth({"accountant"})
+def orpc_update_category(user):
+    payload = rpc_payload()
+    category_id = payload.get("id")
+    if payload.get("name") is None:
+        return rpc_error("No fields to update", 400)
+    with connect() as conn:
+        exists = conn.execute("SELECT id FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+        if not exists:
+            return rpc_error("Category not found", 404)
+        conn.execute(
+            "UPDATE expense_category SET name = ?, updated_at = ? WHERE id = ?",
+            (payload["name"], now_iso(), category_id),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/expenseCategories/delete")
+@require_auth({"accountant"})
+def orpc_delete_category(user):
+    payload = rpc_payload()
+    category_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
+        if not row:
+            return rpc_error("Category not found", 404)
+        conn.execute("DELETE FROM expense_category WHERE id = ?", (category_id,))
+        conn.commit()
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/journalEntries/list")
+@require_auth({"accountant"})
+def orpc_list_entries(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    with connect() as conn:
+        entries = rows_to_dicts(conn.execute("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
+        for entry in entries:
+            entry["items"] = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC", (entry["id"],)).fetchall())
+        total = conn.execute("SELECT COUNT(*) AS c FROM journal_entries").fetchone()["c"]
+    return rpc_response(with_meta(entries, offset, limit, total))
+
+
+@app.post("/orpc/accountant/journalEntries/create")
+@require_auth({"accountant"})
+def orpc_create_entry(user):
+    payload = rpc_payload()
+    with connect() as conn:
+        eid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO journal_entries (id,vehicle_id,notes,created_by) VALUES (?,?,?,?)",
+            (eid, payload["vehicleId"], payload.get("notes"), user["id"]),
+        )
+        for item in payload.get("items", []):
+            conn.execute(
+                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                (
+                    str(uuid.uuid4()),
+                    eid,
+                    payload["vehicleId"],
+                    item["transactionDate"],
+                    item["type"],
+                    float(item["amount"]),
+                    item.get("expenseCategoryId"),
+                ),
+            )
+        conn.commit()
+        entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
+        entry["items"] = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
+    return rpc_response(entry)
+
+
+@app.post("/orpc/accountant/journalEntries/get")
+@require_auth({"accountant"})
+def orpc_get_entry(user):
+    payload = rpc_payload()
+    entry_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not row:
+            return rpc_error("Journal entry not found", 404)
+        entry = dict(row)
+        entry["items"] = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                (entry_id,),
+            ).fetchall()
+        )
+    return rpc_response(entry)
+
+
+@app.post("/orpc/accountant/journalEntries/update")
+@require_auth({"accountant"})
+def orpc_update_entry(user):
+    payload = rpc_payload()
+    entry_id = payload.get("id")
+    with connect() as conn:
+        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not existing:
+            return rpc_error("Journal entry not found", 404)
+        if existing["created_by"] != user["id"]:
+            return rpc_error("Forbidden", 403)
+        if "notes" in payload:
+            conn.execute(
+                "UPDATE journal_entries SET notes = ?, updated_at = ? WHERE id = ?",
+                (payload.get("notes"), now_iso(), entry_id),
+            )
+        if isinstance(payload.get("items"), list) and payload["items"]:
+            conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
+            for item in payload["items"]:
+                conn.execute(
+                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                    (
+                        str(uuid.uuid4()),
+                        entry_id,
+                        existing["vehicle_id"],
+                        item["transactionDate"],
+                        item["type"],
+                        float(item["amount"]),
+                        item.get("expenseCategoryId"),
+                    ),
+                )
+        conn.commit()
+        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        entry = dict(row)
+        entry["items"] = rows_to_dicts(
+            conn.execute(
+                "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                (entry_id,),
+            ).fetchall()
+        )
+    return rpc_response(entry)
+
+
+@app.post("/orpc/accountant/journalEntries/delete")
+@require_auth({"accountant"})
+def orpc_delete_entry(user):
+    payload = rpc_payload()
+    entry_id = payload.get("id")
+    with connect() as conn:
+        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        if not existing:
+            return rpc_error("Journal entry not found", 404)
+        if existing["created_by"] != user["id"]:
+            return rpc_error("Forbidden", 403)
+        conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+        conn.commit()
+    return rpc_response({"success": True})
 
 
 @app.get("/api/vehicles")
