@@ -1,0 +1,33 @@
+services:
+  app-db:
+    image: "timescale/timescaledb:latest-pg18"
+    container_name: fleet-app-db
+    environment:
+      # superuser
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=postgres
+      # user
+      - APP_USER=app
+      - APP_PASSWORD=password
+      - APP_DB=app
+    ports:
+      - "54321:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    configs:
+      - source: init_sql
+        target: /docker-entrypoint-initdb.d/01-init.sh
+
+volumes:
+  db_data:
+
+configs:
+  # mimics cnpg deployment
+  init_sql:
+    # double $$ to prevent docker's interpolation
+    content: |
+      psql -v ON_ERROR_STOP=1 --username "$${POSTGRES_USER}" --dbname "$${POSTGRES_DB}" <<-EOSQL
+        CREATE ROLE $${APP_USER} WITH LOGIN PASSWORD '$${APP_PASSWORD}';
+        CREATE DATABASE $${APP_DB} OWNER $${APP_USER};
+      EOSQL

@@ -1,0 +1,19 @@
+{
+  "name": "fleet-mono",
+  "private": true,
+  "scripts": {
+    "dev": "bunx concurrently \"bun --cwd packages/fleet-back dev\" \"bun --cwd packages/fleet-front dev\"",
+    "format": "bunx biome format --write",
+    "lint": "bunx biome lint --write",
+    "format-lint": "bunx biome check --write"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "2.3.2",
+    "concurrently": "^9.2.1"
+  }
+}
+
+

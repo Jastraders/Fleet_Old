@@ -1,0 +1,31 @@
+# Use official Bun image
+FROM oven/bun:latest
+WORKDIR /app
+
+# Copy root package files
+COPY package.json bun.lock ./
+
+# Copy fleet-back package files
+COPY packages/fleet-back/package.json ./packages/fleet-back/
+
+# Install dependencies
+RUN bun install
+
+# Copy source code
+COPY packages/fleet-back/src ./packages/fleet-back/src
+COPY packages/fleet-back/tsconfig.json ./packages/fleet-back/
+COPY packages/fleet-back/drizzle ./packages/fleet-back/drizzle
+COPY packages/fleet-back/drizzle.config.ts ./packages/fleet-back/
+
+# Set working directory for the app
+WORKDIR /app/packages/fleet-back
+
+# Expose port
+EXPOSE 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD bun run --eval "fetch('http://localhost:3001').then(() => process.exit(0)).catch(() => process.exit(1))" || exit 1
+
+# Run the application
+CMD ["bun", "run", "--port", "3001", "src/index.ts"]
