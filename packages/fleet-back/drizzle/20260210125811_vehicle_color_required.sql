@@ -1,1 +1,0 @@
-ALTER TABLE "app"."vehicles" ALTER COLUMN "color" SET NOT NULL;
