@@ -4,7 +4,7 @@ import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouter, RouterClient } from "fleet-back";
 
 function resolveApiUrl() {
-	const configuredUrl = import.meta.env.VITE_API_URL;
+	const configuredUrl = import.meta.env.VITE_API_URL?.trim();
 
 	if (!configuredUrl) {
 		return "/orpc";
@@ -23,10 +23,18 @@ function resolveApiUrl() {
 	}
 
 	if (configuredUrl.startsWith("/")) {
-		return new URL(configuredUrl, window.location.origin).toString();
+		try {
+			return new URL(configuredUrl, window.location.origin).toString();
+		} catch {
+			return "/orpc";
+		}
 	}
 
-	return `${window.location.protocol}//${configuredUrl}`;
+	try {
+		return new URL(configuredUrl).toString();
+	} catch {
+		return `${window.location.protocol}//${configuredUrl}`;
+	}
 }
 
 const link = new RPCLink({
