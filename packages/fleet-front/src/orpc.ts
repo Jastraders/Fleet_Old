@@ -3,8 +3,34 @@ import { RPCLink } from "@orpc/client/fetch";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import type { AppRouter, RouterClient } from "fleet-back";
 
+function resolveApiUrl() {
+	const configuredUrl = import.meta.env.VITE_API_URL;
+
+	if (!configuredUrl) {
+		return "/orpc";
+	}
+
+	if (configuredUrl.startsWith("http://") || configuredUrl.startsWith("https://")) {
+		return configuredUrl;
+	}
+
+	if (typeof window === "undefined") {
+		return configuredUrl;
+	}
+
+	if (configuredUrl.startsWith("//")) {
+		return `${window.location.protocol}${configuredUrl}`;
+	}
+
+	if (configuredUrl.startsWith("/")) {
+		return new URL(configuredUrl, window.location.origin).toString();
+	}
+
+	return `${window.location.protocol}//${configuredUrl}`;
+}
+
 const link = new RPCLink({
-	url: import.meta.env.VITE_API_URL ?? "/orpc",
+	url: resolveApiUrl(),
 	fetch: (input, init) => {
 		return fetch(input, {
 			...init,
