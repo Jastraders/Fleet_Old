@@ -14,6 +14,17 @@ python app.py
 
 Server runs on `http://localhost:3001`.
 
+## Run with the React frontend (separate terminal)
+
+From repository root:
+
+```bash
+bun install
+bun --cwd packages/fleet-front dev
+```
+
+Frontend runs on `http://localhost:3000`.
+
 ## Default seed user
 
 - Email: `owner@fleet.dev`
