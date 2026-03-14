@@ -17,6 +17,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { parseDateValue } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import { CategoriesDataTableActionCell } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table/categories-data-table-action-cell";
 import type { ExpenseCategory } from "@/routes/dashboard/accountant/expense-categories/-route/types";
@@ -95,19 +96,20 @@ const createColumns = (
 				onSort,
 			),
 		cell: ({ row }) => {
-			const createdAt = row.original.createdAt;
-			const date = createdAt instanceof Date ? createdAt : new Date(createdAt);
-			const dateStr = date.toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-			});
+			const date = parseDateValue(row.original.createdAt);
+			if (!date) {
+				return <span className="text-muted-foreground text-sm">-</span>;
+			}
 			return (
 				<time
 					className="text-muted-foreground text-sm"
 					dateTime={date.toISOString()}
 				>
-					{dateStr}
+					{date.toLocaleDateString("en-US", {
+						month: "short",
+						day: "numeric",
+						year: "numeric",
+					})}
 				</time>
 			);
 		},
@@ -130,7 +132,7 @@ const createColumns = (
 
 			const initials = user.name
 				.split(" ")
-				.map((n) => n[0])
+				.map((n: string) => n[0])
 				.join("")
 				.toUpperCase();
 
