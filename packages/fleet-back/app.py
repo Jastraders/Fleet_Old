@@ -223,6 +223,63 @@ def rpc_error(message: str, status: int):
     return rpc_response({"message": message}, status)
 
 
+
+
+def to_iso_datetime(value: str | None) -> str | None:
+    if not value:
+        return value
+    return value.replace(" ", "T")
+
+
+def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": vehicle["id"],
+        "name": vehicle["name"],
+        "licensePlate": vehicle["license_plate"],
+        "color": vehicle.get("color"),
+        "createdBy": vehicle.get("created_by"),
+        "createdAt": to_iso_datetime(vehicle.get("created_at")),
+        "updatedAt": to_iso_datetime(vehicle.get("updated_at")),
+    }
+
+
+def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": category["id"],
+        "name": category["name"],
+        "color": category.get("color"),
+        "createdBy": category.get("created_by"),
+        "createdAt": to_iso_datetime(category.get("created_at")),
+        "updatedAt": to_iso_datetime(category.get("updated_at")),
+    }
+
+
+def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": item["id"],
+        "journalEntryId": item["journal_entry_id"],
+        "vehicleId": item["vehicle_id"],
+        "transactionDate": to_iso_datetime(item.get("transaction_date")),
+        "type": item["type"],
+        "amount": item["amount"],
+        "expenseCategoryId": item.get("expense_category_id"),
+        "createdAt": to_iso_datetime(item.get("created_at")),
+    }
+
+
+def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    payload = {
+        "id": entry["id"],
+        "vehicleId": entry["vehicle_id"],
+        "notes": entry.get("notes"),
+        "createdBy": entry.get("created_by"),
+        "createdAt": to_iso_datetime(entry.get("created_at")),
+        "updatedAt": to_iso_datetime(entry.get("updated_at")),
+    }
+    if items is not None:
+        payload["items"] = [serialize_journal_item_row(item) for item in items]
+    return payload
+
 def serialize_member_row(member: dict[str, Any], roles: list[dict[str, Any]]):
     created_by_user = None
     if member.get("created_by"):
@@ -333,7 +390,8 @@ def orpc_list_vehicles(user):
     with connect() as conn:
         rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
         total = conn.execute("SELECT COUNT(*) AS c FROM vehicles").fetchone()["c"]
-    return rpc_response(with_meta(rows, offset, limit, total))
+    vehicles = [serialize_vehicle_row(row) for row in rows]
+    return rpc_response(with_meta(vehicles, offset, limit, total))
 
 
 @app.post("/orpc/accountant/vehicles/create")
@@ -349,7 +407,7 @@ def orpc_create_vehicle(user):
         )
         conn.commit()
         row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vid,)).fetchone()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_vehicle_row(dict(row)))
 
 
 @app.post("/orpc/accountant/vehicles/get")
@@ -361,7 +419,7 @@ def orpc_get_vehicle(user):
         row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
     if not row:
         return rpc_error("Vehicle not found", 404)
-    return rpc_response(dict(row))
+    return rpc_response(serialize_vehicle_row(dict(row)))
 
 
 @app.post("/orpc/accountant/vehicles/update")
@@ -385,7 +443,7 @@ def orpc_update_vehicle(user):
         conn.execute(f"UPDATE vehicles SET {', '.join(updates)}, updated_at = ? WHERE id = ?", tuple(params))
         conn.commit()
         row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_vehicle_row(dict(row)))
 
 
 @app.post("/orpc/accountant/vehicles/delete")
@@ -399,7 +457,7 @@ def orpc_delete_vehicle(user):
             return rpc_error("Vehicle not found", 404)
         conn.execute("DELETE FROM vehicles WHERE id = ?", (vehicle_id,))
         conn.commit()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_vehicle_row(dict(row)))
 
 
 @app.post("/orpc/accountant/expenseCategories/list")
@@ -411,7 +469,8 @@ def orpc_list_categories(user):
     with connect() as conn:
         rows = rows_to_dicts(conn.execute("SELECT * FROM expense_category ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
         total = conn.execute("SELECT COUNT(*) AS c FROM expense_category").fetchone()["c"]
-    return rpc_response(with_meta(rows, offset, limit, total))
+    categories = [serialize_expense_category_row(row) for row in rows]
+    return rpc_response(with_meta(categories, offset, limit, total))
 
 
 @app.post("/orpc/accountant/expenseCategories/create")
@@ -426,7 +485,7 @@ def orpc_create_category(user):
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_expense_category_row(dict(row)))
 
 
 @app.post("/orpc/accountant/expenseCategories/get")
@@ -438,7 +497,7 @@ def orpc_get_category(user):
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
     if not row:
         return rpc_error("Category not found", 404)
-    return rpc_response(dict(row))
+    return rpc_response(serialize_expense_category_row(dict(row)))
 
 
 @app.post("/orpc/accountant/expenseCategories/update")
@@ -458,7 +517,7 @@ def orpc_update_category(user):
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_expense_category_row(dict(row)))
 
 
 @app.post("/orpc/accountant/expenseCategories/delete")
@@ -472,7 +531,7 @@ def orpc_delete_category(user):
             return rpc_error("Category not found", 404)
         conn.execute("DELETE FROM expense_category WHERE id = ?", (category_id,))
         conn.commit()
-    return rpc_response(dict(row))
+    return rpc_response(serialize_expense_category_row(dict(row)))
 
 
 @app.post("/orpc/accountant/journalEntries/list")
@@ -483,10 +542,12 @@ def orpc_list_entries(user):
     limit = min(int(payload.get("limit", 20)), 100)
     with connect() as conn:
         entries = rows_to_dicts(conn.execute("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
+        serialized_entries = []
         for entry in entries:
-            entry["items"] = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC", (entry["id"],)).fetchall())
+            items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC", (entry["id"],)).fetchall())
+            serialized_entries.append(serialize_journal_entry_row(entry, items))
         total = conn.execute("SELECT COUNT(*) AS c FROM journal_entries").fetchone()["c"]
-    return rpc_response(with_meta(entries, offset, limit, total))
+    return rpc_response(with_meta(serialized_entries, offset, limit, total))
 
 
 @app.post("/orpc/accountant/journalEntries/create")
@@ -514,8 +575,8 @@ def orpc_create_entry(user):
             )
         conn.commit()
         entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
-        entry["items"] = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
-    return rpc_response(entry)
+        items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
+    return rpc_response(serialize_journal_entry_row(entry, items))
 
 
 @app.post("/orpc/accountant/journalEntries/get")
@@ -528,13 +589,13 @@ def orpc_get_entry(user):
         if not row:
             return rpc_error("Journal entry not found", 404)
         entry = dict(row)
-        entry["items"] = rows_to_dicts(
+        items = rows_to_dicts(
             conn.execute(
                 "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
                 (entry_id,),
             ).fetchall()
         )
-    return rpc_response(entry)
+    return rpc_response(serialize_journal_entry_row(entry, items))
 
 
 @app.post("/orpc/accountant/journalEntries/update")
@@ -571,13 +632,13 @@ def orpc_update_entry(user):
         conn.commit()
         row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
         entry = dict(row)
-        entry["items"] = rows_to_dicts(
+        items = rows_to_dicts(
             conn.execute(
                 "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
                 (entry_id,),
             ).fetchall()
         )
-    return rpc_response(entry)
+    return rpc_response(serialize_journal_entry_row(entry, items))
 
 
 @app.post("/orpc/accountant/journalEntries/delete")

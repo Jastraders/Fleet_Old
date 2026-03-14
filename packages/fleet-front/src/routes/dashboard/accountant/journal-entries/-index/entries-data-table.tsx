@@ -16,6 +16,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { parseDateValue } from "@/lib/date";
 import { cn, formatINR } from "@/lib/utils";
 import { EntriesDataTableActionCell } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table/entries-data-table-action-cell";
 
@@ -131,12 +132,7 @@ const columns: ColumnDef<JournalEntry>[] = [
 		header: "Created By",
 		cell: ({ row }) => {
 			const user = row.original.createdByUser;
-			const date = new Date(row.original.createdAt);
-			const formattedDate = date.toLocaleDateString("en-US", {
-				month: "short",
-				day: "numeric",
-				year: "numeric",
-			});
+			const date = parseDateValue(row.original.createdAt);
 
 			if (!user) {
 				return <div className="text-muted-foreground text-sm">-</div>;
@@ -156,12 +152,20 @@ const columns: ColumnDef<JournalEntry>[] = [
 					</Avatar>
 					<div className="grid flex-1 text-left text-sm leading-tight">
 						<span className="truncate font-medium">{user.name}</span>
-						<time
-							className="text-muted-foreground truncate text-xs"
-							dateTime={date.toISOString()}
-						>
-							{formattedDate}
-						</time>
+						{date ? (
+							<time
+								className="text-muted-foreground truncate text-xs"
+								dateTime={date.toISOString()}
+							>
+								{date.toLocaleDateString("en-US", {
+									month: "short",
+									day: "numeric",
+									year: "numeric",
+								})}
+							</time>
+						) : (
+							<span className="text-muted-foreground truncate text-xs">-</span>
+						)}
 					</div>
 				</div>
 			);
