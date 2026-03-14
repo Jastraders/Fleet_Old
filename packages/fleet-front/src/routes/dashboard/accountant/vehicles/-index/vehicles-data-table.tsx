@@ -16,6 +16,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { parseDateValue } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { Vehicle } from "@/models/vehicle";
 import { VehiclesDataTableActionCell } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell";
@@ -101,7 +102,11 @@ const createColumns = (
 				onSort,
 			),
 		cell: ({ row }) => {
-			const date = new Date(row.original.createdAt);
+			const date = parseDateValue(row.original.createdAt);
+			if (!date) {
+				return <span className="text-muted-foreground text-sm">-</span>;
+			}
+
 			return (
 				<time
 					className="text-muted-foreground text-sm"
