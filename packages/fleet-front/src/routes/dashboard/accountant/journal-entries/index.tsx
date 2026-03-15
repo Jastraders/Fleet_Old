@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Suspense, useDeferredValue } from "react";
 import * as v from "valibot";
 import { orpc } from "@/orpc";
+import type { EntriesDataTableProps } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table";
 import { EntriesDataTable } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table";
 import { EntriesDataTableSkeleton } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table-skeleton";
 import { EntriesEmptyState } from "@/routes/dashboard/accountant/journal-entries/-index/entries-empty-state";
@@ -27,6 +28,13 @@ const querySchema = v.object({
 	),
 	sortOrder: v.optional(v.fallback(v.picklist(["asc", "desc"]), "desc"), "desc"),
 });
+
+interface JournalEntriesListResponse {
+	data: EntriesDataTableProps["data"];
+	meta: {
+		total: number;
+	};
+}
 
 export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 	validateSearch: querySchema,
@@ -65,7 +73,7 @@ function EntriesList() {
 	const _query = Route.useSearch();
 	const query = useDeferredValue(_query);
 
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<JournalEntriesListResponse>({
 		...orpc.accountant.journalEntries.list.queryOptions({
 			input: {
 				limit: query.limit,

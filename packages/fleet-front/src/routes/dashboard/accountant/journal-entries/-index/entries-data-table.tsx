@@ -301,7 +301,7 @@ export function EntriesDataTable({
 
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
 		void router.navigate({
-			to: "/dashboard/accountant/journal-entries",
+			to: ".",
 			search: (prev) => ({
 				...prev,
 				sortBy: newSortBy as EntriesDataTableProps["sortBy"],
@@ -313,7 +313,7 @@ export function EntriesDataTable({
 
 	const handleSearch = (value: string) => {
 		void router.navigate({
-			to: "/dashboard/accountant/journal-entries",
+			to: ".",
 			search: (prev) => ({
 				...prev,
 				search: value || undefined,
@@ -333,8 +333,8 @@ export function EntriesDataTable({
 	const handlePreviousPage = () => {
 		const newOffset = Math.max(0, offset - limit);
 		void router.navigate({
-			to: "/dashboard/accountant/journal-entries",
-			search: (prev) => ({ ...prev, offset: newOffset, limit }),
+			to: ".",
+			search: (prev) => ({ ...prev, offset: newOffset }),
 		});
 	};
 
@@ -342,8 +342,8 @@ export function EntriesDataTable({
 		if (offset + limit < total) {
 			const newOffset = offset + limit;
 			void router.navigate({
-				to: "/dashboard/accountant/journal-entries",
-				search: (prev) => ({ ...prev, offset: newOffset, limit }),
+				to: ".",
+				search: (prev) => ({ ...prev, offset: newOffset }),
 			});
 		}
 	};
