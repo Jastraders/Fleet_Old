@@ -44,3 +44,21 @@ Frontend runs on `http://localhost:3000`.
 - `GET|POST /api/admin/members`
 - `GET|PUT|DELETE /api/admin/members/:id`
 - `GET /api/analytics/summary`
+
+## Backend structure
+
+```
+packages/fleet-back/
+├── app.py                      # Entrypoint (WSGI app bootstrap)
+├── database.py                 # SQLite connection + schema setup
+└── fleet_backend/
+    ├── __init__.py             # Application factory
+    ├── server.py               # Flask app instance
+    ├── common.py               # Shared auth/rpc/serialization/analytics helpers
+    └── routes/
+        ├── auth.py             # Authentication endpoints
+        ├── accountant.py       # Vehicles, categories, journal entry endpoints
+        ├── members.py          # Admin member management endpoints
+        ├── analytics.py        # Fleet + vehicle analytics endpoints
+        └── system.py           # Health/root endpoint
+```
