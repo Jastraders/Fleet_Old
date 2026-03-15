@@ -225,6 +225,14 @@ def to_iso_datetime(value: str | None) -> str | None:
 
 
 def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
+    created_by_user = None
+    if vehicle.get("created_by"):
+        created_by_user = {
+            "id": vehicle["created_by"],
+            "name": vehicle.get("created_by_name") or "",
+            "image": vehicle.get("created_by_image"),
+        }
+
     return {
         "id": vehicle["id"],
         "name": vehicle["name"],
@@ -233,10 +241,19 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
         "createdBy": vehicle.get("created_by"),
         "createdAt": to_iso_datetime(vehicle.get("created_at")),
         "updatedAt": to_iso_datetime(vehicle.get("updated_at")),
+        "createdByUser": created_by_user,
     }
 
 
 def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
+    created_by_user = None
+    if category.get("created_by"):
+        created_by_user = {
+            "id": category["created_by"],
+            "name": category.get("created_by_name") or "",
+            "image": category.get("created_by_image"),
+        }
+
     return {
         "id": category["id"],
         "name": category["name"],
@@ -244,6 +261,7 @@ def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
         "createdBy": category.get("created_by"),
         "createdAt": to_iso_datetime(category.get("created_at")),
         "updatedAt": to_iso_datetime(category.get("updated_at")),
+        "createdByUser": created_by_user,
     }
 
 
@@ -261,6 +279,22 @@ def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    created_by_user = None
+    if entry.get("created_by"):
+        created_by_user = {
+            "id": entry["created_by"],
+            "name": entry.get("created_by_name") or "",
+            "image": entry.get("created_by_image"),
+        }
+
+    vehicle = None
+    if entry.get("vehicle_id"):
+        vehicle = {
+            "id": entry["vehicle_id"],
+            "name": entry.get("vehicle_name") or "",
+            "licensePlate": entry.get("vehicle_license_plate"),
+        }
+
     payload = {
         "id": entry["id"],
         "vehicleId": entry["vehicle_id"],
@@ -268,6 +302,8 @@ def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any
         "createdBy": entry.get("created_by"),
         "createdAt": to_iso_datetime(entry.get("created_at")),
         "updatedAt": to_iso_datetime(entry.get("updated_at")),
+        "createdByUser": created_by_user,
+        "vehicle": vehicle,
     }
     if items is not None:
         payload["items"] = [serialize_journal_item_row(item) for item in items]

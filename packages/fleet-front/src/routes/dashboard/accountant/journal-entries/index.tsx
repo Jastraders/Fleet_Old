@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense } from "react";
+import { Suspense, useDeferredValue } from "react";
 import * as v from "valibot";
 import { orpc } from "@/orpc";
 import { EntriesDataTable } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table";
@@ -10,13 +10,32 @@ import { EntriesEmptyState } from "@/routes/dashboard/accountant/journal-entries
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
 	limit: v.optional(v.fallback(v.number(), 20), 20),
+	search: v.optional(v.string()),
+	sortBy: v.optional(
+		v.fallback(
+			v.picklist([
+				"vehicleName",
+				"revenue",
+				"expenses",
+				"amount",
+				"createdBy",
+				"createdAt",
+			]),
+			"createdAt",
+		),
+		"createdAt",
+	),
+	sortOrder: v.optional(v.fallback(v.picklist(["asc", "desc"]), "desc"), "desc"),
 });
 
 export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit } }) => ({
+	loaderDeps: ({ search: { offset, limit, search, sortBy, sortOrder } }) => ({
 		offset,
 		limit,
+		search,
+		sortBy,
+		sortOrder,
 	}),
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
 		queryClient.prefetchQuery(
@@ -24,6 +43,9 @@ export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 				input: {
 					limit: query.limit,
 					offset: query.offset,
+					search: query.search,
+					sortBy: query.sortBy,
+					sortOrder: query.sortOrder,
 				},
 			}),
 		);
@@ -40,13 +62,17 @@ function RouteComponent() {
 }
 
 function EntriesList() {
-	const query = Route.useSearch();
+	const _query = Route.useSearch();
+	const query = useDeferredValue(_query);
 
 	const { data } = useSuspenseQuery({
 		...orpc.accountant.journalEntries.list.queryOptions({
 			input: {
 				limit: query.limit,
 				offset: query.offset,
+				search: query.search,
+				sortBy: query.sortBy,
+				sortOrder: query.sortOrder,
 			},
 		}),
 	});
@@ -61,6 +87,9 @@ function EntriesList() {
 			total={data.meta.total}
 			offset={query.offset}
 			limit={query.limit}
+			search={query.search}
+			sortBy={query.sortBy}
+			sortOrder={query.sortOrder}
 		/>
 	);
 }
