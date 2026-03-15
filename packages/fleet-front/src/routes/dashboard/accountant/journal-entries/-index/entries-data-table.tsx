@@ -5,9 +5,11 @@ import {
 	getCoreRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
-import { PlusIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
 	Table,
 	TableBody,
@@ -75,10 +77,62 @@ const getExpenses = (items?: JournalEntryItem[]): number => {
 	}, 0);
 };
 
-const columns: ColumnDef<JournalEntry>[] = [
+const createSortHeader = (
+	label: string,
+	sortKey:
+		| "vehicleName"
+		| "revenue"
+		| "expenses"
+		| "amount"
+		| "createdBy"
+		| "createdAt",
+	currentSortBy: string,
+	currentSortOrder: string,
+	onSort: (sortBy: string, sortOrder: string) => void,
+) => {
+	const isActive = currentSortBy === sortKey;
+	const nextOrder = isActive && currentSortOrder === "desc" ? "asc" : "desc";
+
+	const Icon =
+		isActive && currentSortOrder === "asc"
+			? ArrowUp
+			: isActive && currentSortOrder === "desc"
+				? ArrowDown
+				: ArrowUpDown;
+
+	return (
+		<Button
+			variant="ghost"
+			size="sm"
+			className="gap-2 px-0"
+			onClick={() => onSort(sortKey, nextOrder)}
+		>
+			{label}
+			<Icon
+				className={cn(
+					"h-4 w-4 transition-colors",
+					isActive ? "text-foreground" : "text-muted-foreground",
+				)}
+			/>
+		</Button>
+	);
+};
+
+const createColumns = (
+	currentSortBy: string,
+	currentSortOrder: string,
+	onSort: (sortBy: string, sortOrder: string) => void,
+): ColumnDef<JournalEntry>[] => [
 	{
 		accessorKey: "vehicle",
-		header: "Vehicle",
+		header: () =>
+			createSortHeader(
+				"Vehicle",
+				"vehicleName",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const vehicle = row.original.vehicle;
 			if (!vehicle) {
@@ -96,7 +150,14 @@ const columns: ColumnDef<JournalEntry>[] = [
 	},
 	{
 		accessorKey: "revenue",
-		header: "Revenue",
+		header: () =>
+			createSortHeader(
+				"Revenue",
+				"revenue",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const revenue = getRevenue(row.original.items);
 			return <div className="font-medium">{formatINR(revenue)}</div>;
@@ -104,7 +165,14 @@ const columns: ColumnDef<JournalEntry>[] = [
 	},
 	{
 		accessorKey: "expenses",
-		header: "Expenses",
+		header: () =>
+			createSortHeader(
+				"Expenses",
+				"expenses",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const expenses = getExpenses(row.original.items);
 			return <div className="font-medium">{formatINR(expenses)}</div>;
@@ -112,7 +180,14 @@ const columns: ColumnDef<JournalEntry>[] = [
 	},
 	{
 		accessorKey: "amount",
-		header: "Total Amount",
+		header: () =>
+			createSortHeader(
+				"Total Amount",
+				"amount",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const totalAmount = getTotalAmount(row.original.items);
 			const isNegative = totalAmount < 0;
@@ -129,7 +204,14 @@ const columns: ColumnDef<JournalEntry>[] = [
 	},
 	{
 		accessorKey: "createdByUser",
-		header: "Created By",
+		header: () =>
+			createSortHeader(
+				"Created By",
+				"createdBy",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const user = row.original.createdByUser;
 			const date = parseDateValue(row.original.createdAt);
@@ -185,6 +267,9 @@ export interface EntriesDataTableProps {
 	total: number;
 	offset: number;
 	limit: number;
+	search?: string;
+	sortBy: "vehicleName" | "revenue" | "expenses" | "amount" | "createdBy" | "createdAt";
+	sortOrder: "asc" | "desc";
 }
 
 export function EntriesDataTable({
@@ -192,10 +277,52 @@ export function EntriesDataTable({
 	total,
 	offset,
 	limit,
+	search,
+	sortBy,
+	sortOrder,
 }: EntriesDataTableProps) {
 	const router = useRouter();
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.ceil(total / limit);
+
+	const [searchValue, setSearchValue] = useState(search ?? "");
+
+	useEffect(() => {
+		setSearchValue(search ?? "");
+	}, [search]);
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			handleSearch(searchValue);
+		}, 300);
+
+		return () => clearTimeout(timer);
+	}, [searchValue]);
+
+	const handleSort = (newSortBy: string, newSortOrder: string) => {
+		void router.navigate({
+			to: "/dashboard/accountant/journal-entries",
+			search: (prev) => ({
+				...prev,
+				sortBy: newSortBy as EntriesDataTableProps["sortBy"],
+				sortOrder: newSortOrder as "asc" | "desc",
+				offset: 0,
+			}),
+		});
+	};
+
+	const handleSearch = (value: string) => {
+		void router.navigate({
+			to: "/dashboard/accountant/journal-entries",
+			search: (prev) => ({
+				...prev,
+				search: value || undefined,
+				offset: 0,
+			}),
+		});
+	};
+
+	const columns = createColumns(sortBy, sortOrder, handleSort);
 
 	const table = useReactTable({
 		data,
@@ -229,17 +356,24 @@ export function EntriesDataTable({
 
 	return (
 		<div className="w-full space-y-4">
-			<div className="flex justify-between">
+			<div className="flex flex-wrap justify-between gap-4">
 				<div className="space-y-1">
 					<h1 className="text-2xl font-bold tracking-tight">Journal Entries</h1>
 					<p className="text-muted-foreground text-sm">
 						Track your vehicle transactions and expenses
 					</p>
 				</div>
-				<Button onClick={handleCreateEntry}>
-					<PlusIcon className="h-4 w-4" />
-					New Entry
-				</Button>
+				<div className="flex gap-4 max-sm:w-full max-sm:flex-col">
+					<Input
+						placeholder="Search journal entries..."
+						value={searchValue}
+						onChange={(e) => setSearchValue(e.currentTarget.value)}
+					/>
+					<Button onClick={handleCreateEntry}>
+						<PlusIcon className="h-4 w-4" />
+						New Entry
+					</Button>
+				</div>
 			</div>
 			<div className="overflow-hidden rounded-lg border">
 				<Table>
@@ -247,13 +381,7 @@ export function EntriesDataTable({
 						{table.getHeaderGroups().map((headerGroup) => (
 							<TableRow key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
-									<TableHead
-										key={header.id}
-										className={cn(
-											// "first:w-full first:max-w-0",
-											"last:w-0",
-										)}
-									>
+									<TableHead key={header.id} className={cn("last:w-0")}>
 										{header.isPlaceholder
 											? null
 											: flexRender(
@@ -284,10 +412,7 @@ export function EntriesDataTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell
-									colSpan={columns.length}
-									className="h-24 text-center"
-								>
+								<TableCell colSpan={columns.length} className="h-24 text-center">
 									No entries found.
 								</TableCell>
 							</TableRow>

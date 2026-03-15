@@ -13,6 +13,10 @@ export function CategoriesSearchInput({
 	const [value, setValue] = useState(initialValue);
 
 	useEffect(() => {
+		setValue(initialValue);
+	}, [initialValue]);
+
+	useEffect(() => {
 		const timer = setTimeout(() => {
 			void router.navigate({
 				to: ".",

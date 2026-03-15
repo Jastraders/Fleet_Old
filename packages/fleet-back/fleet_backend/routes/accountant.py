@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from flask import jsonify, request
 
@@ -23,9 +24,50 @@ def orpc_list_vehicles(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+    if search:
+        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ?)")
+        search_term = f"%{search}%"
+        where_params.extend([search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sort_map = {
+        "vehicleName": "LOWER(v.name)",
+        "createdAt": "v.created_at",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+    }
+    order_column = sort_map.get(sort_by, "v.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
     with connect() as conn:
-        rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
-        total = conn.execute("SELECT COUNT(*) AS c FROM vehicles").fetchone()["c"]
+        query = f"""
+            SELECT
+                v.*,
+                u.name AS created_by_name,
+                u.image AS created_by_image
+            FROM vehicles v
+            LEFT JOIN users u ON u.id = v.created_by
+            {where_sql}
+            ORDER BY {order_column} {order_direction}
+            LIMIT ? OFFSET ?
+        """
+        rows = rows_to_dicts(conn.execute(query, (*where_params, limit, offset)).fetchall())
+        total = conn.execute(
+            f"""
+                SELECT COUNT(*) AS c
+                FROM vehicles v
+                LEFT JOIN users u ON u.id = v.created_by
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["c"]
+
     vehicles = [serialize_vehicle_row(row) for row in rows]
     return rpc_response(with_meta(vehicles, offset, limit, total))
 
@@ -102,9 +144,49 @@ def orpc_list_categories(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+    if search:
+        where_clauses.append("c.name LIKE ?")
+        where_params.append(f"%{search}%")
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sort_map = {
+        "categoryName": "LOWER(c.name)",
+        "createdAt": "c.created_at",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+    }
+    order_column = sort_map.get(sort_by, "c.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
     with connect() as conn:
-        rows = rows_to_dicts(conn.execute("SELECT * FROM expense_category ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
-        total = conn.execute("SELECT COUNT(*) AS c FROM expense_category").fetchone()["c"]
+        query = f"""
+            SELECT
+                c.*,
+                u.name AS created_by_name,
+                u.image AS created_by_image
+            FROM expense_category c
+            LEFT JOIN users u ON u.id = c.created_by
+            {where_sql}
+            ORDER BY {order_column} {order_direction}
+            LIMIT ? OFFSET ?
+        """
+        rows = rows_to_dicts(conn.execute(query, (*where_params, limit, offset)).fetchall())
+        total = conn.execute(
+            f"""
+                SELECT COUNT(*) AS c
+                FROM expense_category c
+                LEFT JOIN users u ON u.id = c.created_by
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["c"]
+
     categories = [serialize_expense_category_row(row) for row in rows]
     return rpc_response(with_meta(categories, offset, limit, total))
 
@@ -176,13 +258,80 @@ def orpc_list_entries(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+    if search:
+        search_term = f"%{search}%"
+        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ? OR COALESCE(u.name, '') LIKE ?)")
+        where_params.extend([search_term, search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sort_map = {
+        "vehicleName": "LOWER(COALESCE(v.name, ''))",
+        "revenue": "COALESCE(t.revenue, 0)",
+        "expenses": "COALESCE(t.expenses, 0)",
+        "amount": "COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0)",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+        "createdAt": "j.created_at",
+    }
+    order_column = sort_map.get(sort_by, "j.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
     with connect() as conn:
-        entries = rows_to_dicts(conn.execute("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
+        entries = rows_to_dicts(
+            conn.execute(
+                f"""
+                    SELECT
+                        j.*,
+                        v.name AS vehicle_name,
+                        v.license_plate AS vehicle_license_plate,
+                        u.name AS created_by_name,
+                        u.image AS created_by_image,
+                        COALESCE(t.revenue, 0) AS revenue,
+                        COALESCE(t.expenses, 0) AS expenses,
+                        COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0) AS amount
+                    FROM journal_entries j
+                    LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                    LEFT JOIN users u ON u.id = j.created_by
+                    LEFT JOIN (
+                        SELECT
+                            journal_entry_id,
+                            SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS revenue,
+                            SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses
+                        FROM journal_entry_items
+                        GROUP BY journal_entry_id
+                    ) t ON t.journal_entry_id = j.id
+                    {where_sql}
+                    ORDER BY {order_column} {order_direction}
+                    LIMIT ? OFFSET ?
+                """,
+                (*where_params, limit, offset),
+            ).fetchall()
+        )
         serialized_entries = []
         for entry in entries:
-            items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC", (entry["id"],)).fetchall())
+            items = rows_to_dicts(
+                conn.execute(
+                    "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                    (entry["id"],),
+                ).fetchall()
+            )
             serialized_entries.append(serialize_journal_entry_row(entry, items))
-        total = conn.execute("SELECT COUNT(*) AS c FROM journal_entries").fetchone()["c"]
+        total = conn.execute(
+            f"""
+                SELECT COUNT(*) AS c
+                FROM journal_entries j
+                LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                LEFT JOIN users u ON u.id = j.created_by
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["c"]
     return rpc_response(with_meta(serialized_entries, offset, limit, total))
 
 
