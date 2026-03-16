@@ -63,7 +63,7 @@ export function CreateCategoryDialog() {
 			onSubmit: createCategoryFormSchema,
 		},
 		onSubmit: async ({ value }) => {
-			createCategoryMutation.mutate(value);
+			createCategoryMutation.mutate(value as never);
 		},
 	});
 
@@ -148,7 +148,7 @@ export function CreateCategoryDialog() {
 									</FieldLabel>
 									<Select
 										value={field.state.value}
-										onValueChange={(value) => field.handleChange(value)}
+										onValueChange={(value) => field.handleChange(value ?? "")}
 									>
 										<SelectTrigger id="category-impact" onBlur={field.handleBlur}>
 											<SelectValue placeholder="Select impact" />
