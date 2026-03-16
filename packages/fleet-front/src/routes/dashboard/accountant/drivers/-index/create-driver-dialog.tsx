@@ -23,34 +23,24 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { orpc } from "@/orpc";
 
-const createCategoryFormSchema = v.object({
+const createDriverFormSchema = v.object({
 	name: v.pipe(v.string(), v.minLength(1, "Name is required")),
-	impact: v.pipe(
-		v.string(),
-		v.picklist(["company", "driver"], "Impact is required"),
-	),
+	phoneNumber: v.pipe(v.string(), v.minLength(1, "Phone number is required")),
 });
 
-const defaultValues: v.InferInput<typeof createCategoryFormSchema> = {
+const defaultValues: v.InferInput<typeof createDriverFormSchema> = {
 	name: "",
-	impact: "company",
+	phoneNumber: "",
 };
 
-export function CreateCategoryDialog() {
+export function CreateDriverDialog() {
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
 
-	const createCategoryMutation = useMutation({
-		...orpc.accountant.expenseCategories.create.mutationOptions(),
+	const createDriverMutation = useMutation({
+		...orpc.accountant.drivers.create.mutationOptions(),
 		onSuccess: () => {
 			queryClient.invalidateQueries();
 			setIsOpen(false);
@@ -60,10 +50,10 @@ export function CreateCategoryDialog() {
 	const form = useForm({
 		defaultValues,
 		validators: {
-			onSubmit: createCategoryFormSchema,
+			onSubmit: createDriverFormSchema,
 		},
 		onSubmit: async ({ value }) => {
-			createCategoryMutation.mutate(value);
+			createDriverMutation.mutate(value);
 		},
 	});
 
@@ -87,7 +77,7 @@ export function CreateCategoryDialog() {
 				render={
 					<Button>
 						<PlusIcon />
-						Add Category
+						Add Driver
 					</Button>
 				}
 			/>
@@ -101,9 +91,9 @@ export function CreateCategoryDialog() {
 						className="p-6"
 					>
 						<DialogHeader>
-							<DialogTitle>Add Category</DialogTitle>
+							<DialogTitle>Add Driver</DialogTitle>
 							<DialogDescription>
-								Create a new expense category to organize your expenses.
+								Create a new driver to organize your expenses.
 							</DialogDescription>
 						</DialogHeader>
 
@@ -116,71 +106,70 @@ export function CreateCategoryDialog() {
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (
 												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="category-name">
-														Category Name
+													<FieldLabel htmlFor="driver-name">
+														Driver Name
 														<span className="text-destructive">*</span>
 													</FieldLabel>
 													<Input
-														id="category-name"
+														id="driver-name"
 														name={field.name}
 														value={field.state.value}
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., Gas, Maintenance, Parking"
-														aria-invalid={isInvalid}
-													/>
+													placeholder="e.g., Raj Kumar"
+													aria-invalid={isInvalid}
+												/>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
+											</Field>
+										);
+									}}
+									</form.Field>
+									<form.Field name="phoneNumber">
+										{(field) => {
+											const isInvalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={isInvalid}>
+													<FieldLabel htmlFor="driver-phone-number">
+														Driver Phone Number
+														<span className="text-destructive">*</span>
+													</FieldLabel>
+													<Input
+														id="driver-phone-number"
+														name={field.name}
+														value={field.state.value}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="e.g., +91 9876543210"
+													aria-invalid={isInvalid}
+												/>
 													{isInvalid && (
 														<FieldError errors={field.state.meta.errors} />
 													)}
-								</Field>
-							);
-						}}
-					</form.Field>
-					<form.Field name="impact">
-						{(field) => {
-							const isInvalid =
-								field.state.meta.isTouched && !field.state.meta.isValid;
-							return (
-								<Field data-invalid={isInvalid}>
-									<FieldLabel htmlFor="category-impact">
-										Impact
-										<span className="text-destructive">*</span>
-									</FieldLabel>
-									<Select
-										value={field.state.value}
-										onValueChange={(value) => field.handleChange(value)}
-									>
-										<SelectTrigger id="category-impact" onBlur={field.handleBlur}>
-											<SelectValue placeholder="Select impact" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="company">Company</SelectItem>
-											<SelectItem value="driver">Driver</SelectItem>
-										</SelectContent>
-									</Select>
-									{isInvalid && <FieldError errors={field.state.meta.errors} />}
-								</Field>
-							);
-						}}
-					</form.Field>
-				</FieldGroup>
+												</Field>
+											);
+										}}
+									</form.Field>
+								</FieldGroup>
 							</FieldSet>
 
-							{createCategoryMutation.error && (
+							{createDriverMutation.error && (
 								<Alert>
 									<InfoIcon />
 									<AlertDescription>
-										{createCategoryMutation.error.message}
+										{createDriverMutation.error.message}
 									</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>
 
 						<DialogFooter className="mt-8">
-							<Button type="submit" disabled={createCategoryMutation.isPending}>
-								{createCategoryMutation.isPending
+							<Button type="submit" disabled={createDriverMutation.isPending}>
+								{createDriverMutation.isPending
 									? "Creating..."
-									: "Create Category"}
+									: "Create Driver"}
 							</Button>
 						</DialogFooter>
 					</form>

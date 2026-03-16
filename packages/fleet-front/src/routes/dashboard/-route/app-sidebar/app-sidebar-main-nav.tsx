@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
 	BanknoteArrowDownIcon,
 	ChartPieIcon,
+    CircleUserRoundIcon,
 	SettingsIcon,
 	TagIcon,
 	TruckIcon,
@@ -52,6 +53,20 @@ export function AppSidebarMainNav() {
 				<>
 					<SidebarGroup>
 						<SidebarGroupLabel>Accountant</SidebarGroupLabel>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								render={
+									<Link
+										to="/dashboard/accountant/drivers"
+										activeProps={{ "data-active": true }}
+										activeOptions={{ exact: true, includeSearch: false }}
+									/>
+								}
+							>
+								<CircleUserRoundIcon />
+								Drivers
+							</SidebarMenuButton>
+						</SidebarMenuItem>
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								render={
