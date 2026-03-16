@@ -1,6 +1,5 @@
 import type { ComboboxRoot } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import type { ExpenseCategory } from "node_modules/fleet-back/src/db/schema";
 import { useEffect, useState } from "react";
 import {
 	Combobox,
@@ -22,6 +21,16 @@ interface CategorySelectFieldProps {
 	className?: string;
 }
 
+interface ExpenseCategoryOption {
+	id: string;
+	name: string;
+	color: string;
+}
+
+interface ExpenseCategoriesListResponse {
+	data: ExpenseCategoryOption[];
+}
+
 export function CategorySelectField({
 	fieldId,
 	value,
@@ -34,12 +43,16 @@ export function CategorySelectField({
 	const [initialized, setInitialized] = useState(false);
 
 	// Fetch initial category by id if value is present
-	const { data: initialCategory } = useQuery({
+	const { data: initialCategoryData } = useQuery({
 		...orpc.accountant.expenseCategories.get.queryOptions({
 			input: { id: value as string },
 		}),
 		enabled: Boolean(value && !initialized),
 	});
+
+	const initialCategory = initialCategoryData as
+		| ExpenseCategoryOption
+		| undefined;
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -57,7 +70,7 @@ export function CategorySelectField({
 		}
 	}, [initialCategory, initialized]);
 
-	const { data: categoriesData } = useQuery({
+	const { data: categoriesDataRaw } = useQuery({
 		...orpc.accountant.expenseCategories.list.queryOptions({
 			input: {
 				offset: 0,
@@ -66,6 +79,10 @@ export function CategorySelectField({
 			},
 		}),
 	});
+
+	const categoriesData = categoriesDataRaw as
+		| ExpenseCategoriesListResponse
+		| undefined;
 
 	const categories = categoriesData?.data || [];
 
@@ -121,7 +138,7 @@ export function CategorySelectField({
 			<ComboboxContent>
 				<ComboboxEmpty>No categories found.</ComboboxEmpty>
 				<ComboboxList>
-					{(category: ExpenseCategory) => (
+					{(category: ExpenseCategoryOption) => (
 						<ComboboxItem key={category.id} value={category.id}>
 							<div className="flex items-center gap-2">
 								<div

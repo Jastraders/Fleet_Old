@@ -21,6 +21,16 @@ interface DriverSelectFieldProps {
 	className?: string;
 }
 
+interface DriverOption {
+	id: string;
+	name: string;
+	phoneNumber?: string | null;
+}
+
+interface DriversListResponse {
+	data: DriverOption[];
+}
+
 export function DriverSelectField({
 	fieldId,
 	value,
@@ -32,12 +42,14 @@ export function DriverSelectField({
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [initialized, setInitialized] = useState(false);
 
-	const { data: initialDriver } = useQuery({
+	const { data: initialDriverData } = useQuery({
 		...orpc.accountant.drivers.get.queryOptions({
 			input: { id: value as string },
 		}),
 		enabled: Boolean(value && !initialized),
 	});
+
+	const initialDriver = initialDriverData as DriverOption | undefined;
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -54,7 +66,7 @@ export function DriverSelectField({
 		}
 	}, [initialDriver, initialized]);
 
-	const { data: driversData } = useQuery({
+	const { data: driversDataRaw } = useQuery({
 		...orpc.accountant.drivers.list.queryOptions({
 			input: {
 				offset: 0,
@@ -63,6 +75,8 @@ export function DriverSelectField({
 			},
 		}),
 	});
+
+	const driversData = driversDataRaw as DriversListResponse | undefined;
 
 	const drivers = driversData?.data || [];
 
@@ -115,7 +129,7 @@ export function DriverSelectField({
 			<ComboboxContent>
 				<ComboboxEmpty>No drivers found.</ComboboxEmpty>
 				<ComboboxList>
-					{(driver: { id: string; name: string; phoneNumber?: string }) => (
+					{(driver: DriverOption) => (
 						<ComboboxItem key={driver.id} value={driver.id}>
 							<div className="flex flex-col">
 								<span>{driver.name}</span>
