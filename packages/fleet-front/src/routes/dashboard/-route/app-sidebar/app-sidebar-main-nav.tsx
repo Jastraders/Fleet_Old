@@ -18,8 +18,17 @@ import {
 } from "@/components/ui/sidebar";
 import { orpc } from "@/orpc";
 
-function hasRole(user: { roles: { role: string }[] }, role: string): boolean {
-	return user.roles.some((r) => r.role === role || r.role === "owner");
+function hasRole(user: unknown, role: string): boolean {
+	if (!user || typeof user !== "object" || !("roles" in user)) {
+		return false;
+	}
+
+	const { roles } = user as { roles?: Array<{ role?: string }> };
+	if (!Array.isArray(roles)) {
+		return false;
+	}
+
+	return roles.some((r) => r.role === role || r.role === "owner");
 }
 
 export function AppSidebarMainNav() {
