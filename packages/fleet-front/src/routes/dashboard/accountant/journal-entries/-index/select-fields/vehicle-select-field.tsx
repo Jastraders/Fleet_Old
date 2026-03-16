@@ -1,6 +1,5 @@
 import type { ComboboxRoot } from "@base-ui/react";
 import { useQuery } from "@tanstack/react-query";
-import type { Vehicle } from "node_modules/fleet-back/src/db/schema";
 import { useEffect, useState } from "react";
 import {
 	Combobox,
@@ -22,6 +21,16 @@ interface VehicleSelectFieldProps {
 	className?: string;
 }
 
+interface VehicleOption {
+	id: string;
+	name: string;
+	licensePlate?: string | null;
+}
+
+interface VehiclesListResponse {
+	data: VehicleOption[];
+}
+
 export function VehicleSelectField({
 	fieldId,
 	value,
@@ -34,12 +43,14 @@ export function VehicleSelectField({
 	const [initialized, setInitialized] = useState(false);
 
 	// Fetch initial vehicle by id if value is present
-	const { data: initialVehicle } = useQuery({
+	const { data: initialVehicleData } = useQuery({
 		...orpc.accountant.vehicles.get.queryOptions({
 			input: { id: value as string },
 		}),
 		enabled: Boolean(value && !initialized),
 	});
+
+	const initialVehicle = initialVehicleData as VehicleOption | undefined;
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -57,7 +68,7 @@ export function VehicleSelectField({
 		}
 	}, [initialVehicle, initialized]);
 
-	const { data: vehiclesData } = useQuery({
+	const { data: vehiclesDataRaw } = useQuery({
 		...orpc.accountant.vehicles.list.queryOptions({
 			input: {
 				offset: 0,
@@ -66,6 +77,8 @@ export function VehicleSelectField({
 			},
 		}),
 	});
+
+	const vehiclesData = vehiclesDataRaw as VehiclesListResponse | undefined;
 
 	const vehicles = vehiclesData?.data || [];
 
@@ -121,7 +134,7 @@ export function VehicleSelectField({
 			<ComboboxContent>
 				<ComboboxEmpty>No vehicles found.</ComboboxEmpty>
 				<ComboboxList>
-					{(vehicle: Vehicle) => (
+					{(vehicle: VehicleOption) => (
 						<ComboboxItem key={vehicle.id} value={vehicle.id}>
 							<div className="flex flex-col">
 								<span>{vehicle.name}</span>
