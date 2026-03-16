@@ -23,34 +23,27 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { orpc } from "@/orpc";
 
-type Category =
-	InferRouterOutputs<AppRouter>["accountant"]["expenseCategories"]["get"];
+type Driver =
+	InferRouterOutputs<AppRouter>["accountant"]["drivers"]["get"];
 
-const updateCategoryFormSchema = v.object({
+const updateDriverFormSchema = v.object({
 	name: v.pipe(v.string(), v.minLength(1, "Name is required")),
-	impact: v.pipe(v.string(), v.picklist(["company", "driver"])),
+	phoneNumber: v.pipe(v.string(), v.minLength(1, "Phone number is required")),
 });
 
-interface UpdateCategoryDialogProps {
-	category: Category | null;
+interface UpdateDriverDialogProps {
+	driver: Driver | null;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 }
 
-export function UpdateCategoryDialog({
-	category,
+export function UpdateDriverDialog({
+	driver,
 	isOpen,
 	onOpenChange,
-}: UpdateCategoryDialogProps) {
+}: UpdateDriverDialogProps) {
 	const queryClient = useQueryClient();
 	const [localIsOpen, setLocalIsOpen] = useState(false);
 
@@ -58,8 +51,8 @@ export function UpdateCategoryDialog({
 		setLocalIsOpen(isOpen);
 	}, [isOpen]);
 
-	const updateCategoryMutation = useMutation({
-		...orpc.accountant.expenseCategories.update.mutationOptions(),
+	const updateDriverMutation = useMutation({
+		...orpc.accountant.drivers.update.mutationOptions(),
 		onSuccess: () => {
 			queryClient.invalidateQueries();
 			setLocalIsOpen(false);
@@ -67,25 +60,25 @@ export function UpdateCategoryDialog({
 		},
 	});
 
-	const defaultValues: v.InferInput<typeof updateCategoryFormSchema> = category
+	const defaultValues: v.InferInput<typeof updateDriverFormSchema> = driver
 		? {
-				name: category.name,
-				impact: category.impact ?? "company",
+				name: driver.name,
+				phoneNumber: driver.phoneNumber,
 			}
 		: {
 				name: "",
-				impact: "company",
+				phoneNumber: "",
 			};
 
 	const form = useForm({
 		defaultValues,
 		validators: {
-			onSubmit: updateCategoryFormSchema,
+			onSubmit: updateDriverFormSchema,
 		},
 		onSubmit: async ({ value }) => {
-			if (!category) return;
-			updateCategoryMutation.mutate({
-				id: category.id,
+			if (!driver) return;
+			updateDriverMutation.mutate({
+				id: driver.id,
 				...value,
 			});
 		},
@@ -106,7 +99,7 @@ export function UpdateCategoryDialog({
 		form.handleSubmit();
 	}, [form]);
 
-	if (!category) return null;
+	if (!driver) return null;
 
 	return (
 		<Dialog open={localIsOpen} onOpenChange={handleOpenChange}>
@@ -120,9 +113,9 @@ export function UpdateCategoryDialog({
 						className="p-6"
 					>
 						<DialogHeader>
-							<DialogTitle>Update Category</DialogTitle>
+							<DialogTitle>Update Driver</DialogTitle>
 							<DialogDescription>
-								Update your expense category details.
+								Update your driver details.
 							</DialogDescription>
 						</DialogHeader>
 
@@ -135,71 +128,70 @@ export function UpdateCategoryDialog({
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (
 												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="category-name">
-														Category Name
+													<FieldLabel htmlFor="driver-name">
+														Driver Name
 														<span className="text-destructive">*</span>
 													</FieldLabel>
 													<Input
-														id="category-name"
+														id="driver-name"
 														name={field.name}
 														value={field.state.value}
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., Gas, Maintenance, Parking"
-														aria-invalid={isInvalid}
-													/>
+													placeholder="e.g., Raj Kumar"
+													aria-invalid={isInvalid}
+												/>
+												{isInvalid && (
+													<FieldError errors={field.state.meta.errors} />
+												)}
+											</Field>
+										);
+									}}
+									</form.Field>
+									<form.Field name="phoneNumber">
+										{(field) => {
+											const isInvalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={isInvalid}>
+													<FieldLabel htmlFor="driver-phone-number">
+														Driver Phone Number
+														<span className="text-destructive">*</span>
+													</FieldLabel>
+													<Input
+														id="driver-phone-number"
+														name={field.name}
+														value={field.state.value}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="e.g., +91 9876543210"
+													aria-invalid={isInvalid}
+												/>
 													{isInvalid && (
 														<FieldError errors={field.state.meta.errors} />
 													)}
-								</Field>
-							);
-						}}
-					</form.Field>
-					<form.Field name="impact">
-						{(field) => {
-							const isInvalid =
-								field.state.meta.isTouched && !field.state.meta.isValid;
-							return (
-								<Field data-invalid={isInvalid}>
-									<FieldLabel htmlFor="category-impact">
-										Impact
-										<span className="text-destructive">*</span>
-									</FieldLabel>
-									<Select
-										value={field.state.value}
-										onValueChange={(value) => field.handleChange(value)}
-									>
-										<SelectTrigger id="category-impact" onBlur={field.handleBlur}>
-											<SelectValue placeholder="Select impact" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="company">Company</SelectItem>
-											<SelectItem value="driver">Driver</SelectItem>
-										</SelectContent>
-									</Select>
-									{isInvalid && <FieldError errors={field.state.meta.errors} />}
-								</Field>
-							);
-						}}
-					</form.Field>
-				</FieldGroup>
+												</Field>
+											);
+										}}
+									</form.Field>
+								</FieldGroup>
 							</FieldSet>
 
-							{updateCategoryMutation.error && (
+							{updateDriverMutation.error && (
 								<Alert>
 									<InfoIcon />
 									<AlertDescription>
-										{updateCategoryMutation.error.message}
+										{updateDriverMutation.error.message}
 									</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>
 
 						<DialogFooter className="mt-8">
-							<Button type="submit" disabled={updateCategoryMutation.isPending}>
-								{updateCategoryMutation.isPending
+							<Button type="submit" disabled={updateDriverMutation.isPending}>
+								{updateDriverMutation.isPending
 									? "Updating..."
-									: "Update Category"}
+									: "Update Driver"}
 							</Button>
 						</DialogFooter>
 					</form>

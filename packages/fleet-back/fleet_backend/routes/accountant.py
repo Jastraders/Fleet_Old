@@ -8,6 +8,7 @@ from fleet_backend.common import (
     now_iso,
     random_color,
     require_auth,
+    serialize_driver_row,
     rpc_error,
     rpc_payload,
     rpc_response,
@@ -17,6 +18,27 @@ from fleet_backend.common import (
     with_meta,
 )
 from fleet_backend.server import app
+
+
+def refresh_driver_total_expense(conn, driver_id: str | None):
+    if not driver_id:
+        return
+    row = conn.execute(
+        """
+            SELECT COALESCE(SUM(i.amount), 0) AS total
+            FROM journal_entries j
+            JOIN journal_entry_items i ON i.journal_entry_id = j.id
+            JOIN expense_category c ON c.id = i.expense_category_id
+            WHERE j.driver_id = ?
+              AND i.type = 'debit'
+              AND c.impact = 'driver'
+        """,
+        (driver_id,),
+    ).fetchone()
+    conn.execute(
+        "UPDATE drivers SET total_expense = ?, updated_at = ? WHERE id = ?",
+        (float(row["total"] or 0), now_iso(), driver_id),
+    )
 
 @app.post("/orpc/accountant/vehicles/list")
 @require_auth({"accountant"})
@@ -138,6 +160,131 @@ def orpc_delete_vehicle(user):
     return rpc_response(serialize_vehicle_row(dict(row)))
 
 
+@app.post("/orpc/accountant/drivers/list")
+@require_auth({"accountant"})
+def orpc_list_drivers(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+    if search:
+        where_clauses.append("(d.name LIKE ? OR d.phone_number LIKE ?)")
+        search_term = f"%{search}%"
+        where_params.extend([search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sort_map = {
+        "driverName": "LOWER(d.name)",
+        "driverPhoneNumber": "d.phone_number",
+        "totalExpense": "d.total_expense",
+        "createdAt": "d.created_at",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+    }
+    order_column = sort_map.get(sort_by, "d.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
+    with connect() as conn:
+        query = f"""
+            SELECT
+                d.*,
+                u.name AS created_by_name,
+                u.image AS created_by_image
+            FROM drivers d
+            LEFT JOIN users u ON u.id = d.created_by
+            {where_sql}
+            ORDER BY {order_column} {order_direction}
+            LIMIT ? OFFSET ?
+        """
+        rows = rows_to_dicts(conn.execute(query, (*where_params, limit, offset)).fetchall())
+        total = conn.execute(
+            f"""
+                SELECT COUNT(*) AS c
+                FROM drivers d
+                LEFT JOIN users u ON u.id = d.created_by
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["c"]
+
+    drivers = [serialize_driver_row(row) for row in rows]
+    return rpc_response(with_meta(drivers, offset, limit, total))
+
+
+@app.post("/orpc/accountant/drivers/create")
+@require_auth({"accountant"})
+def orpc_create_driver(user):
+    payload = rpc_payload()
+    with connect() as conn:
+        did = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO drivers (id,name,phone_number,color,created_by) VALUES (?,?,?,?,?)",
+            (did, payload["name"], payload["phoneNumber"], random_color(), user["id"]),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM drivers WHERE id = ?", (did,)).fetchone()
+    return rpc_response(serialize_driver_row(dict(row)))
+
+
+@app.post("/orpc/accountant/drivers/get")
+@require_auth({"accountant"})
+def orpc_get_driver(user):
+    payload = rpc_payload()
+    driver_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM drivers WHERE id = ?", (driver_id,)).fetchone()
+    if not row:
+        return rpc_error("Driver not found", 404)
+    return rpc_response(serialize_driver_row(dict(row)))
+
+
+@app.post("/orpc/accountant/drivers/update")
+@require_auth({"accountant"})
+def orpc_update_driver(user):
+    payload = rpc_payload()
+    driver_id = payload.get("id")
+    updates = []
+    params: list[Any] = []
+    for field, db_col in (("name", "name"), ("phoneNumber", "phone_number")):
+        if payload.get(field) is not None:
+            updates.append(f"{db_col} = ?")
+            params.append(payload[field])
+    if not updates:
+        return rpc_error("No fields to update", 400)
+    params.extend([now_iso(), driver_id])
+
+    with connect() as conn:
+        exists = conn.execute("SELECT id FROM drivers WHERE id = ?", (driver_id,)).fetchone()
+        if not exists:
+            return rpc_error("Driver not found", 404)
+        conn.execute(
+            f"UPDATE drivers SET {', '.join(updates)}, updated_at = ? WHERE id = ?",
+            tuple(params),
+        )
+        conn.commit()
+        row = conn.execute("SELECT * FROM drivers WHERE id = ?", (driver_id,)).fetchone()
+    return rpc_response(serialize_driver_row(dict(row)))
+
+
+@app.post("/orpc/accountant/drivers/delete")
+@require_auth({"accountant"})
+def orpc_delete_driver(user):
+    payload = rpc_payload()
+    driver_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM drivers WHERE id = ?", (driver_id,)).fetchone()
+        if not row:
+            return rpc_error("Driver not found", 404)
+        conn.execute("DELETE FROM drivers WHERE id = ?", (driver_id,))
+        conn.commit()
+    return rpc_response(serialize_driver_row(dict(row)))
+
+
 @app.post("/orpc/accountant/expenseCategories/list")
 @require_auth({"accountant"})
 def orpc_list_categories(user):
@@ -195,11 +342,14 @@ def orpc_list_categories(user):
 @require_auth({"accountant"})
 def orpc_create_category(user):
     payload = rpc_payload()
+    impact = str(payload.get("impact", "company")).lower()
+    if impact not in {"company", "driver"}:
+        return rpc_error("Invalid impact", 400)
     with connect() as conn:
         cid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO expense_category (id,name,color,created_by) VALUES (?,?,?,?)",
-            (cid, payload["name"], random_color(), user["id"]),
+            "INSERT INTO expense_category (id,name,color,impact,created_by) VALUES (?,?,?,?,?)",
+            (cid, payload["name"], random_color(), impact, user["id"]),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
@@ -223,16 +373,33 @@ def orpc_get_category(user):
 def orpc_update_category(user):
     payload = rpc_payload()
     category_id = payload.get("id")
-    if payload.get("name") is None:
+    updates = []
+    params: list[Any] = []
+    if payload.get("name") is not None:
+        updates.append("name = ?")
+        params.append(payload["name"])
+    if payload.get("impact") is not None:
+        impact = str(payload["impact"]).lower()
+        if impact not in {"company", "driver"}:
+            return rpc_error("Invalid impact", 400)
+        updates.append("impact = ?")
+        params.append(impact)
+    if not updates:
         return rpc_error("No fields to update", 400)
+
     with connect() as conn:
         exists = conn.execute("SELECT id FROM expense_category WHERE id = ?", (category_id,)).fetchone()
         if not exists:
             return rpc_error("Category not found", 404)
+        params.extend([now_iso(), category_id])
         conn.execute(
-            "UPDATE expense_category SET name = ?, updated_at = ? WHERE id = ?",
-            (payload["name"], now_iso(), category_id),
+            f"UPDATE expense_category SET {', '.join(updates)}, updated_at = ? WHERE id = ?",
+            tuple(params),
         )
+        if payload.get("impact") is not None:
+            driver_ids = rows_to_dicts(conn.execute("SELECT id FROM drivers").fetchall())
+            for driver in driver_ids:
+                refresh_driver_total_expense(conn, driver["id"])
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
     return rpc_response(serialize_expense_category_row(dict(row)))
@@ -248,6 +415,10 @@ def orpc_delete_category(user):
         if not row:
             return rpc_error("Category not found", 404)
         conn.execute("DELETE FROM expense_category WHERE id = ?", (category_id,))
+        if row["impact"] == "driver":
+            driver_ids = rows_to_dicts(conn.execute("SELECT id FROM drivers").fetchall())
+            for driver in driver_ids:
+                refresh_driver_total_expense(conn, driver["id"])
         conn.commit()
     return rpc_response(serialize_expense_category_row(dict(row)))
 
@@ -290,6 +461,8 @@ def orpc_list_entries(user):
                         j.*,
                         v.name AS vehicle_name,
                         v.license_plate AS vehicle_license_plate,
+                        d.name AS driver_name,
+                        d.phone_number AS driver_phone_number,
                         u.name AS created_by_name,
                         u.image AS created_by_image,
                         COALESCE(t.revenue, 0) AS revenue,
@@ -297,6 +470,7 @@ def orpc_list_entries(user):
                         COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0) AS amount
                     FROM journal_entries j
                     LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                    LEFT JOIN drivers d ON d.id = j.driver_id
                     LEFT JOIN users u ON u.id = j.created_by
                     LEFT JOIN (
                         SELECT
@@ -327,6 +501,7 @@ def orpc_list_entries(user):
                 SELECT COUNT(*) AS c
                 FROM journal_entries j
                 LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
                 LEFT JOIN users u ON u.id = j.created_by
                 {where_sql}
             """,
@@ -342,8 +517,14 @@ def orpc_create_entry(user):
     with connect() as conn:
         eid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO journal_entries (id,vehicle_id,notes,created_by) VALUES (?,?,?,?)",
-            (eid, payload["vehicleId"], payload.get("notes"), user["id"]),
+            "INSERT INTO journal_entries (id,vehicle_id,driver_id,notes,created_by) VALUES (?,?,?,?,?)",
+            (
+                eid,
+                payload["vehicleId"],
+                payload.get("driverId"),
+                payload.get("notes"),
+                user["id"],
+            ),
         )
         for item in payload.get("items", []):
             conn.execute(
@@ -358,6 +539,7 @@ def orpc_create_entry(user):
                     item.get("expenseCategoryId"),
                 ),
             )
+        refresh_driver_total_expense(conn, payload.get("driverId"))
         conn.commit()
         entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
         items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
@@ -370,7 +552,24 @@ def orpc_get_entry(user):
     payload = rpc_payload()
     entry_id = payload.get("id")
     with connect() as conn:
-        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        row = conn.execute(
+            """
+                SELECT
+                    j.*,
+                    v.name AS vehicle_name,
+                    v.license_plate AS vehicle_license_plate,
+                    d.name AS driver_name,
+                    d.phone_number AS driver_phone_number,
+                    u.name AS created_by_name,
+                    u.image AS created_by_image
+                FROM journal_entries j
+                LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                LEFT JOIN users u ON u.id = j.created_by
+                WHERE j.id = ?
+            """,
+            (entry_id,),
+        ).fetchone()
         if not row:
             return rpc_error("Journal entry not found", 404)
         entry = dict(row)
@@ -394,10 +593,18 @@ def orpc_update_entry(user):
             return rpc_error("Journal entry not found", 404)
         if existing["created_by"] != user["id"]:
             return rpc_error("Forbidden", 403)
+        update_parts = []
+        update_params: list[Any] = []
         if "notes" in payload:
+            update_parts.append("notes = ?")
+            update_params.append(payload.get("notes"))
+        if "driverId" in payload:
+            update_parts.append("driver_id = ?")
+            update_params.append(payload.get("driverId"))
+        if update_parts:
             conn.execute(
-                "UPDATE journal_entries SET notes = ?, updated_at = ? WHERE id = ?",
-                (payload.get("notes"), now_iso(), entry_id),
+                f"UPDATE journal_entries SET {', '.join(update_parts)}, updated_at = ? WHERE id = ?",
+                (*update_params, now_iso(), entry_id),
             )
         if isinstance(payload.get("items"), list) and payload["items"]:
             conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
@@ -414,8 +621,28 @@ def orpc_update_entry(user):
                         item.get("expenseCategoryId"),
                     ),
                 )
+        updated_driver_id = payload.get("driverId", existing["driver_id"])
+        refresh_driver_total_expense(conn, existing["driver_id"])
+        refresh_driver_total_expense(conn, updated_driver_id)
         conn.commit()
-        row = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+        row = conn.execute(
+            """
+                SELECT
+                    j.*,
+                    v.name AS vehicle_name,
+                    v.license_plate AS vehicle_license_plate,
+                    d.name AS driver_name,
+                    d.phone_number AS driver_phone_number,
+                    u.name AS created_by_name,
+                    u.image AS created_by_image
+                FROM journal_entries j
+                LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                LEFT JOIN users u ON u.id = j.created_by
+                WHERE j.id = ?
+            """,
+            (entry_id,),
+        ).fetchone()
         entry = dict(row)
         items = rows_to_dicts(
             conn.execute(
@@ -438,6 +665,7 @@ def orpc_delete_entry(user):
         if existing["created_by"] != user["id"]:
             return rpc_error("Forbidden", 403)
         conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+        refresh_driver_total_expense(conn, existing["driver_id"])
         conn.commit()
     return rpc_response({"success": True})
 
@@ -695,5 +923,3 @@ def delete_entry(user, entry_id):
         conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         conn.commit()
     return jsonify({"success": True})
-
-

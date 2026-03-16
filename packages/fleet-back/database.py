@@ -59,6 +59,19 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 color TEXT NOT NULL UNIQUE,
+                impact TEXT NOT NULL DEFAULT 'company' CHECK(impact IN ('company','driver')),
+                created_by TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS drivers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                phone_number TEXT NOT NULL,
+                color TEXT NOT NULL UNIQUE,
+                total_expense REAL NOT NULL DEFAULT 0,
                 created_by TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -68,11 +81,13 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS journal_entries (
                 id TEXT PRIMARY KEY,
                 vehicle_id TEXT NOT NULL,
+                driver_id TEXT,
                 notes TEXT,
                 created_by TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+                FOREIGN KEY(driver_id) REFERENCES drivers(id) ON DELETE SET NULL,
                 FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
             );
 
@@ -91,6 +106,29 @@ def init_db() -> None:
             );
             """
         )
+
+        # Lightweight forward-only migrations for existing DBs.
+        category_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(expense_category)").fetchall()
+        }
+        if "impact" not in category_columns:
+            conn.execute(
+                "ALTER TABLE expense_category ADD COLUMN impact TEXT NOT NULL DEFAULT 'company' CHECK(impact IN ('company','driver'))"
+            )
+
+        journal_entry_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(journal_entries)").fetchall()
+        }
+        if "driver_id" not in journal_entry_columns:
+            conn.execute("ALTER TABLE journal_entries ADD COLUMN driver_id TEXT")
+
+        driver_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(drivers)").fetchall()
+        }
+        if "total_expense" not in driver_columns:
+            conn.execute("ALTER TABLE drivers ADD COLUMN total_expense REAL NOT NULL DEFAULT 0")
+
+        conn.commit()
 
 
 def rows_to_dicts(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:

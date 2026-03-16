@@ -258,9 +258,32 @@ def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
         "id": category["id"],
         "name": category["name"],
         "color": category.get("color"),
+        "impact": category.get("impact") or "company",
         "createdBy": category.get("created_by"),
         "createdAt": to_iso_datetime(category.get("created_at")),
         "updatedAt": to_iso_datetime(category.get("updated_at")),
+        "createdByUser": created_by_user,
+    }
+
+
+def serialize_driver_row(driver: dict[str, Any]) -> dict[str, Any]:
+    created_by_user = None
+    if driver.get("created_by"):
+        created_by_user = {
+            "id": driver["created_by"],
+            "name": driver.get("created_by_name") or "",
+            "image": driver.get("created_by_image"),
+        }
+
+    return {
+        "id": driver["id"],
+        "name": driver["name"],
+        "phoneNumber": driver["phone_number"],
+        "color": driver.get("color"),
+        "totalExpense": float(driver.get("total_expense") or 0),
+        "createdBy": driver.get("created_by"),
+        "createdAt": to_iso_datetime(driver.get("created_at")),
+        "updatedAt": to_iso_datetime(driver.get("updated_at")),
         "createdByUser": created_by_user,
     }
 
@@ -295,15 +318,25 @@ def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any
             "licensePlate": entry.get("vehicle_license_plate"),
         }
 
+    driver = None
+    if entry.get("driver_id"):
+        driver = {
+            "id": entry["driver_id"],
+            "name": entry.get("driver_name") or "",
+            "phoneNumber": entry.get("driver_phone_number"),
+        }
+
     payload = {
         "id": entry["id"],
         "vehicleId": entry["vehicle_id"],
+        "driverId": entry.get("driver_id"),
         "notes": entry.get("notes"),
         "createdBy": entry.get("created_by"),
         "createdAt": to_iso_datetime(entry.get("created_at")),
         "updatedAt": to_iso_datetime(entry.get("updated_at")),
         "createdByUser": created_by_user,
         "vehicle": vehicle,
+        "driver": driver,
     }
     if items is not None:
         payload["items"] = [serialize_journal_item_row(item) for item in items]

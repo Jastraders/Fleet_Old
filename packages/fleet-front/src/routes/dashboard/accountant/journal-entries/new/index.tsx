@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 import { CategorySelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/category-select-field";
+import { DriverSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/driver-select-field";
 import { VehicleSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/vehicle-select-field";
 
 const expenseItemSchema = v.object({
@@ -39,6 +40,7 @@ const expenseItemSchema = v.object({
 
 const newEntryFormSchema = v.object({
 	vehicleId: v.pipe(v.string(), v.minLength(1, "Vehicle is required")),
+	driverId: v.pipe(v.string(), v.minLength(1, "Driver is required")),
 	transactionDate: v.pipe(v.string(), v.minLength(1, "Date is required")),
 	revenue: v.pipe(
 		v.string(),
@@ -53,6 +55,7 @@ type FormValues = v.InferInput<typeof newEntryFormSchema>;
 
 const defaultValues: FormValues = {
 	vehicleId: "",
+	driverId: "",
 	transactionDate: new Date().toISOString().split("T")[0],
 	revenue: "",
 	notes: "",
@@ -102,6 +105,7 @@ function RouteComponent() {
 
 			createEntryMutation.mutate({
 				vehicleId: value.vehicleId,
+				driverId: value.driverId,
 				notes: value.notes || undefined,
 				items,
 			});
@@ -185,6 +189,33 @@ function RouteComponent() {
 													</FieldLabel>
 													<VehicleSelectField
 														fieldId="vehicle-select"
+														value={field.state.value}
+														onChange={(value) => field.handleChange(value)}
+														onBlur={field.handleBlur}
+													/>
+													{isInvalid && (
+														<FieldError errors={field.state.meta.errors} />
+													)}
+											</Field>
+										);
+									}}
+								</form.Field>
+
+									<form.Field name="driverId">
+										{(
+											// biome-ignore lint/suspicious/noExplicitAny: TanStack Form field type is complex
+											field: any,
+										) => {
+											const isInvalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											return (
+												<Field data-invalid={isInvalid}>
+													<FieldLabel htmlFor="driver-select">
+														Driver
+														<span className="text-destructive">*</span>
+													</FieldLabel>
+													<DriverSelectField
+														fieldId="driver-select"
 														value={field.state.value}
 														onChange={(value) => field.handleChange(value)}
 														onBlur={field.handleBlur}
