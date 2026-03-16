@@ -86,8 +86,9 @@ export function UpdateCategoryDialog({
 			if (!category) return;
 			updateCategoryMutation.mutate({
 				id: category.id,
-				...value,
-			});
+				name: value.name,
+				impact: value.impact,
+			} as never);
 		},
 	});
 
@@ -167,7 +168,7 @@ export function UpdateCategoryDialog({
 									</FieldLabel>
 									<Select
 										value={field.state.value}
-										onValueChange={(value) => field.handleChange(value)}
+										onValueChange={(value) => field.handleChange(value ?? "")}
 									>
 										<SelectTrigger id="category-impact" onBlur={field.handleBlur}>
 											<SelectValue placeholder="Select impact" />

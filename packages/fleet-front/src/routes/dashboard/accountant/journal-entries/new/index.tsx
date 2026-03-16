@@ -108,7 +108,7 @@ function RouteComponent() {
 				driverId: value.driverId,
 				notes: value.notes || undefined,
 				items,
-			});
+			} as never);
 		},
 	});
 
@@ -190,7 +190,7 @@ function RouteComponent() {
 													<VehicleSelectField
 														fieldId="vehicle-select"
 														value={field.state.value}
-														onChange={(value) => field.handleChange(value)}
+														onChange={(value: string) => field.handleChange(value)}
 														onBlur={field.handleBlur}
 													/>
 													{isInvalid && (
@@ -217,7 +217,7 @@ function RouteComponent() {
 													<DriverSelectField
 														fieldId="driver-select"
 														value={field.state.value}
-														onChange={(value) => field.handleChange(value)}
+														onChange={(value: string) => field.handleChange(value)}
 														onBlur={field.handleBlur}
 													/>
 													{isInvalid && (
