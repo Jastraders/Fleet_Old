@@ -140,6 +140,50 @@ def init_db() -> None:
                 DROP TABLE expense_category_old;
                 """
             )
+        journal_item_fk_tables = {
+            row["table"]
+            for row in conn.execute("PRAGMA foreign_key_list(journal_entry_items)").fetchall()
+        }
+        if "expense_category_old" in journal_item_fk_tables:
+            conn.executescript(
+                """
+                ALTER TABLE journal_entry_items RENAME TO journal_entry_items_old;
+                CREATE TABLE journal_entry_items (
+                    id TEXT PRIMARY KEY,
+                    journal_entry_id TEXT NOT NULL,
+                    vehicle_id TEXT NOT NULL,
+                    transaction_date TEXT NOT NULL,
+                    type TEXT NOT NULL CHECK(type IN ('credit','debit')),
+                    amount REAL NOT NULL,
+                    expense_category_id TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+                    FOREIGN KEY(vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
+                    FOREIGN KEY(expense_category_id) REFERENCES expense_category(id) ON DELETE SET NULL
+                );
+                INSERT INTO journal_entry_items (
+                    id,
+                    journal_entry_id,
+                    vehicle_id,
+                    transaction_date,
+                    type,
+                    amount,
+                    expense_category_id,
+                    created_at
+                )
+                SELECT
+                    id,
+                    journal_entry_id,
+                    vehicle_id,
+                    transaction_date,
+                    type,
+                    amount,
+                    expense_category_id,
+                    created_at
+                FROM journal_entry_items_old;
+                DROP TABLE journal_entry_items_old;
+                """
+            )
 
         journal_entry_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(journal_entries)").fetchall()
