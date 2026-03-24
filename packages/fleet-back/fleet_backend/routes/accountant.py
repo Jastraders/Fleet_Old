@@ -5,7 +5,9 @@ from flask import jsonify, request
 
 from database import connect, rows_to_dicts
 from fleet_backend.common import (
+    format_impacts,
     now_iso,
+    parse_impacts,
     random_color,
     require_auth,
     serialize_driver_row,
@@ -31,13 +33,33 @@ def refresh_driver_total_expense(conn, driver_id: str | None):
             JOIN expense_category c ON c.id = i.expense_category_id
             WHERE j.driver_id = ?
               AND i.type = 'debit'
-              AND c.impact = 'driver'
+              AND INSTR(',' || c.impact || ',', ',driver,') > 0
         """,
         (driver_id,),
     ).fetchone()
     conn.execute(
         "UPDATE drivers SET total_expense = ?, updated_at = ? WHERE id = ?",
         (float(row["total"] or 0), now_iso(), driver_id),
+    )
+
+
+def refresh_vehicle_total_expense(conn, vehicle_id: str | None):
+    if not vehicle_id:
+        return
+    row = conn.execute(
+        """
+            SELECT COALESCE(SUM(i.amount), 0) AS total
+            FROM journal_entry_items i
+            JOIN expense_category c ON c.id = i.expense_category_id
+            WHERE i.vehicle_id = ?
+              AND i.type = 'debit'
+              AND INSTR(',' || c.impact || ',', ',vehicle,') > 0
+        """,
+        (vehicle_id,),
+    ).fetchone()
+    conn.execute(
+        "UPDATE vehicles SET total_expense = ?, updated_at = ? WHERE id = ?",
+        (float(row["total"] or 0), now_iso(), vehicle_id),
     )
 
 @app.post("/orpc/accountant/vehicles/list")
@@ -342,14 +364,14 @@ def orpc_list_categories(user):
 @require_auth({"accountant"})
 def orpc_create_category(user):
     payload = rpc_payload()
-    impact = str(payload.get("impact", "company")).lower()
-    if impact not in {"company", "driver"}:
+    impacts = parse_impacts(payload.get("impact"))
+    if not impacts:
         return rpc_error("Invalid impact", 400)
     with connect() as conn:
         cid = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO expense_category (id,name,color,impact,created_by) VALUES (?,?,?,?,?)",
-            (cid, payload["name"], random_color(), impact, user["id"]),
+            (cid, payload["name"], random_color(), format_impacts(impacts), user["id"]),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
@@ -379,11 +401,11 @@ def orpc_update_category(user):
         updates.append("name = ?")
         params.append(payload["name"])
     if payload.get("impact") is not None:
-        impact = str(payload["impact"]).lower()
-        if impact not in {"company", "driver"}:
+        impacts = parse_impacts(payload["impact"])
+        if not impacts:
             return rpc_error("Invalid impact", 400)
         updates.append("impact = ?")
-        params.append(impact)
+        params.append(format_impacts(impacts))
     if not updates:
         return rpc_error("No fields to update", 400)
 
@@ -400,6 +422,9 @@ def orpc_update_category(user):
             driver_ids = rows_to_dicts(conn.execute("SELECT id FROM drivers").fetchall())
             for driver in driver_ids:
                 refresh_driver_total_expense(conn, driver["id"])
+            vehicle_ids = rows_to_dicts(conn.execute("SELECT id FROM vehicles").fetchall())
+            for vehicle in vehicle_ids:
+                refresh_vehicle_total_expense(conn, vehicle["id"])
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
     return rpc_response(serialize_expense_category_row(dict(row)))
@@ -415,10 +440,15 @@ def orpc_delete_category(user):
         if not row:
             return rpc_error("Category not found", 404)
         conn.execute("DELETE FROM expense_category WHERE id = ?", (category_id,))
-        if row["impact"] == "driver":
+        impacts = parse_impacts(row["impact"])
+        if "driver" in impacts:
             driver_ids = rows_to_dicts(conn.execute("SELECT id FROM drivers").fetchall())
             for driver in driver_ids:
                 refresh_driver_total_expense(conn, driver["id"])
+        if "vehicle" in impacts:
+            vehicle_ids = rows_to_dicts(conn.execute("SELECT id FROM vehicles").fetchall())
+            for vehicle in vehicle_ids:
+                refresh_vehicle_total_expense(conn, vehicle["id"])
         conn.commit()
     return rpc_response(serialize_expense_category_row(dict(row)))
 
@@ -540,6 +570,7 @@ def orpc_create_entry(user):
                 ),
             )
         refresh_driver_total_expense(conn, payload.get("driverId"))
+        refresh_vehicle_total_expense(conn, payload["vehicleId"])
         conn.commit()
         entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
         items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
@@ -624,6 +655,7 @@ def orpc_update_entry(user):
         updated_driver_id = payload.get("driverId", existing["driver_id"])
         refresh_driver_total_expense(conn, existing["driver_id"])
         refresh_driver_total_expense(conn, updated_driver_id)
+        refresh_vehicle_total_expense(conn, existing["vehicle_id"])
         conn.commit()
         row = conn.execute(
             """
@@ -666,6 +698,7 @@ def orpc_delete_entry(user):
             return rpc_error("Forbidden", 403)
         conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         refresh_driver_total_expense(conn, existing["driver_id"])
+        refresh_vehicle_total_expense(conn, existing["vehicle_id"])
         conn.commit()
     return rpc_response({"success": True})
 
@@ -758,11 +791,12 @@ def list_categories(user):
 @require_auth({"accountant"})
 def create_category(user):
     payload = request.get_json(force=True)
+    impacts = parse_impacts(payload.get("impact"))
     with connect() as conn:
         cid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO expense_category (id,name,color,created_by) VALUES (?,?,?,?)",
-            (cid, payload["name"], random_color(), user["id"]),
+            "INSERT INTO expense_category (id,name,color,impact,created_by) VALUES (?,?,?,?,?)",
+            (cid, payload["name"], random_color(), format_impacts(impacts), user["id"]),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (cid,)).fetchone()
@@ -783,15 +817,24 @@ def get_category(user, category_id):
 @require_auth({"accountant"})
 def update_category(user, category_id):
     payload = request.get_json(force=True)
-    if payload.get("name") is None:
+    if payload.get("name") is None and payload.get("impact") is None:
         return jsonify({"error": "No fields to update"}), 400
+    updates = []
+    params: list[Any] = []
+    if payload.get("name") is not None:
+        updates.append("name = ?")
+        params.append(payload["name"])
+    if payload.get("impact") is not None:
+        updates.append("impact = ?")
+        params.append(format_impacts(payload.get("impact")))
     with connect() as conn:
         exists = conn.execute("SELECT id FROM expense_category WHERE id = ?", (category_id,)).fetchone()
         if not exists:
             return jsonify({"error": "Category not found"}), 404
+        params.extend([now_iso(), category_id])
         conn.execute(
-            "UPDATE expense_category SET name = ?, updated_at = ? WHERE id = ?",
-            (payload["name"], now_iso(), category_id),
+            f"UPDATE expense_category SET {', '.join(updates)}, updated_at = ? WHERE id = ?",
+            tuple(params),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM expense_category WHERE id = ?", (category_id,)).fetchone()
