@@ -153,7 +153,7 @@ def orpc_analytics_expenses_stats(user):
         return rpc_response({"message": "Invalid period"}, 400)
     start = period_start(period)
     params: list[Any] = []
-    where = ["jei.type = 'debit'", "jei.expense_category_id IS NOT NULL"]
+    where = ["jei.type = 'debit'"]
     if start is not None:
         where.append("jei.transaction_date >= ?")
         params.append(start.isoformat())
@@ -161,11 +161,18 @@ def orpc_analytics_expenses_stats(user):
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
             f"""
-            SELECT ec.id, ec.name, ec.color, COALESCE(SUM(jei.amount), 0) AS amount
+            SELECT
+                COALESCE(ec.id, 'uncategorized') AS id,
+                COALESCE(ec.name, 'Uncategorized') AS name,
+                COALESCE(ec.color, '6b7280') AS color,
+                COALESCE(SUM(jei.amount), 0) AS amount
             FROM journal_entry_items jei
-            INNER JOIN expense_category ec ON ec.id = jei.expense_category_id
+            LEFT JOIN expense_category ec ON ec.id = jei.expense_category_id
             WHERE {' AND '.join(where)}
-            GROUP BY ec.id, ec.name, ec.color
+            GROUP BY
+                COALESCE(ec.id, 'uncategorized'),
+                COALESCE(ec.name, 'Uncategorized'),
+                COALESCE(ec.color, '6b7280')
             ORDER BY amount DESC
             """,
             tuple(params),
@@ -273,7 +280,7 @@ def orpc_vehicle_expenses_stats(user):
 
     start = vehicle_period_start(period)
     params: list[Any] = [vehicle_id]
-    where = ["jei.type = 'debit'", "jei.vehicle_id = ?", "jei.expense_category_id IS NOT NULL"]
+    where = ["jei.type = 'debit'", "jei.vehicle_id = ?"]
     if start is not None:
         where.append("jei.transaction_date >= ?")
         params.append(start.isoformat())
@@ -281,15 +288,21 @@ def orpc_vehicle_expenses_stats(user):
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
             f"""
-            SELECT ec.id, ec.name, ec.color, COALESCE(SUM(jei.amount), 0) AS amount
+            SELECT
+                COALESCE(ec.id, 'uncategorized') AS id,
+                COALESCE(ec.name, 'Uncategorized') AS name,
+                COALESCE(ec.color, '6b7280') AS color,
+                COALESCE(SUM(jei.amount), 0) AS amount
             FROM journal_entry_items jei
-            INNER JOIN expense_category ec ON ec.id = jei.expense_category_id
+            LEFT JOIN expense_category ec ON ec.id = jei.expense_category_id
             WHERE {' AND '.join(where)}
-            GROUP BY ec.id, ec.name, ec.color
+            GROUP BY
+                COALESCE(ec.id, 'uncategorized'),
+                COALESCE(ec.name, 'Uncategorized'),
+                COALESCE(ec.color, '6b7280')
             ORDER BY amount DESC
             """,
             tuple(params),
         ).fetchall())
     return rpc_response(rows)
-
 
