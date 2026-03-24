@@ -49,6 +49,7 @@ def init_db() -> None:
                 name TEXT NOT NULL,
                 license_plate TEXT NOT NULL,
                 color TEXT NOT NULL UNIQUE,
+                total_expense REAL NOT NULL DEFAULT 0,
                 created_by TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -59,7 +60,7 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 color TEXT NOT NULL UNIQUE,
-                impact TEXT NOT NULL DEFAULT 'company' CHECK(impact IN ('company','driver')),
+                impact TEXT NOT NULL DEFAULT 'company',
                 created_by TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -113,7 +114,31 @@ def init_db() -> None:
         }
         if "impact" not in category_columns:
             conn.execute(
-                "ALTER TABLE expense_category ADD COLUMN impact TEXT NOT NULL DEFAULT 'company' CHECK(impact IN ('company','driver'))"
+                "ALTER TABLE expense_category ADD COLUMN impact TEXT NOT NULL DEFAULT 'company'"
+            )
+        expense_category_table_sql = conn.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'expense_category'"
+        ).fetchone()
+        expense_category_sql = (expense_category_table_sql["sql"] or "") if expense_category_table_sql else ""
+        if "CHECK(impact IN ('company','driver'))" in expense_category_sql:
+            conn.executescript(
+                """
+                ALTER TABLE expense_category RENAME TO expense_category_old;
+                CREATE TABLE expense_category (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    color TEXT NOT NULL UNIQUE,
+                    impact TEXT NOT NULL DEFAULT 'company',
+                    created_by TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
+                );
+                INSERT INTO expense_category (id, name, color, impact, created_by, created_at, updated_at)
+                SELECT id, name, color, impact, created_by, created_at, updated_at
+                FROM expense_category_old;
+                DROP TABLE expense_category_old;
+                """
             )
 
         journal_entry_columns = {
@@ -127,6 +152,11 @@ def init_db() -> None:
         }
         if "total_expense" not in driver_columns:
             conn.execute("ALTER TABLE drivers ADD COLUMN total_expense REAL NOT NULL DEFAULT 0")
+        vehicle_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(vehicles)").fetchall()
+        }
+        if "total_expense" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN total_expense REAL NOT NULL DEFAULT 0")
 
         conn.commit()
 

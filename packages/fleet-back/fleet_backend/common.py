@@ -238,6 +238,7 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
         "name": vehicle["name"],
         "licensePlate": vehicle["license_plate"],
         "color": vehicle.get("color"),
+        "totalExpense": float(vehicle.get("total_expense") or 0),
         "createdBy": vehicle.get("created_by"),
         "createdAt": to_iso_datetime(vehicle.get("created_at")),
         "updatedAt": to_iso_datetime(vehicle.get("updated_at")),
@@ -258,12 +259,36 @@ def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
         "id": category["id"],
         "name": category["name"],
         "color": category.get("color"),
-        "impact": category.get("impact") or "company",
+        "impact": parse_impacts(category.get("impact")),
         "createdBy": category.get("created_by"),
         "createdAt": to_iso_datetime(category.get("created_at")),
         "updatedAt": to_iso_datetime(category.get("updated_at")),
         "createdByUser": created_by_user,
     }
+
+
+VALID_IMPACTS = ("company", "driver", "vehicle")
+
+
+def parse_impacts(value: Any) -> list[str]:
+    if isinstance(value, list):
+        impacts = [str(item).strip().lower() for item in value if str(item).strip()]
+    elif isinstance(value, str):
+        impacts = [part.strip().lower() for part in value.split(",") if part.strip()]
+    elif value is None:
+        impacts = []
+    else:
+        impacts = [str(value).strip().lower()] if str(value).strip() else []
+
+    unique_impacts: list[str] = []
+    for impact in impacts:
+        if impact in VALID_IMPACTS and impact not in unique_impacts:
+            unique_impacts.append(impact)
+    return unique_impacts or ["company"]
+
+
+def format_impacts(value: Any) -> str:
+    return ",".join(parse_impacts(value))
 
 
 def serialize_driver_row(driver: dict[str, Any]) -> dict[str, Any]:

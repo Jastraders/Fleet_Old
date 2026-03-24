@@ -18,31 +18,29 @@ import {
 	Field,
 	FieldError,
 	FieldGroup,
+	FieldLegend,
 	FieldLabel,
 	FieldSet,
 } from "@/components/ui/field";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { orpc } from "@/orpc";
+
+const impactOptions = ["company", "driver", "vehicle"] as const;
+type ImpactOption = (typeof impactOptions)[number];
 
 const createCategoryFormSchema = v.object({
 	name: v.pipe(v.string(), v.minLength(1, "Name is required")),
 	impact: v.pipe(
-		v.string(),
-		v.picklist(["company", "driver"], "Impact is required"),
+		v.array(v.picklist(impactOptions), "Impact is required"),
+		v.minLength(1, "Select at least one impact"),
 	),
 });
 
 const defaultValues: v.InferInput<typeof createCategoryFormSchema> = {
 	name: "",
-	impact: "company",
+	impact: ["company"],
 };
 
 export function CreateCategoryDialog() {
@@ -140,26 +138,40 @@ export function CreateCategoryDialog() {
 						{(field) => {
 							const isInvalid =
 								field.state.meta.isTouched && !field.state.meta.isValid;
+							const impacts = field.state.value;
+							const toggleImpact = (impact: ImpactOption) => {
+								if (impacts.includes(impact)) {
+									field.handleChange(impacts.filter((item) => item !== impact));
+								} else {
+									field.handleChange([...impacts, impact]);
+								}
+							};
 							return (
-								<Field data-invalid={isInvalid}>
-									<FieldLabel htmlFor="category-impact">
+								<FieldSet data-invalid={isInvalid}>
+									<FieldLegend variant="label">
 										Impact
 										<span className="text-destructive">*</span>
-									</FieldLabel>
-									<Select
-										value={field.state.value}
-										onValueChange={(value) => field.handleChange(value ?? "")}
-									>
-										<SelectTrigger id="category-impact" onBlur={field.handleBlur}>
-											<SelectValue placeholder="Select impact" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="company">Company</SelectItem>
-											<SelectItem value="driver">Driver</SelectItem>
-										</SelectContent>
-									</Select>
+									</FieldLegend>
+									<FieldGroup className="gap-3">
+										{impactOptions.map((impact) => (
+											<Field key={impact} orientation="horizontal">
+												<Checkbox
+													id={`impact-${impact}`}
+													checked={impacts.includes(impact)}
+													onCheckedChange={() => toggleImpact(impact)}
+													onBlur={field.handleBlur}
+												/>
+												<FieldLabel
+													htmlFor={`impact-${impact}`}
+													className="font-normal capitalize"
+												>
+													{impact}
+												</FieldLabel>
+											</Field>
+										))}
+									</FieldGroup>
 									{isInvalid && <FieldError errors={field.state.meta.errors} />}
-								</Field>
+								</FieldSet>
 							);
 						}}
 					</form.Field>
