@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { orpc } from "@/orpc";
 import { VehicleExpenseCategoriesStatsCard } from "./-index/vehicle-expense-categories-stats-card";
 import { VehicleMonthlyTrendChart } from "./-index/vehicle-monthly-trend-chart";
+import { VehicleRoiScoreCard } from "./-index/vehicle-roi-score-card";
 import { VehicleSummaryStatsCards } from "./-index/vehicle-summary-stats-cards";
 
 const periodSchema = v.picklist([
@@ -62,6 +63,11 @@ export const Route = createFileRoute(
 		);
 		queryClient.prefetchQuery(
 			orpcClient.analyst.analytics.vehicle.expensesStats.queryOptions({
+				input: { vehicleId, period },
+			}),
+		);
+		queryClient.prefetchQuery(
+			orpcClient.analyst.analytics.vehicle.roiStats.queryOptions({
 				input: { vehicleId, period },
 			}),
 		);
@@ -188,6 +194,11 @@ function RouteComponent() {
 					</div>
 					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
 						<VehicleExpenseCategoriesStatsCard
+							vehicleId={vehicleId}
+							period={period}
+							className="col-span-2"
+						/>
+						<VehicleRoiScoreCard
 							vehicleId={vehicleId}
 							period={period}
 							className="col-span-2"
