@@ -63,12 +63,11 @@ function VehicleRoiScoreCardContent({
 	className,
 	...props
 }: VehicleRoiScoreCardProps) {
-	const queryResult = useSuspenseQuery({
+	const { data } = useSuspenseQuery<VehicleRoiStats>({
 		...orpc.analyst.analytics.vehicle.roiStats.queryOptions({
 			input: { vehicleId, period },
 		}),
 	});
-	const data = queryResult.data as VehicleRoiStats;
 
 	const chartData = useMemo(
 		() => [
