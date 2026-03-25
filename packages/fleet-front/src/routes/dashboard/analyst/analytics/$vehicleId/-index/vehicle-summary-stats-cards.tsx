@@ -14,7 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "last_30d" | "last_3m" | "last_6m" | "last_9m" | "last_12m";
+type Period =
+	| "all_time"
+	| "last_30d"
+	| "last_3m"
+	| "last_6m"
+	| "last_9m"
+	| "last_12m";
 
 interface VehicleSummaryStatsCardsProps {
 	vehicleId: string;
@@ -23,6 +29,8 @@ interface VehicleSummaryStatsCardsProps {
 
 function getPeriodDescription(period: Period): string {
 	switch (period) {
+		case "all_time":
+			return "Compared to all-time performance";
 		case "last_30d":
 			return "Compared to previous 30 days";
 		case "last_3m":
