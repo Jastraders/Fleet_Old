@@ -33,6 +33,13 @@ interface VehicleExpenseCategoriesStatsCardProps
 	period: Period;
 }
 
+type VehicleExpenseCategoryStatsItem = {
+	id: string;
+	name: string;
+	color: string;
+	amount: number;
+};
+
 function VehicleExpensesCategoryChartSkeleton({
 	className,
 	...props
@@ -108,6 +115,7 @@ function VehicleExpensesCategoryChartContent({
 			input: { vehicleId, period },
 		}),
 	});
+	const expenseStats = data as VehicleExpenseCategoryStatsItem[];
 
 	// Transform data for chart and build config
 	const { chartData, chartConfig } = useMemo(() => {
@@ -117,7 +125,7 @@ function VehicleExpensesCategoryChartContent({
 			},
 		};
 
-		const transformedData = data.map((item) => {
+		const transformedData = expenseStats.map((item) => {
 			const color = `#${item.color}`;
 
 			config[item.id] = {
@@ -137,7 +145,7 @@ function VehicleExpensesCategoryChartContent({
 			chartData: transformedData,
 			chartConfig: config,
 		};
-	}, [data]);
+	}, [expenseStats]);
 
 	if (chartData.length === 0) {
 		return (

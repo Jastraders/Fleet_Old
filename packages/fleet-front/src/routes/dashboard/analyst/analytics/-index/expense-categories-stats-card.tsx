@@ -35,6 +35,13 @@ interface ExpenseCategoriesStatsCardProps extends ComponentProps<typeof Card> {
 	period: Period;
 }
 
+type ExpenseCategoryStatsItem = {
+	id: string;
+	name: string;
+	color: string;
+	amount: number;
+};
+
 function ExpenseCategoryChartSkeleton({
 	className,
 	...props
@@ -110,6 +117,7 @@ function ExpenseCategoryChartContent({
 			input: { period },
 		}),
 	});
+	const expenseStats = data as ExpenseCategoryStatsItem[];
 
 	// Transform data for chart and build config
 	const { chartData, chartConfig } = useMemo(() => {
@@ -119,7 +127,7 @@ function ExpenseCategoryChartContent({
 			},
 		};
 
-		const transformedData = data.map((item) => {
+		const transformedData = expenseStats.map((item) => {
 			const color = `#${item.color}`;
 
 			config[item.id] = {
@@ -139,7 +147,7 @@ function ExpenseCategoryChartContent({
 			chartData: transformedData,
 			chartConfig: config,
 		};
-	}, [data]);
+	}, [expenseStats]);
 
 	// Get SVG ref from the chart container
 	const svgRef = useRef<SVGSVGElement | null>(null);

@@ -84,6 +84,11 @@ const periodOptions = [
 	{ value: "all_time", label: "All time" },
 ] as const;
 
+type VehicleSummary = {
+	name: string;
+	licensePlate: string;
+};
+
 function VehicleTitleSkeleton() {
 	return (
 		<div className="flex items-center gap-4">
@@ -148,6 +153,7 @@ function VehicleTitleContent() {
 	const { data: vehicle } = useSuspenseQuery({
 		...orpc.accountant.vehicles.get.queryOptions({ input: { id: vehicleId } }),
 	});
+	const vehicleData = vehicle as VehicleSummary;
 
 	function handleGoBack() {
 		navigate({ to: "/dashboard/analyst/analytics" });
@@ -164,8 +170,10 @@ function VehicleTitleContent() {
 				<ArrowLeftIcon className="h-4 w-4" />
 			</Button>
 			<div>
-				<h1 className="text-2xl font-bold tracking-tight">{vehicle.name}</h1>
-				<p className="text-muted-foreground text-sm">{vehicle.licensePlate}</p>
+				<h1 className="text-2xl font-bold tracking-tight">{vehicleData.name}</h1>
+				<p className="text-muted-foreground text-sm">
+					{vehicleData.licensePlate}
+				</p>
 			</div>
 		</div>
 	);
