@@ -44,6 +44,12 @@ interface VehicleProfitChartProps extends ComponentProps<typeof Card> {
 	period: Period;
 }
 
+type FleetProfitChartItem = {
+	vehicleName: string;
+	profit: number;
+	debit: number;
+};
+
 const chartConfig = {
 	profit: {
 		label: "Profit",
@@ -83,9 +89,10 @@ function VehicleProfitChartContent({
 			input: { period },
 		}),
 	});
+	const fleetStats = data as FleetProfitChartItem[];
 
 	// Transform data for the chart - debit should be negative for stacking below 0
-	const chartData = data.map((vehicle) => ({
+	const chartData = fleetStats.map((vehicle) => ({
 		vehicleName: vehicle.vehicleName,
 		profit: vehicle.profit + vehicle.debit, // to account for stacking offset
 		debit: -vehicle.debit, // Negative so it stacks below the x-axis
@@ -180,8 +187,21 @@ function VehicleProfitChartContent({
 									<ChartTooltipContent
 										hideLabel
 										className="w-50"
-										formatter={(_value, name, item) => (
-											<>
+										formatter={(_value, name, item) => {
+											const payload =
+												typeof item === "object" &&
+												item !== null &&
+												"payload" in item
+													? (item as {
+															payload?: {
+																originalDebit?: number;
+																originalProfit?: number;
+															};
+														}).payload
+													: undefined;
+
+											return (
+												<>
 												<div
 													className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
 													style={
@@ -193,11 +213,12 @@ function VehicleProfitChartContent({
 												{chartConfig[name as keyof typeof chartConfig]?.label ||
 													name}
 												<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
-													{name === "debit" && item.payload.originalDebit}
-													{name === "profit" && item.payload.originalProfit}
+													{name === "debit" && payload?.originalDebit}
+													{name === "profit" && payload?.originalProfit}
 												</div>
 											</>
-										)}
+											);
+										}}
 									/>
 								}
 								cursor={false}
