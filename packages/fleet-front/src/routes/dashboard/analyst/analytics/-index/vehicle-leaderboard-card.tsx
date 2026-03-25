@@ -27,6 +27,15 @@ interface BarListItem {
 	link: LinkOptions;
 }
 
+interface FleetStatsItem {
+	vehicleId: string;
+	vehicleName: string;
+	vehicleColor: string;
+	credit: number;
+	debit: number;
+	profit: number;
+}
+
 interface BarListProps extends React.HTMLAttributes<HTMLDivElement> {
 	data: BarListItem[];
 	valueFormatter?: (value: number) => string;
@@ -137,7 +146,7 @@ function VehicleLeaderboardCardContent({
 	className,
 	...props
 }: VehicleLeaderboardCardProps) {
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<FleetStatsItem[]>({
 		...orpc.analyst.analytics.fleetStats.queryOptions({
 			input: { period },
 		}),

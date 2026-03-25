@@ -20,6 +20,18 @@ interface SummaryStatsCardsProps {
 	period: Period;
 }
 
+interface SummaryStatValue {
+	value: number;
+	change: number | null;
+}
+
+interface SummaryStatsData {
+	revenue: SummaryStatValue;
+	expenses: SummaryStatValue;
+	profit: SummaryStatValue;
+	profitPercentage: SummaryStatValue;
+}
+
 function getPeriodDescription(period: Period): string {
 	switch (period) {
 		case "all_time":
@@ -65,7 +77,7 @@ function SummaryStatsCardsSkeleton() {
 }
 
 function SummaryStatsCardsContent({ period }: SummaryStatsCardsProps) {
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<SummaryStatsData>({
 		...orpc.analyst.analytics.summaryStats.queryOptions({
 			input: { period },
 		}),

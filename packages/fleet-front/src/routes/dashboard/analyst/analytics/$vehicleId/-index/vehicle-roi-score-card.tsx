@@ -27,6 +27,14 @@ interface VehicleRoiScoreCardProps extends ComponentProps<typeof Card> {
 	period: Period;
 }
 
+interface VehicleRoiStats {
+	revenuePercentage: number;
+	expensePercentage: number;
+	roiPercentage: number;
+	revenue: number;
+	vehicleImpactExpense: number;
+}
+
 const COLORS = {
 	revenue: "#22c55e",
 	expense: "#ef4444",
@@ -55,7 +63,7 @@ function VehicleRoiScoreCardContent({
 	className,
 	...props
 }: VehicleRoiScoreCardProps) {
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<VehicleRoiStats>({
 		...orpc.analyst.analytics.vehicle.roiStats.queryOptions({
 			input: { vehicleId, period },
 		}),
