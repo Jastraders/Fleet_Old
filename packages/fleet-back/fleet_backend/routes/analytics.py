@@ -306,3 +306,64 @@ def orpc_vehicle_expenses_stats(user):
         ).fetchall())
     return rpc_response(rows)
 
+
+@app.post("/orpc/analyst/analytics/vehicle/roiStats")
+@require_auth({"analyst"})
+def orpc_vehicle_roi_stats(user):
+    payload = rpc_payload()
+    vehicle_id = payload.get("vehicleId")
+    period = payload.get("period", "all_time")
+    if not vehicle_id:
+        return rpc_response({"message": "vehicleId is required"}, 400)
+    if period not in VEHICLE_PERIODS:
+        return rpc_response({"message": "Invalid period"}, 400)
+
+    start = vehicle_period_start(period)
+    revenue_params: list[Any] = [vehicle_id]
+    revenue_where = ["vehicle_id = ?", "type = 'credit'"]
+    if start is not None:
+        revenue_where.append("transaction_date >= ?")
+        revenue_params.append(start.isoformat())
+
+    impact_params: list[Any] = [vehicle_id]
+    impact_where = [
+        "i.vehicle_id = ?",
+        "i.type = 'debit'",
+        "INSTR(',' || c.impact || ',', ',vehicle,') > 0",
+    ]
+    if start is not None:
+        impact_where.append("i.transaction_date >= ?")
+        impact_params.append(start.isoformat())
+
+    with connect() as conn:
+        revenue_row = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(amount), 0) AS total
+            FROM journal_entry_items
+            WHERE {' AND '.join(revenue_where)}
+            """,
+            tuple(revenue_params),
+        ).fetchone()
+        impact_row = conn.execute(
+            f"""
+            SELECT COALESCE(SUM(i.amount), 0) AS total
+            FROM journal_entry_items i
+            JOIN expense_category c ON c.id = i.expense_category_id
+            WHERE {' AND '.join(impact_where)}
+            """,
+            tuple(impact_params),
+        ).fetchone()
+
+    revenue = float(revenue_row["total"] or 0)
+    vehicle_impact_expense = float(impact_row["total"] or 0)
+    roi_percentage = ((revenue - vehicle_impact_expense) / revenue * 100) if revenue > 0 else 0
+    expense_percentage = min(max((vehicle_impact_expense / revenue * 100) if revenue > 0 else 0, 0), 100)
+    revenue_percentage = 100 - expense_percentage
+
+    return rpc_response({
+        "revenue": revenue,
+        "vehicleImpactExpense": vehicle_impact_expense,
+        "roiPercentage": roi_percentage,
+        "revenuePercentage": revenue_percentage,
+        "expensePercentage": expense_percentage,
+    })
