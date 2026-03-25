@@ -103,6 +103,39 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+type ChartTooltipPayloadItem = {
+	dataKey?: string | number;
+	name?: string;
+	color?: string;
+	value?: number | string;
+	type?: string;
+	payload?: { fill?: string } & Record<string, unknown>;
+};
+
+type ChartTooltipContentProps = React.ComponentProps<"div"> & {
+	active?: boolean;
+	payload?: ChartTooltipPayloadItem[];
+	hideLabel?: boolean;
+	hideIndicator?: boolean;
+	indicator?: "line" | "dot" | "dashed";
+	label?: React.ReactNode;
+	labelFormatter?: (
+		label: React.ReactNode,
+		payload: ChartTooltipPayloadItem[],
+	) => React.ReactNode;
+	formatter?: (
+		value: number | string,
+		name: string,
+		item: ChartTooltipPayloadItem,
+		index: number,
+		payload: ChartTooltipPayloadItem["payload"],
+	) => React.ReactNode;
+	color?: string;
+	nameKey?: string;
+	labelKey?: string;
+	labelClassName?: string;
+};
+
 function ChartTooltipContent({
 	active,
 	payload,
@@ -117,14 +150,7 @@ function ChartTooltipContent({
 	color,
 	nameKey,
 	labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-	React.ComponentProps<"div"> & {
-		hideLabel?: boolean;
-		hideIndicator?: boolean;
-		indicator?: "line" | "dot" | "dashed";
-		nameKey?: string;
-		labelKey?: string;
-	}) {
+}: ChartTooltipContentProps) {
 	const { config } = useChart();
 
 	const tooltipLabel = React.useMemo(() => {
@@ -251,14 +277,23 @@ function ChartTooltipContent({
 
 const ChartLegend = RechartsPrimitive.Legend;
 
+type ChartLegendPayloadItem = {
+	dataKey?: string;
+	value?: string;
+	color?: string;
+	type?: string;
+	payload?: Record<string, unknown>;
+};
+
 function ChartLegendContent({
 	className,
 	hideIcon = false,
 	payload,
 	verticalAlign = "bottom",
 	nameKey,
-}: React.ComponentProps<"div"> &
-	Partial<Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign">> & {
+}: React.ComponentProps<"div"> & {
+	payload?: ChartLegendPayloadItem[];
+	verticalAlign?: "top" | "bottom" | "middle";
 		hideIcon?: boolean;
 		nameKey?: string;
 	}) {

@@ -27,6 +27,18 @@ interface VehicleSummaryStatsCardsProps {
 	period: Period;
 }
 
+interface VehicleSummaryStatValue {
+	value: number;
+	change: number | null;
+}
+
+interface VehicleSummaryStatsData {
+	revenue: VehicleSummaryStatValue;
+	expenses: VehicleSummaryStatValue;
+	profit: VehicleSummaryStatValue;
+	profitPercentage: VehicleSummaryStatValue;
+}
+
 function getPeriodDescription(period: Period): string {
 	switch (period) {
 		case "all_time":
@@ -77,7 +89,7 @@ function VehicleSummaryStatsCardsContent({
 	vehicleId,
 	period,
 }: VehicleSummaryStatsCardsProps) {
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<VehicleSummaryStatsData>({
 		...orpc.analyst.analytics.vehicle.summaryStats.queryOptions({
 			input: { vehicleId, period },
 		}),

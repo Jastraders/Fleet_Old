@@ -150,10 +150,9 @@ function VehicleTitleContent() {
 	const navigate = useNavigate({ from: Route.fullPath });
 	const { vehicleId } = Route.useParams();
 
-	const { data: vehicle } = useSuspenseQuery({
+	const { data: vehicle } = useSuspenseQuery<VehicleSummary>({
 		...orpc.accountant.vehicles.get.queryOptions({ input: { id: vehicleId } }),
 	});
-	const vehicleData = vehicle as VehicleSummary;
 
 	function handleGoBack() {
 		navigate({ to: "/dashboard/analyst/analytics" });
@@ -170,9 +169,9 @@ function VehicleTitleContent() {
 				<ArrowLeftIcon className="h-4 w-4" />
 			</Button>
 			<div>
-				<h1 className="text-2xl font-bold tracking-tight">{vehicleData.name}</h1>
+				<h1 className="text-2xl font-bold tracking-tight">{vehicle.name}</h1>
 				<p className="text-muted-foreground text-sm">
-					{vehicleData.licensePlate}
+					{vehicle.licensePlate}
 				</p>
 			</div>
 		</div>

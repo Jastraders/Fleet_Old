@@ -84,12 +84,12 @@ function VehicleProfitChartContent({
 	...props
 }: VehicleProfitChartProps) {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
-	const { data } = useSuspenseQuery({
+	const { data } = useSuspenseQuery<FleetProfitChartItem[]>({
 		...orpc.analyst.analytics.fleetStats.queryOptions({
 			input: { period },
 		}),
 	});
-	const fleetStats = data as FleetProfitChartItem[];
+	const fleetStats = data;
 
 	// Transform data for the chart - debit should be negative for stacking below 0
 	const chartData = fleetStats.map((vehicle) => ({
