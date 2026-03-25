@@ -19,7 +19,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "last_30d" | "last_3m" | "last_6m" | "last_9m" | "last_12m";
+type Period =
+	| "all_time"
+	| "last_30d"
+	| "last_3m"
+	| "last_6m"
+	| "last_9m"
+	| "last_12m";
 
 interface VehicleExpenseCategoriesStatsCardProps
 	extends ComponentProps<typeof Card> {
