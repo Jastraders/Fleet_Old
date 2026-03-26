@@ -39,7 +39,6 @@ export function CategorySelectField({
 	className,
 }: CategorySelectFieldProps) {
 	const [search, setSearch] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [initialized, setInitialized] = useState(false);
 
 	// Fetch initial category by id if value is present
@@ -54,14 +53,6 @@ export function CategorySelectField({
 		| ExpenseCategoryOption
 		| undefined;
 
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedSearch(search);
-		}, 300);
-
-		return () => clearTimeout(timer);
-	}, [search]);
-
 	// Initialize search with fetched category name
 	useEffect(() => {
 		if (initialCategory && !initialized) {
@@ -74,8 +65,8 @@ export function CategorySelectField({
 		...orpc.accountant.expenseCategories.list.queryOptions({
 			input: {
 				offset: 0,
-				limit: 20,
-				search: debouncedSearch,
+				limit: 100,
+				search: undefined,
 			},
 		}),
 	});
@@ -87,8 +78,8 @@ export function CategorySelectField({
 	const categories =
 		categoriesData?.data.filter((category) =>
 			normalizedSearch
-				? category.name.toLowerCase().startsWith(normalizedSearch)
-				: false,
+				? category.name.toLowerCase().includes(normalizedSearch)
+				: true,
 		) || [];
 
 	const handleValueChange = (newValue: string | null) => {

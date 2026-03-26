@@ -39,7 +39,6 @@ export function VehicleSelectField({
 	className,
 }: VehicleSelectFieldProps) {
 	const [search, setSearch] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [initialized, setInitialized] = useState(false);
 
 	// Fetch initial vehicle by id if value is present
@@ -51,14 +50,6 @@ export function VehicleSelectField({
 	});
 
 	const initialVehicle = initialVehicleData as VehicleOption | undefined;
-
-	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedSearch(search);
-		}, 300);
-
-		return () => clearTimeout(timer);
-	}, [search]);
 
 	// Initialize search with fetched vehicle name
 	useEffect(() => {
@@ -72,8 +63,8 @@ export function VehicleSelectField({
 		...orpc.accountant.vehicles.list.queryOptions({
 			input: {
 				offset: 0,
-				limit: 20,
-				search: debouncedSearch,
+				limit: 100,
+				search: undefined,
 			},
 		}),
 	});
@@ -83,8 +74,8 @@ export function VehicleSelectField({
 	const vehicles =
 		vehiclesData?.data.filter((vehicle) =>
 			normalizedSearch
-				? vehicle.name.toLowerCase().startsWith(normalizedSearch)
-				: false,
+				? vehicle.name.toLowerCase().includes(normalizedSearch)
+				: true,
 		) || [];
 
 	const handleValueChange = (newValue: string | null) => {

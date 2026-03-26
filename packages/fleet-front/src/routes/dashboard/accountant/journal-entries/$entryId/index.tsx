@@ -88,14 +88,23 @@ function RouteComponent() {
 			: new Date().toISOString().split("T")[0],
 		revenue:
 			entry?.items
-				?.filter((item) => item.type === "credit")
-				.reduce((sum, item) => sum + parseFloat(item.amount), 0)
+				?.filter((item: { type: string }) => item.type === "credit")
+				.reduce(
+					(sum: number, item: { amount: string }) =>
+						sum + parseFloat(item.amount),
+					0,
+				)
 				.toString() || "0",
 		notes: entry?.notes || "",
 		expenses:
 			entry?.items
-				?.filter((item) => item.type === "debit")
-				.map((item) => ({
+				?.filter((item: { type: string }) => item.type === "debit")
+				.map((item: {
+					expenseCategoryId?: string | null;
+					amount: string;
+					handler?: string | null;
+					nextRenewalDate?: string | null;
+				}) => ({
 					expenseCategoryId: item.expenseCategoryId || "",
 					amount: item.amount,
 					handler: item.handler || "",
@@ -344,9 +353,10 @@ function RouteComponent() {
 														key={index}
 														className="border rounded-md p-4 bg-muted/30"
 													>
-														<div className="grid grid-cols-1 gap-4 items-start sm:grid-cols-12">
-															{/* Category Field */}
-															<div className="sm:col-span-4">
+														<div className="space-y-4">
+															<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+																{/* Category Field */}
+																<div>
 																<form.Field
 																	name={`expenses[${index}].expenseCategoryId`}
 																>
@@ -381,10 +391,10 @@ function RouteComponent() {
 																		);
 																	}}
 																</form.Field>
-															</div>
+																</div>
 
-															{/* Amount Field */}
-															<div className="sm:col-span-3">
+																{/* Amount Field */}
+																<div>
 																<form.Field name={`expenses[${index}].amount`}>
 																	{(amountField) => {
 																		const amountIsInvalid =
@@ -430,9 +440,11 @@ function RouteComponent() {
 																		);
 																	}}
 																</form.Field>
+																</div>
 															</div>
 
-															<div className="sm:col-span-3">
+															<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+																<div>
 																<form.Field name={`expenses[${index}].handler`}>
 																	{(handlerField) => {
 																		const handlerIsInvalid =
@@ -465,9 +477,9 @@ function RouteComponent() {
 																		);
 																	}}
 																</form.Field>
-															</div>
+																</div>
 
-															<div className="sm:col-span-2">
+																<div>
 																<form.Field
 																	name={`expenses[${index}].nextRenewalDate`}
 																>
@@ -489,12 +501,12 @@ function RouteComponent() {
 																		</Field>
 																	)}
 																</form.Field>
-															</div>
+																</div>
 
-															{/* Delete Button */}
-															<div className="flex items-center justify-end sm:justify-center sm:col-span-12 sm:pt-2">
+																{/* Delete Button */}
+																<div className="flex items-center justify-end">
 																<Button
-																	className="max-sm:hidden"
+																	className="max-md:hidden"
 																	type="button"
 																	size="icon"
 																	variant="destructive"
@@ -503,7 +515,7 @@ function RouteComponent() {
 																	<TrashIcon className="h-4 w-4" />
 																</Button>
 																<Button
-																	className="sm:hidden"
+																	className="md:hidden"
 																	type="button"
 																	variant="destructive"
 																	onClick={createRemoveExpenseHandler(index)}
@@ -511,6 +523,7 @@ function RouteComponent() {
 																	Delete
 																	<TrashIcon className="h-4 w-4" />
 																</Button>
+																</div>
 															</div>
 														</div>
 													</div>
@@ -546,7 +559,8 @@ function RouteComponent() {
 							{({ revenue: revenueValue, expenses: expensesValue }) => {
 								const revenue = parseFloat(revenueValue || "0") || 0;
 								const totalExpenses = expensesValue.reduce(
-									(sum, exp) => sum + (parseFloat(exp.amount) || 0),
+									(sum: number, exp: { amount: string }) =>
+										sum + (parseFloat(exp.amount) || 0),
 									0,
 								);
 								const profit = revenue - totalExpenses;
