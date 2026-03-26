@@ -99,6 +99,9 @@ def init_db() -> None:
                 transaction_date TEXT NOT NULL,
                 type TEXT NOT NULL CHECK(type IN ('credit','debit')),
                 amount REAL NOT NULL,
+                voucher_id INTEGER UNIQUE,
+                handler TEXT,
+                next_renewal_date TEXT,
                 expense_category_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
@@ -190,6 +193,20 @@ def init_db() -> None:
         }
         if "driver_id" not in journal_entry_columns:
             conn.execute("ALTER TABLE journal_entries ADD COLUMN driver_id TEXT")
+
+        journal_item_columns = {
+            row["name"] for row in conn.execute("PRAGMA table_info(journal_entry_items)").fetchall()
+        }
+        if "voucher_id" not in journal_item_columns:
+            conn.execute("ALTER TABLE journal_entry_items ADD COLUMN voucher_id INTEGER")
+        if "handler" not in journal_item_columns:
+            conn.execute("ALTER TABLE journal_entry_items ADD COLUMN handler TEXT")
+        if "next_renewal_date" not in journal_item_columns:
+            conn.execute("ALTER TABLE journal_entry_items ADD COLUMN next_renewal_date TEXT")
+
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entry_items_voucher_id ON journal_entry_items(voucher_id) WHERE voucher_id IS NOT NULL"
+        )
 
         driver_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(drivers)").fetchall()

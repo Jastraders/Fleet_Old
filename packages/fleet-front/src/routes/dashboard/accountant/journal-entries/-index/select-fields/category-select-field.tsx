@@ -83,8 +83,13 @@ export function CategorySelectField({
 	const categoriesData = categoriesDataRaw as
 		| ExpenseCategoriesListResponse
 		| undefined;
-
-	const categories = categoriesData?.data || [];
+	const normalizedSearch = search.trim().toLowerCase();
+	const categories =
+		categoriesData?.data.filter((category) =>
+			normalizedSearch
+				? category.name.toLowerCase().startsWith(normalizedSearch)
+				: false,
+		) || [];
 
 	const handleValueChange = (newValue: string | null) => {
 		if (newValue) {

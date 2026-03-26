@@ -77,8 +77,13 @@ export function DriverSelectField({
 	});
 
 	const driversData = driversDataRaw as DriversListResponse | undefined;
-
-	const drivers = driversData?.data || [];
+	const normalizedSearch = search.trim().toLowerCase();
+	const drivers =
+		driversData?.data.filter((driver) =>
+			normalizedSearch
+				? driver.name.toLowerCase().startsWith(normalizedSearch)
+				: false,
+		) || [];
 
 	const handleValueChange = (newValue: string | null) => {
 		if (newValue) {
