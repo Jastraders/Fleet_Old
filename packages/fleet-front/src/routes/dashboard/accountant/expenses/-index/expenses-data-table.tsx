@@ -33,6 +33,14 @@ interface ExpenseRow {
 	created_at: string;
 }
 
+type ExpensesSearchState = {
+	offset: number;
+	limit: number;
+	search?: string;
+	sortBy: ExpensesDataTableProps["sortBy"];
+	sortOrder: "asc" | "desc";
+};
+
 const createSortHeader = (
 	label: string,
 	sortKey: ExpensesDataTableProps["sortBy"],
@@ -102,13 +110,28 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 	useEffect(() => setSearchValue(search ?? ""), [search]);
 	useEffect(() => {
 		const timer = setTimeout(() => {
-			void router.navigate({ to: ".", search: (prev) => ({ ...prev, search: searchValue || undefined, offset: 0 }) });
+			void router.navigate({
+				to: ".",
+				search: (prev: ExpensesSearchState) => ({
+					...prev,
+					search: searchValue || undefined,
+					offset: 0,
+				}),
+			});
 		}, 300);
 		return () => clearTimeout(timer);
 	}, [searchValue, router]);
 
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
-		void router.navigate({ to: ".", search: (prev) => ({ ...prev, sortBy: newSortBy as ExpensesDataTableProps["sortBy"], sortOrder: newSortOrder as "asc" | "desc", offset: 0 }) });
+		void router.navigate({
+			to: ".",
+			search: (prev: ExpensesSearchState) => ({
+				...prev,
+				sortBy: newSortBy as ExpensesDataTableProps["sortBy"],
+				sortOrder: newSortOrder as "asc" | "desc",
+				offset: 0,
+			}),
+		});
 	};
 	const columns = createColumns(sortBy, sortOrder, handleSort);
 	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
@@ -139,7 +162,10 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 						onClick={() =>
 							void router.navigate({
 								to: ".",
-								search: (prev) => ({ ...prev, offset: Math.max(0, offset - limit) }),
+								search: (prev: ExpensesSearchState) => ({
+									...prev,
+									offset: Math.max(0, offset - limit),
+								}),
 							})
 						}
 						disabled={offset === 0}
@@ -152,7 +178,10 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 						onClick={() =>
 							void router.navigate({
 								to: ".",
-								search: (prev) => ({ ...prev, offset: offset + limit }),
+								search: (prev: ExpensesSearchState) => ({
+									...prev,
+									offset: offset + limit,
+								}),
 							})
 						}
 						disabled={offset + limit >= total}

@@ -6,7 +6,8 @@ import { orpc } from "@/orpc";
 import {
 	ExpensesDataTable,
 	type ExpensesDataTableProps,
-} from "@/routes/dashboard/accountant/expenses/-index/expenses-data-table";
+} from "./-index/expenses-data-table";
+import { ExpensesEmptyState } from "./-index/expenses-empty-state";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -87,10 +88,14 @@ function ExpensesList() {
 		}),
 	});
 
+	if (!data || data.meta.total === 0) {
+		return <ExpensesEmptyState />;
+	}
+
 	return (
 		<ExpensesDataTable
-			data={data?.data || []}
-			total={data?.meta.total || 0}
+			data={data.data}
+			total={data.meta.total}
 			offset={query.offset}
 			limit={query.limit}
 			search={query.search}

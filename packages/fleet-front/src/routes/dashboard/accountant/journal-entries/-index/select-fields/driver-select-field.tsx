@@ -39,7 +39,6 @@ export function DriverSelectField({
 	className,
 }: DriverSelectFieldProps) {
 	const [search, setSearch] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [initialized, setInitialized] = useState(false);
 
 	const { data: initialDriverData } = useQuery({
@@ -52,14 +51,6 @@ export function DriverSelectField({
 	const initialDriver = initialDriverData as DriverOption | undefined;
 
 	useEffect(() => {
-		const timer = setTimeout(() => {
-			setDebouncedSearch(search);
-		}, 300);
-
-		return () => clearTimeout(timer);
-	}, [search]);
-
-	useEffect(() => {
 		if (initialDriver && !initialized) {
 			setSearch(initialDriver.name);
 			setInitialized(true);
@@ -70,8 +61,8 @@ export function DriverSelectField({
 		...orpc.accountant.drivers.list.queryOptions({
 			input: {
 				offset: 0,
-				limit: 20,
-				search: debouncedSearch,
+				limit: 100,
+				search: undefined,
 			},
 		}),
 	});
@@ -81,8 +72,8 @@ export function DriverSelectField({
 	const drivers =
 		driversData?.data.filter((driver) =>
 			normalizedSearch
-				? driver.name.toLowerCase().startsWith(normalizedSearch)
-				: false,
+				? driver.name.toLowerCase().includes(normalizedSearch)
+				: true,
 		) || [];
 
 	const handleValueChange = (newValue: string | null) => {
