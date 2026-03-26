@@ -62,6 +62,13 @@ def refresh_vehicle_total_expense(conn, vehicle_id: str | None):
         (float(row["total"] or 0), now_iso(), vehicle_id),
     )
 
+
+def next_voucher_id(conn) -> int:
+    row = conn.execute(
+        "SELECT COALESCE(MAX(voucher_id), 0) + 1 AS next_id FROM journal_entry_items"
+    ).fetchone()
+    return int(row["next_id"] or 1)
+
 @app.post("/orpc/accountant/vehicles/list")
 @require_auth({"accountant"})
 def orpc_list_vehicles(user):
@@ -540,6 +547,86 @@ def orpc_list_entries(user):
     return rpc_response(with_meta(serialized_entries, offset, limit, total))
 
 
+@app.post("/orpc/accountant/expenses/list")
+@require_auth({"accountant"})
+def orpc_list_expenses(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses = ["i.type = 'debit'"]
+    where_params: list[Any] = []
+    if search:
+        search_term = f"%{search}%"
+        where_clauses.append(
+            "(COALESCE(c.name, '') LIKE ? OR COALESCE(i.handler, '') LIKE ? OR COALESCE(v.name, '') LIKE ? OR COALESCE(d.name, '') LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+        )
+        where_params.extend([search_term, search_term, search_term, search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}"
+
+    sort_map = {
+        "voucherId": "COALESCE(i.voucher_id, 0)",
+        "expenseCategory": "LOWER(COALESCE(c.name, ''))",
+        "amount": "i.amount",
+        "handler": "LOWER(COALESCE(i.handler, ''))",
+        "nextRenewalDate": "COALESCE(i.next_renewal_date, '')",
+        "expenseImpact": "LOWER(COALESCE(c.impact, ''))",
+        "vehicle": "LOWER(COALESCE(v.name, ''))",
+        "driver": "LOWER(COALESCE(d.name, ''))",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+        "createdAt": "i.created_at",
+    }
+    order_column = sort_map.get(sort_by, "i.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
+    with connect() as conn:
+        rows = rows_to_dicts(
+            conn.execute(
+                f"""
+                    SELECT
+                        i.*,
+                        c.name AS category_name,
+                        c.impact AS category_impact,
+                        j.driver_id,
+                        j.created_by AS expense_created_by,
+                        j.created_at AS entry_created_at,
+                        v.name AS vehicle_name,
+                        v.license_plate AS vehicle_license_plate,
+                        d.name AS driver_name,
+                        u.name AS created_by_name
+                    FROM journal_entry_items i
+                    LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                    LEFT JOIN expense_category c ON c.id = i.expense_category_id
+                    LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                    LEFT JOIN drivers d ON d.id = j.driver_id
+                    LEFT JOIN users u ON u.id = j.created_by
+                    {where_sql}
+                    ORDER BY {order_column} {order_direction}
+                    LIMIT ? OFFSET ?
+                """,
+                (*where_params, limit, offset),
+            ).fetchall()
+        )
+        total = conn.execute(
+            f"""
+                SELECT COUNT(*) AS c
+                FROM journal_entry_items i
+                LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                LEFT JOIN expense_category c ON c.id = i.expense_category_id
+                LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["c"]
+
+    return rpc_response(with_meta(rows, offset, limit, total))
+
+
 @app.post("/orpc/accountant/journalEntries/create")
 @require_auth({"accountant"})
 def orpc_create_entry(user):
@@ -558,7 +645,7 @@ def orpc_create_entry(user):
         )
         for item in payload.get("items", []):
             conn.execute(
-                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     str(uuid.uuid4()),
                     eid,
@@ -566,6 +653,9 @@ def orpc_create_entry(user):
                     item["transactionDate"],
                     item["type"],
                     float(item["amount"]),
+                    next_voucher_id(conn) if item["type"] == "debit" else None,
+                    item.get("handler"),
+                    item.get("nextRenewalDate"),
                     item.get("expenseCategoryId"),
                 ),
             )
@@ -641,7 +731,7 @@ def orpc_update_entry(user):
             conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
             for item in payload["items"]:
                 conn.execute(
-                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (
                         str(uuid.uuid4()),
                         entry_id,
@@ -649,6 +739,9 @@ def orpc_update_entry(user):
                         item["transactionDate"],
                         item["type"],
                         float(item["amount"]),
+                        next_voucher_id(conn) if item["type"] == "debit" else None,
+                        item.get("handler"),
+                        item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
                     ),
                 )
@@ -878,7 +971,7 @@ def create_entry(user):
         )
         for item in payload.get("items", []):
             conn.execute(
-                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
                     str(uuid.uuid4()),
                     eid,
@@ -886,6 +979,9 @@ def create_entry(user):
                     item["transactionDate"],
                     item["type"],
                     float(item["amount"]),
+                    next_voucher_id(conn) if item["type"] == "debit" else None,
+                    item.get("handler"),
+                    item.get("nextRenewalDate"),
                     item.get("expenseCategoryId"),
                 ),
             )
@@ -931,7 +1027,7 @@ def update_entry(user, entry_id):
             conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
             for item in payload["items"]:
                 conn.execute(
-                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,expense_category_id) VALUES (?,?,?,?,?,?,?)",
+                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (
                         str(uuid.uuid4()),
                         entry_id,
@@ -939,6 +1035,9 @@ def update_entry(user, entry_id):
                         item["transactionDate"],
                         item["type"],
                         float(item["amount"]),
+                        next_voucher_id(conn) if item["type"] == "debit" else None,
+                        item.get("handler"),
+                        item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
                     ),
                 )

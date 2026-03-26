@@ -38,14 +38,15 @@ const expenseItemSchema = v.object({
 		v.minLength(1, "Amount is required"),
 		v.transform((val) => parseFloat(val) || 0),
 	),
+	handler: v.pipe(v.string(), v.minLength(1, "Handler is required")),
+	nextRenewalDate: v.optional(v.string()),
 });
 
 const editEntryFormSchema = v.object({
 	transactionDate: v.pipe(v.string(), v.minLength(1, "Date is required")),
 	revenue: v.pipe(
-		v.string(),
-		v.minLength(1, "Revenue is required"),
-		v.transform((val) => parseFloat(val) || 0),
+		v.optional(v.string(), "0"),
+		v.transform((val) => parseFloat(val || "0") || 0),
 	),
 	notes: v.optional(v.string()),
 	expenses: v.array(expenseItemSchema),
@@ -89,7 +90,7 @@ function RouteComponent() {
 			entry?.items
 				?.filter((item) => item.type === "credit")
 				.reduce((sum, item) => sum + parseFloat(item.amount), 0)
-				.toString() || "",
+				.toString() || "0",
 		notes: entry?.notes || "",
 		expenses:
 			entry?.items
@@ -97,6 +98,10 @@ function RouteComponent() {
 				.map((item) => ({
 					expenseCategoryId: item.expenseCategoryId || "",
 					amount: item.amount,
+					handler: item.handler || "",
+					nextRenewalDate: item.nextRenewalDate
+						? item.nextRenewalDate.split("T")[0]
+						: "",
 				})) || [],
 	};
 
@@ -110,7 +115,7 @@ function RouteComponent() {
 				{
 					transactionDate: value.transactionDate,
 					type: "credit" as const,
-					amount: value.revenue.toString(),
+					amount: (value.revenue || 0).toString(),
 					expenseCategoryId: undefined,
 				},
 				...value.expenses.map((exp) => ({
@@ -118,6 +123,8 @@ function RouteComponent() {
 					type: "debit" as const,
 					amount: exp.amount.toString(),
 					expenseCategoryId: exp.expenseCategoryId,
+					handler: exp.handler,
+					nextRenewalDate: exp.nextRenewalDate || undefined,
 				})),
 			];
 
@@ -134,6 +141,8 @@ function RouteComponent() {
 			// biome-ignore lint/suspicious/noExplicitAny: default to unselected
 			expenseCategoryId: null as any,
 			amount: "",
+			handler: "",
+			nextRenewalDate: "",
 		});
 	};
 
@@ -241,10 +250,7 @@ function RouteComponent() {
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (
 												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="revenue">
-														Revenue
-														<span className="text-destructive">*</span>
-													</FieldLabel>
+													<FieldLabel htmlFor="revenue">Revenue</FieldLabel>
 													<InputGroup>
 														<InputGroupAddon>₹</InputGroupAddon>
 														<InputGroupInput
@@ -340,7 +346,7 @@ function RouteComponent() {
 													>
 														<div className="grid grid-cols-1 gap-4 items-start sm:grid-cols-12">
 															{/* Category Field */}
-															<div className="sm:col-span-7">
+															<div className="sm:col-span-4">
 																<form.Field
 																	name={`expenses[${index}].expenseCategoryId`}
 																>
@@ -378,7 +384,7 @@ function RouteComponent() {
 															</div>
 
 															{/* Amount Field */}
-															<div className="sm:col-span-4">
+															<div className="sm:col-span-3">
 																<form.Field name={`expenses[${index}].amount`}>
 																	{(amountField) => {
 																		const amountIsInvalid =
@@ -426,8 +432,67 @@ function RouteComponent() {
 																</form.Field>
 															</div>
 
+															<div className="sm:col-span-3">
+																<form.Field name={`expenses[${index}].handler`}>
+																	{(handlerField) => {
+																		const handlerIsInvalid =
+																			handlerField.state.meta.isTouched &&
+																			!handlerField.state.meta.isValid;
+																		return (
+																			<Field data-invalid={handlerIsInvalid}>
+																				<FieldLabel htmlFor={`expense-handler-${index}`}>
+																					Handler
+																					<span className="text-destructive">*</span>
+																				</FieldLabel>
+																				<Input
+																					id={`expense-handler-${index}`}
+																					name={handlerField.name}
+																					value={handlerField.state.value}
+																					onBlur={handlerField.handleBlur}
+																					onChange={(e) =>
+																						handlerField.handleChange(
+																							e.target.value,
+																						)
+																					}
+																					placeholder="Enter handler name"
+																				/>
+																				{handlerIsInvalid && (
+																					<FieldError
+																						errors={handlerField.state.meta.errors}
+																					/>
+																				)}
+																			</Field>
+																		);
+																	}}
+																</form.Field>
+															</div>
+
+															<div className="sm:col-span-2">
+																<form.Field
+																	name={`expenses[${index}].nextRenewalDate`}
+																>
+																	{(renewalField) => (
+																		<Field>
+																			<FieldLabel htmlFor={`expense-renewal-${index}`}>
+																				Next Renewal
+																			</FieldLabel>
+																			<Input
+																				id={`expense-renewal-${index}`}
+																				type="date"
+																				name={renewalField.name}
+																				value={renewalField.state.value || ""}
+																				onBlur={renewalField.handleBlur}
+																				onChange={(e) =>
+																					renewalField.handleChange(e.target.value)
+																				}
+																			/>
+																		</Field>
+																	)}
+																</form.Field>
+															</div>
+
 															{/* Delete Button */}
-															<div className="flex items-center justify-end sm:justify-center sm:col-span-1 sm:pt-8">
+															<div className="flex items-center justify-end sm:justify-center sm:col-span-12 sm:pt-2">
 																<Button
 																	className="max-sm:hidden"
 																	type="button"

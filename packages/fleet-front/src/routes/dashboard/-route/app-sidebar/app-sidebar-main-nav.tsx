@@ -4,6 +4,7 @@ import {
 	BanknoteArrowDownIcon,
 	ChartPieIcon,
     CircleUserRoundIcon,
+	ReceiptTextIcon,
 	SettingsIcon,
 	TagIcon,
 	TruckIcon,
@@ -62,6 +63,20 @@ export function AppSidebarMainNav() {
 				<>
 					<SidebarGroup>
 						<SidebarGroupLabel>Accountant</SidebarGroupLabel>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								render={
+									<Link
+										to="/dashboard/accountant/expenses"
+										activeProps={{ "data-active": true }}
+										activeOptions={{ exact: true, includeSearch: false }}
+									/>
+								}
+							>
+								<ReceiptTextIcon />
+								Expenses
+							</SidebarMenuButton>
+						</SidebarMenuItem>
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								render={

@@ -79,8 +79,13 @@ export function VehicleSelectField({
 	});
 
 	const vehiclesData = vehiclesDataRaw as VehiclesListResponse | undefined;
-
-	const vehicles = vehiclesData?.data || [];
+	const normalizedSearch = search.trim().toLowerCase();
+	const vehicles =
+		vehiclesData?.data.filter((vehicle) =>
+			normalizedSearch
+				? vehicle.name.toLowerCase().startsWith(normalizedSearch)
+				: false,
+		) || [];
 
 	const handleValueChange = (newValue: string | null) => {
 		if (newValue) {

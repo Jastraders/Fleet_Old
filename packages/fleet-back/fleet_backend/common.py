@@ -321,6 +321,9 @@ def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
         "transactionDate": to_iso_datetime(item.get("transaction_date")),
         "type": item["type"],
         "amount": item["amount"],
+        "voucherId": item.get("voucher_id"),
+        "handler": item.get("handler"),
+        "nextRenewalDate": to_iso_datetime(item.get("next_renewal_date")),
         "expenseCategoryId": item.get("expense_category_id"),
         "createdAt": to_iso_datetime(item.get("created_at")),
     }
