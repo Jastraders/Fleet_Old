@@ -148,8 +148,11 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 					<Button onClick={() => void router.navigate({ to: "/dashboard/accountant/journal-entries/new" })}><PlusIcon className="h-4 w-4" />Add Expense</Button>
 				</div>
 			</div>
-			<div className="overflow-hidden rounded-lg border">
-				<Table><TableHeader className="bg-muted">{table.getHeaderGroups().map((hg) => <TableRow key={hg.id}>{hg.headers.map((h) => <TableHead key={h.id}>{h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}</TableHead>)}</TableRow>)}</TableHeader>
+			<div className="overflow-x-auto rounded-lg border">
+				<Table className="min-w-[1100px]">
+					<TableHeader className="bg-muted sticky top-0 z-10">
+						{table.getHeaderGroups().map((hg) => <TableRow key={hg.id}>{hg.headers.map((h) => <TableHead key={h.id}>{h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}</TableHead>)}</TableRow>)}
+					</TableHeader>
 				<TableBody>{table.getRowModel().rows.length ? table.getRowModel().rows.map((row) => <TableRow key={row.id}>{row.getVisibleCells().map((cell) => <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}</TableRow>) : <TableRow><TableCell colSpan={columns.length} className="h-24 text-center">No expenses found.</TableCell></TableRow>}</TableBody></Table>
 			</div>
 			<div className="flex items-center justify-end gap-4">
