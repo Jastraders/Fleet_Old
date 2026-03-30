@@ -21,28 +21,66 @@ import {
 	FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Vehicle } from "@/models/vehicle";
 import { orpc } from "@/orpc";
 
-const updateVehicleFormSchema = v.object({
-	name: v.pipe(
-		v.string(),
-		v.minLength(1, "Name is required"),
-		v.maxLength(255),
-	),
+const baseSchema = v.object({
+	name: v.pipe(v.string(), v.minLength(1, "Name is required"), v.maxLength(255)),
 	licensePlate: v.pipe(
 		v.string(),
 		v.minLength(1, "License Plate is required"),
 		v.maxLength(255),
 	),
+	model: v.pipe(v.string(), v.minLength(1, "Model is required"), v.maxLength(255)),
+	year: v.pipe(v.number(), v.minValue(1900, "Enter valid year"), v.maxValue(3000)),
+	renewalDate: v.pipe(v.string(), v.minLength(1, "Renewal date is required")),
+	loadCapacity: v.pipe(v.number(), v.minValue(0, "Load capacity must be 0 or more")),
+	investmentMode: v.picklist(["full_amount", "full_loan", "flexible"]),
+	totalPrice: v.optional(v.nullable(v.number())),
+	monthlyEmi: v.optional(v.nullable(v.number())),
+	emiStartDate: v.optional(v.nullable(v.string())),
+	emiDurationMonths: v.optional(v.nullable(v.number())),
+	downPayment: v.optional(v.nullable(v.number())),
+	totalRevenue: v.pipe(v.number(), v.minValue(0)),
 });
+
+const updateVehicleFormSchema = v.pipe(
+	baseSchema,
+	v.check((input) => {
+		if (input.investmentMode === "full_amount") {
+			return (input.totalPrice ?? 0) > 0;
+		}
+		if (input.investmentMode === "full_loan") {
+			return (
+				(input.monthlyEmi ?? 0) > 0 &&
+				(input.emiDurationMonths ?? 0) > 0 &&
+				!!input.emiStartDate
+			);
+		}
+		return (
+			(input.downPayment ?? 0) >= 0 &&
+			(input.monthlyEmi ?? 0) > 0 &&
+			(input.emiDurationMonths ?? 0) > 0 &&
+			!!input.emiStartDate
+		);
+	}, "Enter all required investment details"),
+);
 
 interface UpdateVehicleDialogProps {
 	vehicle: Vehicle | null;
 	isOpen: boolean;
 	onOpenChange: (open: boolean) => void;
 }
+
+const parseNumber = (value: string): number | null => {
+	if (!value.trim()) {
+		return null;
+	}
+	const parsed = Number(value);
+	return Number.isNaN(parsed) ? null : parsed;
+};
 
 export function UpdateVehicleDialog({
 	vehicle,
@@ -69,10 +107,32 @@ export function UpdateVehicleDialog({
 		? {
 				name: vehicle.name,
 				licensePlate: vehicle.licensePlate ?? "",
+				model: vehicle.model ?? "",
+				year: vehicle.year ?? new Date().getFullYear(),
+				renewalDate: vehicle.renewalDate ? vehicle.renewalDate.slice(0, 10) : "",
+				loadCapacity: vehicle.loadCapacity ?? 0,
+				investmentMode: vehicle.investmentMode,
+				totalPrice: vehicle.totalPrice ?? null,
+				monthlyEmi: vehicle.monthlyEmi ?? null,
+				emiStartDate: vehicle.emiStartDate ? vehicle.emiStartDate.slice(0, 10) : null,
+				emiDurationMonths: vehicle.emiDurationMonths ?? null,
+				downPayment: vehicle.downPayment ?? null,
+				totalRevenue: vehicle.totalRevenue ?? 0,
 			}
 		: {
 				name: "",
 				licensePlate: "",
+				model: "",
+				year: new Date().getFullYear(),
+				renewalDate: "",
+				loadCapacity: 0,
+				investmentMode: "full_amount",
+				totalPrice: null,
+				monthlyEmi: null,
+				emiStartDate: null,
+				emiDurationMonths: null,
+				downPayment: null,
+				totalRevenue: 0,
 			};
 
 	const form = useForm({
@@ -127,76 +187,54 @@ export function UpdateVehicleDialog({
 						<FieldGroup className="my-4">
 							<FieldSet>
 								<FieldGroup>
-									<form.Field name="name">
-										{(field) => {
-											const isInvalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="vehicle-name">
-														Vehicle Name
-														<span className="text-destructive">*</span>
-													</FieldLabel>
-													<Input
-														id="vehicle-name"
-														name={field.name}
-														value={field.state.value}
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., Fleet Truck #1"
-														aria-invalid={isInvalid}
-													/>
-													{isInvalid && (
-														<FieldError errors={field.state.meta.errors} />
-													)}
-												</Field>
-											);
-										}}
+									<form.Field name="name">{(field) => <Field><FieldLabel>Vehicle Name<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="licensePlate">{(field) => <Field><FieldLabel>License Plate<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="model">{(field) => <Field><FieldLabel>Model<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="year">{(field) => <Field><FieldLabel>Year<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value} onChange={(e) => field.handleChange(Number(e.target.value || 0))} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="renewalDate">{(field) => <Field><FieldLabel>Renewal<span className="text-destructive">*</span></FieldLabel><Input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="loadCapacity">{(field) => <Field><FieldLabel>Load Capacity<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value} onChange={(e) => field.handleChange(Number(e.target.value || 0))} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="investmentMode">
+										{(field) => (
+											<Field>
+												<FieldLabel>Investment Mode<span className="text-destructive">*</span></FieldLabel>
+												<NativeSelect value={field.state.value} onChange={(e) => field.handleChange(e.target.value as "full_amount" | "full_loan" | "flexible")}>
+													<option value="full_amount">Full Amount</option>
+													<option value="full_loan">Full Loan</option>
+													<option value="flexible">Flexible</option>
+												</NativeSelect>
+											</Field>
+										)}
 									</form.Field>
-									<form.Field name="licensePlate">
-										{(field) => {
-											const isInvalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="vehicle-licensePlate">
-														License Plate
-														<span className="text-destructive">*</span>
-													</FieldLabel>
-													<Input
-														id="vehicle-licensePlate"
-														name={field.name}
-														value={field.state.value}
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., ABC-1234"
-														aria-invalid={isInvalid}
-													/>
-													{isInvalid && (
-														<FieldError errors={field.state.meta.errors} />
-													)}
-												</Field>
-											);
-										}}
-									</form.Field>
+									<form.Subscribe selector={(s) => s.values.investmentMode}>
+										{(mode) => (
+											<>
+												{mode === "full_amount" && <form.Field name="totalPrice">{(field) => <Field><FieldLabel>Total Price<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>}
+												{mode === "flexible" && <form.Field name="downPayment">{(field) => <Field><FieldLabel>Down Payment<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>}
+												{["full_loan", "flexible"].includes(mode) && (
+													<>
+														<form.Field name="monthlyEmi">{(field) => <Field><FieldLabel>Monthly EMI<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>
+														<form.Field name="emiStartDate">{(field) => <Field><FieldLabel>Starting Date<span className="text-destructive">*</span></FieldLabel><Input type="date" value={field.state.value ?? ""} onChange={(e) => field.handleChange(e.target.value || null)} /></Field>}</form.Field>
+														<form.Field name="emiDurationMonths">{(field) => <Field><FieldLabel>Duration Months<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>
+													</>
+												)}
+											</>
+										)}
+									</form.Subscribe>
+									<form.Field name="totalRevenue">{(field) => <Field><FieldLabel>Revenue</FieldLabel><Input type="number" value={field.state.value} onChange={(e) => field.handleChange(Number(e.target.value || 0))} /></Field>}</form.Field>
 								</FieldGroup>
 							</FieldSet>
 
 							{updateVehicleMutation.error && (
 								<Alert>
 									<InfoIcon />
-									<AlertDescription>
-										{updateVehicleMutation.error.message}
-									</AlertDescription>
+									<AlertDescription>{updateVehicleMutation.error.message}</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>
 
 						<DialogFooter className="mt-8">
 							<Button type="submit" disabled={updateVehicleMutation.isPending}>
-								{updateVehicleMutation.isPending
-									? "Updating..."
-									: "Update Vehicle"}
+								{updateVehicleMutation.isPending ? "Updating..." : "Update Vehicle"}
 							</Button>
 						</DialogFooter>
 					</form>

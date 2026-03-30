@@ -22,25 +22,72 @@ import {
 	FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
 
-const createVehicleFormSchema = v.object({
-	name: v.pipe(
-		v.string(),
-		v.minLength(1, "Name is required"),
-		v.maxLength(255),
-	),
+const baseSchema = v.object({
+	name: v.pipe(v.string(), v.minLength(1, "Name is required"), v.maxLength(255)),
 	licensePlate: v.pipe(
 		v.string(),
 		v.minLength(1, "License Plate is required"),
 		v.maxLength(255),
 	),
+	model: v.pipe(v.string(), v.minLength(1, "Model is required"), v.maxLength(255)),
+	year: v.pipe(v.number(), v.minValue(1900, "Enter valid year"), v.maxValue(3000)),
+	renewalDate: v.pipe(v.string(), v.minLength(1, "Renewal date is required")),
+	loadCapacity: v.pipe(v.number(), v.minValue(0, "Load capacity must be 0 or more")),
+	investmentMode: v.picklist(["full_amount", "full_loan", "flexible"]),
+	totalPrice: v.optional(v.nullable(v.number())),
+	monthlyEmi: v.optional(v.nullable(v.number())),
+	emiStartDate: v.optional(v.nullable(v.string())),
+	emiDurationMonths: v.optional(v.nullable(v.number())),
+	downPayment: v.optional(v.nullable(v.number())),
 });
+
+const createVehicleFormSchema = v.pipe(
+	baseSchema,
+	v.check((input) => {
+		if (input.investmentMode === "full_amount") {
+			return (input.totalPrice ?? 0) > 0;
+		}
+		if (input.investmentMode === "full_loan") {
+			return (
+				(input.monthlyEmi ?? 0) > 0 &&
+				(input.emiDurationMonths ?? 0) > 0 &&
+				!!input.emiStartDate
+			);
+		}
+		return (
+			(input.downPayment ?? 0) >= 0 &&
+			(input.monthlyEmi ?? 0) > 0 &&
+			(input.emiDurationMonths ?? 0) > 0 &&
+			!!input.emiStartDate
+		);
+	}, "Enter all required investment details"),
+);
 
 const defaultValues: v.InferInput<typeof createVehicleFormSchema> = {
 	name: "",
 	licensePlate: "",
+	model: "",
+	year: new Date().getFullYear(),
+	renewalDate: "",
+	loadCapacity: 0,
+	investmentMode: "full_amount",
+	totalPrice: null,
+	monthlyEmi: null,
+	emiStartDate: null,
+	emiDurationMonths: null,
+	downPayment: null,
+};
+
+const parseNumber = (value: string): number | null => {
+	if (!value.trim()) {
+		return null;
+	}
+	const parsed = Number(value);
+	return Number.isNaN(parsed) ? null : parsed;
 };
 
 export function CreateVehicleDialog() {
@@ -106,66 +153,133 @@ export function CreateVehicleDialog() {
 							<FieldSet>
 								<FieldGroup>
 									<form.Field name="name">
-										{(field) => {
-											const isInvalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="vehicle-name">
-														Vehicle Name
-														<span className="text-destructive">*</span>
-													</FieldLabel>
-													<Input
-														id="vehicle-name"
-														name={field.name}
-														value={field.state.value}
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., Fleet Truck #1"
-														aria-invalid={isInvalid}
-													/>
-													{isInvalid && (
-														<FieldError errors={field.state.meta.errors} />
-													)}
-												</Field>
-											);
-										}}
+										{(field) => (
+											<Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}>
+												<FieldLabel htmlFor="vehicle-name">Vehicle Name<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-name" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Fleet Truck #1" />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
 									</form.Field>
 									<form.Field name="licensePlate">
-										{(field) => {
-											const isInvalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="vehicle-licensePlate">
-														License Plate
-														<span className="text-destructive">*</span>
-													</FieldLabel>
-													<Input
-														id="vehicle-licensePlate"
-														name={field.name}
-														value={field.state.value}
-														onBlur={field.handleBlur}
-														onChange={(e) => field.handleChange(e.target.value)}
-														placeholder="e.g., ABC-1234"
-														aria-invalid={isInvalid}
-													/>
-													{isInvalid && (
-														<FieldError errors={field.state.meta.errors} />
-													)}
-												</Field>
-											);
-										}}
+										{(field) => (
+											<Field data-invalid={field.state.meta.isTouched && !field.state.meta.isValid}>
+												<FieldLabel htmlFor="vehicle-licensePlate">License Plate<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-licensePlate" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., ABC-1234" />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
 									</form.Field>
+									<form.Field name="model">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-model">Model<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-model" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Tata 407" />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="year">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-year">Year<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-year" type="number" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(Number(e.target.value || 0))} />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="renewalDate">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-renewal">Renewal<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-renewal" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="loadCapacity">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-load-capacity">Load Capacity<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-load-capacity" type="number" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(Number(e.target.value || 0))} placeholder="e.g., 2000" />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="investmentMode">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-investment-mode">Investment Mode<span className="text-destructive">*</span></FieldLabel>
+												<NativeSelect id="vehicle-investment-mode" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value as "full_amount" | "full_loan" | "flexible")}>
+													<option value="full_amount">Full Amount</option>
+													<option value="full_loan">Full Loan</option>
+													<option value="flexible">Flexible</option>
+												</NativeSelect>
+											</Field>
+										)}
+									</form.Field>
+
+									<form.Subscribe selector={(s) => s.values.investmentMode}>
+										{(investmentMode) => (
+											<>
+												{investmentMode === "full_amount" && (
+													<form.Field name="totalPrice">
+														{(field) => (
+															<Field>
+																<FieldLabel htmlFor="vehicle-total-price">Total Price<span className="text-destructive">*</span></FieldLabel>
+																<Input id="vehicle-total-price" type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} />
+															</Field>
+														)}
+													</form.Field>
+												)}
+												{["full_loan", "flexible"].includes(investmentMode) && (
+													<>
+														{investmentMode === "flexible" && (
+															<form.Field name="downPayment">
+																{(field) => (
+																	<Field>
+																		<FieldLabel htmlFor="vehicle-down-payment">Down Payment<span className="text-destructive">*</span></FieldLabel>
+																		<Input id="vehicle-down-payment" type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} />
+																	</Field>
+																)}
+															</form.Field>
+														)}
+														<form.Field name="monthlyEmi">
+															{(field) => (
+																<Field>
+																	<FieldLabel htmlFor="vehicle-monthly-emi">Monthly EMI<span className="text-destructive">*</span></FieldLabel>
+																	<Input id="vehicle-monthly-emi" type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} />
+																</Field>
+															)}
+														</form.Field>
+														<form.Field name="emiStartDate">
+															{(field) => (
+																<Field>
+																	<FieldLabel htmlFor="vehicle-emi-start-date">Starting Date<span className="text-destructive">*</span></FieldLabel>
+																	<Input id="vehicle-emi-start-date" type="date" value={field.state.value ?? ""} onChange={(e) => field.handleChange(e.target.value || null)} />
+																</Field>
+															)}
+														</form.Field>
+														<form.Field name="emiDurationMonths">
+															{(field) => (
+																<Field>
+																	<FieldLabel htmlFor="vehicle-emi-duration">Duration Months<span className="text-destructive">*</span></FieldLabel>
+																	<Input id="vehicle-emi-duration" type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} />
+																</Field>
+															)}
+														</form.Field>
+													</>
+												)}
+											</>
+										)}
+									</form.Subscribe>
 								</FieldGroup>
 							</FieldSet>
 
 							{createVehicleMutation.error && (
 								<Alert>
 									<InfoIcon />
-									<AlertDescription>
-										{createVehicleMutation.error.message}
-									</AlertDescription>
+									<AlertDescription>{createVehicleMutation.error.message}</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>

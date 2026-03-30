@@ -233,12 +233,60 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
             "image": vehicle.get("created_by_image"),
         }
 
+    investment_mode = vehicle.get("investment_mode") or "full_amount"
+    total_price = float(vehicle.get("total_price") or 0)
+    monthly_emi = float(vehicle.get("monthly_emi") or 0)
+    down_payment = float(vehicle.get("down_payment") or 0)
+    emi_duration_months = int(vehicle.get("emi_duration_months") or 0)
+
+    def elapsed_months(start_date: str | None) -> int:
+        if not start_date:
+            return 0
+        try:
+            parsed = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+        except ValueError:
+            try:
+                parsed = datetime.strptime(start_date, "%Y-%m-%d")
+            except ValueError:
+                return 0
+        now = datetime.now(timezone.utc)
+        month_count = (now.year - parsed.year) * 12 + (now.month - parsed.month)
+        if now.day < parsed.day:
+            month_count -= 1
+        return max(month_count, 0)
+
+    investment_charge = 0.0
+    if investment_mode == "full_amount":
+        investment_charge = total_price
+    elif investment_mode == "full_loan":
+        paid_months = min(elapsed_months(vehicle.get("emi_start_date")), emi_duration_months)
+        investment_charge = float(paid_months * monthly_emi)
+    elif investment_mode == "flexible":
+        paid_months = min(elapsed_months(vehicle.get("emi_start_date")), emi_duration_months)
+        investment_charge = float(down_payment + (paid_months * monthly_emi))
+
+    total_expense = float(vehicle.get("total_expense") or 0)
+    total_revenue = float(vehicle.get("total_revenue") or 0)
+
     return {
         "id": vehicle["id"],
         "name": vehicle["name"],
         "licensePlate": vehicle["license_plate"],
+        "model": vehicle.get("model") or "",
+        "year": vehicle.get("year"),
+        "renewalDate": to_iso_datetime(vehicle.get("renewal_date")),
+        "loadCapacity": float(vehicle.get("load_capacity") or 0),
+        "investmentMode": investment_mode,
+        "totalPrice": total_price,
+        "monthlyEmi": monthly_emi,
+        "emiStartDate": to_iso_datetime(vehicle.get("emi_start_date")),
+        "emiDurationMonths": emi_duration_months,
+        "downPayment": down_payment,
+        "totalRevenue": total_revenue,
+        "investmentCharge": investment_charge,
+        "roi": total_revenue - (investment_charge + total_expense),
         "color": vehicle.get("color"),
-        "totalExpense": float(vehicle.get("total_expense") or 0),
+        "totalExpense": total_expense,
         "createdBy": vehicle.get("created_by"),
         "createdAt": to_iso_datetime(vehicle.get("created_at")),
         "updatedAt": to_iso_datetime(vehicle.get("updated_at")),
