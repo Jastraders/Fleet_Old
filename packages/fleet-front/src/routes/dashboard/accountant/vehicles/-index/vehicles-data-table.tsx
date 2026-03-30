@@ -16,21 +16,32 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { parseDateValue } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { Vehicle } from "@/models/vehicle";
 import { VehiclesDataTableActionCell } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell";
 
+const currencyFormat = new Intl.NumberFormat("en-IN", {
+	maximumFractionDigits: 0,
+});
+
 const createSortHeader = (
 	label: string,
-	sortKey: "vehicleName" | "createdAt" | "createdBy",
+	sortKey:
+		| "vehicleName"
+		| "model"
+		| "year"
+		| "revenue"
+		| "renewalDate"
+		| "loadCapacity"
+		| "investmentMode"
+		| "expense"
+		| "createdBy",
 	currentSortBy: string,
 	currentSortOrder: string,
 	onSort: (sortBy: string, sortOrder: string) => void,
 ) => {
 	const isActive = currentSortBy === sortKey;
 	const nextOrder = isActive && currentSortOrder === "desc" ? "asc" : "desc";
-
 	const Icon =
 		isActive && currentSortOrder === "asc"
 			? ArrowUp
@@ -39,19 +50,9 @@ const createSortHeader = (
 				: ArrowUpDown;
 
 	return (
-		<Button
-			variant="ghost"
-			size="sm"
-			className="gap-2 px-0"
-			onClick={() => onSort(sortKey, nextOrder)}
-		>
+		<Button variant="ghost" size="sm" className="gap-2 px-0" onClick={() => onSort(sortKey, nextOrder)}>
 			{label}
-			<Icon
-				className={cn(
-					"h-4 w-4 transition-colors",
-					isActive ? "text-foreground" : "text-muted-foreground",
-				)}
-			/>
+			<Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-foreground" : "text-muted-foreground")} />
 		</Button>
 	);
 };
@@ -63,86 +64,80 @@ const createColumns = (
 ): ColumnDef<Vehicle>[] => [
 	{
 		accessorKey: "name",
-		header: () =>
-			createSortHeader(
-				"Vehicle",
-				"vehicleName",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
+		header: () => createSortHeader("Vehicle", "vehicleName", currentSortBy, currentSortOrder, onSort),
 		cell: ({ row }) => {
 			const vehicle = row.original;
 			return (
 				<div className="flex items-center gap-3">
-					{vehicle.color && (
-						<div
-							className="h-8 w-8 rounded"
-							style={{ backgroundColor: `#${vehicle.color}` }}
-						/>
-					)}
+					{vehicle.color && <div className="h-8 w-8 rounded" style={{ backgroundColor: `#${vehicle.color}` }} />}
 					<div>
 						<div className="font-medium">{vehicle.name}</div>
-						<div className="text-muted-foreground text-xs">
-							{vehicle.licensePlate}
-						</div>
+						<div className="text-muted-foreground text-xs">{vehicle.licensePlate}</div>
 					</div>
 				</div>
 			);
 		},
 	},
 	{
-		accessorKey: "createdAt",
-		header: () =>
-			createSortHeader(
-				"Created",
-				"createdAt",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
+		accessorKey: "model",
+		header: () => createSortHeader("Model / Year", "model", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => (
+			<div className="text-sm">
+				<div>{row.original.model || "-"}</div>
+				<div className="text-muted-foreground">{row.original.year ?? "-"}</div>
+			</div>
+		),
+	},
+	{
+		accessorKey: "totalRevenue",
+		header: () => createSortHeader("Revenue", "revenue", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.totalRevenue ?? 0)}</span>,
+	},
+	{
+		accessorKey: "renewalDate",
+		header: () => createSortHeader("Renewal", "renewalDate", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => <span>{row.original.renewalDate?.slice(0, 10) ?? "-"}</span>,
+	},
+	{
+		accessorKey: "loadCapacity",
+		header: () => createSortHeader("Load Capacity", "loadCapacity", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => <span>{row.original.loadCapacity ?? 0}</span>,
+	},
+	{
+		accessorKey: "investmentMode",
+		header: () => createSortHeader("Investment Mode", "investmentMode", currentSortBy, currentSortOrder, onSort),
 		cell: ({ row }) => {
-			const date = parseDateValue(row.original.createdAt);
-			if (!date) {
-				return <span className="text-muted-foreground text-sm">-</span>;
-			}
-
-			return (
-				<time
-					className="text-muted-foreground text-sm"
-					dateTime={date.toISOString()}
-				>
-					{date.toLocaleDateString("en-US", {
-						month: "short",
-						day: "numeric",
-						year: "numeric",
-					})}
-				</time>
-			);
+			const labels: Record<Vehicle["investmentMode"], string> = {
+				full_amount: "Full Amount",
+				full_loan: "Full Loan",
+				flexible: "Flexible",
+			};
+			return <span>{labels[row.original.investmentMode]}</span>;
 		},
 	},
 	{
+		accessorKey: "totalExpense",
+		header: () => createSortHeader("Expense", "expense", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.totalExpense ?? 0)}</span>,
+	},
+	{
+		id: "roi",
+		header: () => <span>ROI</span>,
+		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.roi ?? 0)}</span>,
+	},
+	{
 		accessorKey: "createdByUser",
-		header: () =>
-			createSortHeader(
-				"Created By",
-				"createdBy",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
+		header: () => createSortHeader("Created By", "createdBy", currentSortBy, currentSortOrder, onSort),
 		cell: ({ row }) => {
 			const user = row.original.createdByUser;
 			if (!user) {
 				return <div className="text-muted-foreground text-sm">-</div>;
 			}
-
 			const initials = user.name
 				.split(" ")
 				.map((n) => n[0])
 				.join("")
 				.toUpperCase();
-
 			return (
 				<div className="flex items-center gap-2">
 					<Avatar size="sm">
@@ -157,9 +152,7 @@ const createColumns = (
 	{
 		id: "actions",
 		header: () => <span className="sr-only">Actions</span>,
-		cell: ({ row }) => {
-			return <VehiclesDataTableActionCell vehicle={row.original} />;
-		},
+		cell: ({ row }) => <VehiclesDataTableActionCell vehicle={row.original} />,
 	},
 ];
 
@@ -168,18 +161,20 @@ export interface VehiclesDataTableProps {
 	total: number;
 	offset: number;
 	limit: number;
-	sortBy: "vehicleName" | "createdAt" | "createdBy";
+	sortBy:
+		| "vehicleName"
+		| "model"
+		| "year"
+		| "revenue"
+		| "renewalDate"
+		| "loadCapacity"
+		| "investmentMode"
+		| "expense"
+		| "createdBy";
 	sortOrder: "asc" | "desc";
 }
 
-export function VehiclesDataTable({
-	data,
-	total,
-	offset,
-	limit,
-	sortBy,
-	sortOrder,
-}: VehiclesDataTableProps) {
+export function VehiclesDataTable({ data, total, offset, limit, sortBy, sortOrder }: VehiclesDataTableProps) {
 	const router = useRouter();
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.ceil(total / limit);
@@ -189,38 +184,15 @@ export function VehiclesDataTable({
 			to: ".",
 			search: (prev) => ({
 				...prev,
-				sortBy: newSortBy as "vehicleName" | "createdAt" | "createdBy",
+				sortBy: newSortBy as VehiclesDataTableProps["sortBy"],
 				sortOrder: newSortOrder as "asc" | "desc",
 				offset: 0,
 			}),
 		});
 	};
 
-	const handlePreviousPage = () => {
-		const newOffset = Math.max(0, offset - limit);
-		void router.navigate({
-			to: ".",
-			search: (prev) => ({ ...prev, offset: newOffset }),
-		});
-	};
-
-	const handleNextPage = () => {
-		if (offset + limit < total) {
-			const newOffset = offset + limit;
-			void router.navigate({
-				to: ".",
-				search: (prev) => ({ ...prev, offset: newOffset }),
-			});
-		}
-	};
-
 	const columns = createColumns(sortBy, sortOrder, handleSort);
-
-	const table = useReactTable({
-		data,
-		columns,
-		getCoreRowModel: getCoreRowModel(),
-	});
+	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
 
 	return (
 		<>
@@ -231,12 +203,7 @@ export function VehiclesDataTable({
 							<TableRow key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
 									<TableHead key={header.id} className={cn("last:w-0")}>
-										{header.isPlaceholder
-											? null
-											: flexRender(
-													header.column.columnDef.header,
-													header.getContext(),
-												)}
+										{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
 									</TableHead>
 								))}
 							</TableRow>
@@ -245,54 +212,25 @@ export function VehiclesDataTable({
 					<TableBody>
 						{table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => (
-								<TableRow
-									key={row.id}
-									data-state={row.getIsSelected() && "selected"}
-								>
+								<TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>
-											{flexRender(
-												cell.column.columnDef.cell,
-												cell.getContext(),
-											)}
-										</TableCell>
+										<TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
 									))}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell
-									colSpan={columns.length}
-									className="h-24 text-center"
-								>
-									No vehicles found.
-								</TableCell>
+								<TableCell colSpan={columns.length} className="h-24 text-center">No vehicles found.</TableCell>
 							</TableRow>
 						)}
 					</TableBody>
 				</Table>
 			</div>
 			<div className="flex items-center justify-end gap-4">
-				<div className="text-muted-foreground text-sm">
-					Page {currentPage} of {totalPages}
-				</div>
+				<div className="text-muted-foreground text-sm">Page {currentPage} of {totalPages}</div>
 				<div className="flex items-center gap-2">
-					<button
-						type="button"
-						onClick={handlePreviousPage}
-						disabled={offset === 0}
-						className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2"
-					>
-						Previous
-					</button>
-					<button
-						type="button"
-						onClick={handleNextPage}
-						disabled={offset + limit >= total}
-						className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2"
-					>
-						Next
-					</button>
+					<button type="button" onClick={() => void router.navigate({ to: ".", search: (prev) => ({ ...prev, offset: Math.max(0, offset - limit) }) })} disabled={offset === 0} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2">Previous</button>
+					<button type="button" onClick={() => void router.navigate({ to: ".", search: (prev) => ({ ...prev, offset: offset + limit }) })} disabled={offset + limit >= total} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2">Next</button>
 				</div>
 			</div>
 		</>

@@ -76,24 +76,30 @@ def orpc_list_vehicles(user):
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 20)), 100)
     search = payload.get("search")
-    sort_by = payload.get("sortBy", "createdAt")
+    sort_by = payload.get("sortBy", "vehicleName")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
 
     where_clauses: list[str] = []
     where_params: list[Any] = []
     if search:
-        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ?)")
+        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ? OR v.model LIKE ?)")
         search_term = f"%{search}%"
-        where_params.extend([search_term, search_term])
+        where_params.extend([search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
     sort_map = {
         "vehicleName": "LOWER(v.name)",
-        "createdAt": "v.created_at",
+        "model": "LOWER(v.model)",
+        "year": "v.year",
+        "revenue": "v.total_revenue",
+        "renewalDate": "v.renewal_date",
+        "loadCapacity": "v.load_capacity",
+        "investmentMode": "v.investment_mode",
+        "expense": "v.total_expense",
         "createdBy": "LOWER(COALESCE(u.name, ''))",
     }
-    order_column = sort_map.get(sort_by, "v.created_at")
+    order_column = sort_map.get(sort_by, "LOWER(v.name)")
     order_direction = "ASC" if sort_order == "asc" else "DESC"
 
     with connect() as conn:
@@ -131,8 +137,31 @@ def orpc_create_vehicle(user):
         color = random_color()
         vid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO vehicles (id,name,license_plate,color,created_by) VALUES (?,?,?,?,?)",
-            (vid, payload["name"], payload["licensePlate"], color, user["id"]),
+            """
+            INSERT INTO vehicles (
+                id,name,license_plate,model,year,renewal_date,load_capacity,
+                investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
+                total_revenue,color,created_by
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                vid,
+                payload["name"],
+                payload["licensePlate"],
+                payload["model"],
+                payload["year"],
+                payload["renewalDate"],
+                payload["loadCapacity"],
+                payload["investmentMode"],
+                payload.get("totalPrice"),
+                payload.get("monthlyEmi"),
+                payload.get("emiStartDate"),
+                payload.get("emiDurationMonths"),
+                payload.get("downPayment"),
+                0,
+                color,
+                user["id"],
+            ),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vid,)).fetchone()
@@ -158,7 +187,21 @@ def orpc_update_vehicle(user):
     vehicle_id = payload.get("id")
     updates = []
     params: list[Any] = []
-    for field, db_col in (("name", "name"), ("licensePlate", "license_plate")):
+    for field, db_col in (
+        ("name", "name"),
+        ("licensePlate", "license_plate"),
+        ("model", "model"),
+        ("year", "year"),
+        ("renewalDate", "renewal_date"),
+        ("loadCapacity", "load_capacity"),
+        ("investmentMode", "investment_mode"),
+        ("totalPrice", "total_price"),
+        ("monthlyEmi", "monthly_emi"),
+        ("emiStartDate", "emi_start_date"),
+        ("emiDurationMonths", "emi_duration_months"),
+        ("downPayment", "down_payment"),
+        ("totalRevenue", "total_revenue"),
+    ):
         if payload.get(field) is not None:
             updates.append(f"{db_col} = ?")
             params.append(payload[field])
@@ -816,8 +859,31 @@ def create_vehicle(user):
         color = random_color()
         vid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO vehicles (id,name,license_plate,color,created_by) VALUES (?,?,?,?,?)",
-            (vid, payload["name"], payload["licensePlate"], color, user["id"]),
+            """
+            INSERT INTO vehicles (
+                id,name,license_plate,model,year,renewal_date,load_capacity,
+                investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
+                total_revenue,color,created_by
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                vid,
+                payload["name"],
+                payload["licensePlate"],
+                payload["model"],
+                payload["year"],
+                payload["renewalDate"],
+                payload["loadCapacity"],
+                payload["investmentMode"],
+                payload.get("totalPrice"),
+                payload.get("monthlyEmi"),
+                payload.get("emiStartDate"),
+                payload.get("emiDurationMonths"),
+                payload.get("downPayment"),
+                0,
+                color,
+                user["id"],
+            ),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vid,)).fetchone()
@@ -840,7 +906,21 @@ def update_vehicle(user, vehicle_id):
     payload = request.get_json(force=True)
     updates = []
     params: list[Any] = []
-    for field, db_col in (("name", "name"), ("licensePlate", "license_plate")):
+    for field, db_col in (
+        ("name", "name"),
+        ("licensePlate", "license_plate"),
+        ("model", "model"),
+        ("year", "year"),
+        ("renewalDate", "renewal_date"),
+        ("loadCapacity", "load_capacity"),
+        ("investmentMode", "investment_mode"),
+        ("totalPrice", "total_price"),
+        ("monthlyEmi", "monthly_emi"),
+        ("emiStartDate", "emi_start_date"),
+        ("emiDurationMonths", "emi_duration_months"),
+        ("downPayment", "down_payment"),
+        ("totalRevenue", "total_revenue"),
+    ):
         if payload.get(field) is not None:
             updates.append(f"{db_col} = ?")
             params.append(payload[field])

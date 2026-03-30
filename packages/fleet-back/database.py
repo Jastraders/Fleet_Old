@@ -48,6 +48,17 @@ def init_db() -> None:
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 license_plate TEXT NOT NULL,
+                model TEXT NOT NULL DEFAULT '',
+                year INTEGER,
+                renewal_date TEXT,
+                load_capacity REAL,
+                investment_mode TEXT NOT NULL DEFAULT 'full_amount' CHECK(investment_mode IN ('full_amount','full_loan','flexible')),
+                total_price REAL,
+                monthly_emi REAL,
+                emi_start_date TEXT,
+                emi_duration_months INTEGER,
+                down_payment REAL,
+                total_revenue REAL NOT NULL DEFAULT 0,
                 color TEXT NOT NULL UNIQUE,
                 total_expense REAL NOT NULL DEFAULT 0,
                 created_by TEXT,
@@ -218,6 +229,30 @@ def init_db() -> None:
         }
         if "total_expense" not in vehicle_columns:
             conn.execute("ALTER TABLE vehicles ADD COLUMN total_expense REAL NOT NULL DEFAULT 0")
+        if "model" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN model TEXT NOT NULL DEFAULT ''")
+        if "year" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN year INTEGER")
+        if "renewal_date" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN renewal_date TEXT")
+        if "load_capacity" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN load_capacity REAL")
+        if "investment_mode" not in vehicle_columns:
+            conn.execute(
+                "ALTER TABLE vehicles ADD COLUMN investment_mode TEXT NOT NULL DEFAULT 'full_amount'"
+            )
+        if "total_price" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN total_price REAL")
+        if "monthly_emi" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN monthly_emi REAL")
+        if "emi_start_date" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN emi_start_date TEXT")
+        if "emi_duration_months" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN emi_duration_months INTEGER")
+        if "down_payment" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN down_payment REAL")
+        if "total_revenue" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN total_revenue REAL NOT NULL DEFAULT 0")
 
         conn.commit()
 
