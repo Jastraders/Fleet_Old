@@ -200,20 +200,20 @@ export function CreateVehicleDialog() {
 											</Field>
 										)}
 									</form.Field>
-									<form.Field name="renewalDate">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor="vehicle-renewal-date">Renewal Date<span className="text-destructive">*</span></FieldLabel>
-												<Input id="vehicle-renewal-date" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
-												<FieldError errors={field.state.meta.errors} />
-											</Field>
-										)}
-									</form.Field>
 									<form.Field name="renewal">
 										{(field) => (
 											<Field>
 												<FieldLabel htmlFor="vehicle-renewal">Renewal<span className="text-destructive">*</span></FieldLabel>
 												<Input id="vehicle-renewal" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Insurance, RTO" />
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="renewalDate">
+										{(field) => (
+											<Field>
+												<FieldLabel htmlFor="vehicle-renewal-date">Renewal Date<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-renewal-date" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
 												<FieldError errors={field.state.meta.errors} />
 											</Field>
 										)}

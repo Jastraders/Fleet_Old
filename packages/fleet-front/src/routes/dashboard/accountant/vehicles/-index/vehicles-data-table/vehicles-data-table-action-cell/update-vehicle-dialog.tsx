@@ -203,8 +203,8 @@ export function UpdateVehicleDialog({
 									<form.Field name="licensePlate">{(field) => <Field><FieldLabel>License Plate<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
 									<form.Field name="model">{(field) => <Field><FieldLabel>Model<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
 									<form.Field name="year">{(field) => <Field><FieldLabel>Year<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value} onChange={(e) => field.handleChange(Number(e.target.value || 0))} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
-									<form.Field name="renewalDate">{(field) => <Field><FieldLabel>Renewal Date<span className="text-destructive">*</span></FieldLabel><Input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
 									<form.Field name="renewal">{(field) => <Field><FieldLabel>Renewal<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Insurance, RTO" /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="renewalDate">{(field) => <Field><FieldLabel>Renewal Date<span className="text-destructive">*</span></FieldLabel><Input type="date" value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
 									<form.Field name="investmentMode">
 										{(field) => (
 											<Field>

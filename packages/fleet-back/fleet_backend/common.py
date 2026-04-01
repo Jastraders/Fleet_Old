@@ -250,6 +250,8 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
             except ValueError:
                 return 0
         now = datetime.now(timezone.utc)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
         if now < parsed:
             return 0
         month_count = (now.year - parsed.year) * 12 + (now.month - parsed.month)
