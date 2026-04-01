@@ -50,6 +50,7 @@ def init_db() -> None:
                 license_plate TEXT NOT NULL,
                 model TEXT NOT NULL DEFAULT '',
                 year INTEGER,
+                renewal TEXT,
                 renewal_date TEXT,
                 load_capacity REAL,
                 investment_mode TEXT NOT NULL DEFAULT 'full_amount' CHECK(investment_mode IN ('full_amount','full_loan','flexible')),
@@ -233,6 +234,8 @@ def init_db() -> None:
             conn.execute("ALTER TABLE vehicles ADD COLUMN model TEXT NOT NULL DEFAULT ''")
         if "year" not in vehicle_columns:
             conn.execute("ALTER TABLE vehicles ADD COLUMN year INTEGER")
+        if "renewal" not in vehicle_columns:
+            conn.execute("ALTER TABLE vehicles ADD COLUMN renewal TEXT")
         if "renewal_date" not in vehicle_columns:
             conn.execute("ALTER TABLE vehicles ADD COLUMN renewal_date TEXT")
         if "load_capacity" not in vehicle_columns:

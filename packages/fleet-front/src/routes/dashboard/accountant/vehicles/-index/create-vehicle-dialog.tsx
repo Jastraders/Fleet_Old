@@ -15,6 +15,13 @@ import {
 	DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+	Combobox,
+	ComboboxContent,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@/components/ui/combobox";
+import {
 	Field,
 	FieldError,
 	FieldGroup,
@@ -22,7 +29,6 @@ import {
 	FieldSet,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { NativeSelect } from "@/components/ui/native-select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
 
@@ -35,8 +41,8 @@ const baseSchema = v.object({
 	),
 	model: v.pipe(v.string(), v.minLength(1, "Model is required"), v.maxLength(255)),
 	year: v.pipe(v.number(), v.minValue(1900, "Enter valid year"), v.maxValue(3000)),
+	renewal: v.pipe(v.string(), v.minLength(1, "Renewal is required"), v.maxLength(255)),
 	renewalDate: v.pipe(v.string(), v.minLength(1, "Renewal date is required")),
-	loadCapacity: v.pipe(v.number(), v.minValue(0, "Load capacity must be 0 or more")),
 	investmentMode: v.picklist(["full_amount", "full_loan", "flexible"]),
 	totalPrice: v.optional(v.nullable(v.number())),
 	monthlyEmi: v.optional(v.nullable(v.number())),
@@ -72,8 +78,8 @@ const defaultValues: v.InferInput<typeof createVehicleFormSchema> = {
 	licensePlate: "",
 	model: "",
 	year: new Date().getFullYear(),
+	renewal: "",
 	renewalDate: "",
-	loadCapacity: 0,
 	investmentMode: "full_amount",
 	totalPrice: null,
 	monthlyEmi: null,
@@ -88,6 +94,12 @@ const parseNumber = (value: string): number | null => {
 	}
 	const parsed = Number(value);
 	return Number.isNaN(parsed) ? null : parsed;
+};
+
+const investmentModeLabel: Record<"full_amount" | "full_loan" | "flexible", string> = {
+	full_amount: "Full Amount",
+	full_loan: "Full Loan",
+	flexible: "Flexible",
 };
 
 export function CreateVehicleDialog() {
@@ -191,17 +203,17 @@ export function CreateVehicleDialog() {
 									<form.Field name="renewalDate">
 										{(field) => (
 											<Field>
-												<FieldLabel htmlFor="vehicle-renewal">Renewal<span className="text-destructive">*</span></FieldLabel>
-												<Input id="vehicle-renewal" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
+												<FieldLabel htmlFor="vehicle-renewal-date">Renewal Date<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-renewal-date" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
 												<FieldError errors={field.state.meta.errors} />
 											</Field>
 										)}
 									</form.Field>
-									<form.Field name="loadCapacity">
+									<form.Field name="renewal">
 										{(field) => (
 											<Field>
-												<FieldLabel htmlFor="vehicle-load-capacity">Load Capacity<span className="text-destructive">*</span></FieldLabel>
-												<Input id="vehicle-load-capacity" type="number" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(Number(e.target.value || 0))} placeholder="e.g., 2000" />
+												<FieldLabel htmlFor="vehicle-renewal">Renewal<span className="text-destructive">*</span></FieldLabel>
+												<Input id="vehicle-renewal" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Insurance, RTO" />
 												<FieldError errors={field.state.meta.errors} />
 											</Field>
 										)}
@@ -210,11 +222,26 @@ export function CreateVehicleDialog() {
 										{(field) => (
 											<Field>
 												<FieldLabel htmlFor="vehicle-investment-mode">Investment Mode<span className="text-destructive">*</span></FieldLabel>
-												<NativeSelect id="vehicle-investment-mode" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value as "full_amount" | "full_loan" | "flexible")}>
-													<option value="full_amount">Full Amount</option>
-													<option value="full_loan">Full Loan</option>
-													<option value="flexible">Flexible</option>
-												</NativeSelect>
+												<Combobox
+													value={field.state.value}
+													inputValue={investmentModeLabel[field.state.value]}
+													items={["full_amount", "full_loan", "flexible"]}
+													onValueChange={(value) =>
+														field.handleChange(
+															(value || "full_amount") as "full_amount" | "full_loan" | "flexible",
+														)}
+													onInputValueChange={() => {}}
+													filter={null}
+												>
+													<ComboboxInput id="vehicle-investment-mode" onBlur={field.handleBlur} readOnly showTrigger />
+													<ComboboxContent>
+														<ComboboxList>
+															<ComboboxItem value="full_amount">Full Amount</ComboboxItem>
+															<ComboboxItem value="full_loan">Full Loan</ComboboxItem>
+															<ComboboxItem value="flexible">Flexible</ComboboxItem>
+														</ComboboxList>
+													</ComboboxContent>
+												</Combobox>
 											</Field>
 										)}
 									</form.Field>

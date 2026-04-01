@@ -4,6 +4,7 @@ export interface Vehicle {
 	licensePlate: string;
 	model: string;
 	year: number | null;
+	renewal: string | null;
 	renewalDate: string | null;
 	loadCapacity: number;
 	investmentMode: "full_amount" | "full_loan" | "flexible";

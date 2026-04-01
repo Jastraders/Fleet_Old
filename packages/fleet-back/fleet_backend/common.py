@@ -274,6 +274,7 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
         "licensePlate": vehicle["license_plate"],
         "model": vehicle.get("model") or "",
         "year": vehicle.get("year"),
+        "renewal": vehicle.get("renewal"),
         "renewalDate": to_iso_datetime(vehicle.get("renewal_date")),
         "loadCapacity": float(vehicle.get("load_capacity") or 0),
         "investmentMode": investment_mode,

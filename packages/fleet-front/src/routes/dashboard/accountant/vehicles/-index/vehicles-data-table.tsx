@@ -20,21 +20,13 @@ import { cn } from "@/lib/utils";
 import type { Vehicle } from "@/models/vehicle";
 import { VehiclesDataTableActionCell } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell";
 
-const currencyFormat = new Intl.NumberFormat("en-IN", {
-	maximumFractionDigits: 0,
-});
-
 const createSortHeader = (
 	label: string,
 	sortKey:
 		| "vehicleName"
 		| "model"
 		| "year"
-		| "revenue"
-		| "renewalDate"
-		| "loadCapacity"
 		| "investmentMode"
-		| "expense"
 		| "createdBy",
 	currentSortBy: string,
 	currentSortOrder: string,
@@ -89,21 +81,6 @@ const createColumns = (
 		),
 	},
 	{
-		accessorKey: "totalRevenue",
-		header: () => createSortHeader("Revenue", "revenue", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.totalRevenue ?? 0)}</span>,
-	},
-	{
-		accessorKey: "renewalDate",
-		header: () => createSortHeader("Renewal", "renewalDate", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => <span>{row.original.renewalDate?.slice(0, 10) ?? "-"}</span>,
-	},
-	{
-		accessorKey: "loadCapacity",
-		header: () => createSortHeader("Load Capacity", "loadCapacity", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => <span>{row.original.loadCapacity ?? 0}</span>,
-	},
-	{
 		accessorKey: "investmentMode",
 		header: () => createSortHeader("Investment Mode", "investmentMode", currentSortBy, currentSortOrder, onSort),
 		cell: ({ row }) => {
@@ -114,16 +91,6 @@ const createColumns = (
 			};
 			return <span>{labels[row.original.investmentMode]}</span>;
 		},
-	},
-	{
-		accessorKey: "totalExpense",
-		header: () => createSortHeader("Expense", "expense", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.totalExpense ?? 0)}</span>,
-	},
-	{
-		id: "roi",
-		header: () => <span>ROI</span>,
-		cell: ({ row }) => <span>₹{currencyFormat.format(row.original.roi ?? 0)}</span>,
 	},
 	{
 		accessorKey: "createdByUser",
@@ -165,11 +132,7 @@ export interface VehiclesDataTableProps {
 		| "vehicleName"
 		| "model"
 		| "year"
-		| "revenue"
-		| "renewalDate"
-		| "loadCapacity"
 		| "investmentMode"
-		| "expense"
 		| "createdBy";
 	sortOrder: "asc" | "desc";
 }
