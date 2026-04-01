@@ -20,6 +20,8 @@ const querySchema = v.object({
 				"model",
 				"year",
 				"investmentMode",
+				"renewalDate",
+				"investmentAmount",
 				"createdBy",
 			]),
 			"vehicleName",

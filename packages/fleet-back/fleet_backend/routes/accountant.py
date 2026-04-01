@@ -93,6 +93,49 @@ def orpc_list_vehicles(user):
         "model": "LOWER(v.model)",
         "year": "v.year",
         "investmentMode": "v.investment_mode",
+        "renewalDate": "v.renewal_date",
+        "investmentAmount": """
+            CASE
+                WHEN v.investment_mode = 'full_amount' THEN COALESCE(v.total_price, 0)
+                WHEN v.investment_mode = 'full_loan' THEN COALESCE(v.monthly_emi, 0) * (
+                    CASE
+                        WHEN v.emi_start_date IS NULL OR v.emi_duration_months IS NULL OR v.emi_duration_months <= 0 THEN 0
+                        ELSE MIN(
+                            v.emi_duration_months,
+                            MAX(
+                                0,
+                                ((CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', v.emi_start_date) AS INTEGER)) * 12)
+                                + (CAST(strftime('%m', 'now') AS INTEGER) - CAST(strftime('%m', v.emi_start_date) AS INTEGER))
+                                + CASE
+                                    WHEN CAST(strftime('%d', 'now') AS INTEGER) >= CAST(strftime('%d', v.emi_start_date) AS INTEGER)
+                                        THEN 1
+                                    ELSE 0
+                                END
+                            )
+                        )
+                    END
+                )
+                WHEN v.investment_mode = 'flexible' THEN COALESCE(v.down_payment, 0) + (COALESCE(v.monthly_emi, 0) * (
+                    CASE
+                        WHEN v.emi_start_date IS NULL OR v.emi_duration_months IS NULL OR v.emi_duration_months <= 0 THEN 0
+                        ELSE MIN(
+                            v.emi_duration_months,
+                            MAX(
+                                0,
+                                ((CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', v.emi_start_date) AS INTEGER)) * 12)
+                                + (CAST(strftime('%m', 'now') AS INTEGER) - CAST(strftime('%m', v.emi_start_date) AS INTEGER))
+                                + CASE
+                                    WHEN CAST(strftime('%d', 'now') AS INTEGER) >= CAST(strftime('%d', v.emi_start_date) AS INTEGER)
+                                        THEN 1
+                                    ELSE 0
+                                END
+                            )
+                        )
+                    END
+                ))
+                ELSE 0
+            END
+        """,
         "createdBy": "LOWER(COALESCE(u.name, ''))",
     }
     order_column = sort_map.get(sort_by, "LOWER(v.name)")

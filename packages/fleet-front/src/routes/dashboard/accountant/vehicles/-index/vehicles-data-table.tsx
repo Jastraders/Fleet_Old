@@ -16,7 +16,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { cn, formatINR } from "@/lib/utils";
 import type { Vehicle } from "@/models/vehicle";
 import { VehiclesDataTableActionCell } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell";
 
@@ -27,6 +27,8 @@ const createSortHeader = (
 		| "model"
 		| "year"
 		| "investmentMode"
+		| "renewalDate"
+		| "investmentAmount"
 		| "createdBy",
 	currentSortBy: string,
 	currentSortOrder: string,
@@ -81,6 +83,19 @@ const createColumns = (
 		),
 	},
 	{
+		accessorKey: "renewal",
+		header: () => <span>Renewal</span>,
+		cell: ({ row }) => <span>{row.original.renewal || "-"}</span>,
+	},
+	{
+		accessorKey: "renewalDate",
+		header: () => createSortHeader("Renewal Date", "renewalDate", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => {
+			if (!row.original.renewalDate) return <span>-</span>;
+			return <span>{new Date(row.original.renewalDate).toLocaleDateString()}</span>;
+		},
+	},
+	{
 		accessorKey: "investmentMode",
 		header: () => createSortHeader("Investment Mode", "investmentMode", currentSortBy, currentSortOrder, onSort),
 		cell: ({ row }) => {
@@ -91,6 +106,11 @@ const createColumns = (
 			};
 			return <span>{labels[row.original.investmentMode]}</span>;
 		},
+	},
+	{
+		accessorKey: "investmentCharge",
+		header: () => createSortHeader("Investment Amount", "investmentAmount", currentSortBy, currentSortOrder, onSort),
+		cell: ({ row }) => <span>{formatINR(row.original.investmentCharge || 0)}</span>,
 	},
 	{
 		accessorKey: "createdByUser",
@@ -133,6 +153,8 @@ export interface VehiclesDataTableProps {
 		| "model"
 		| "year"
 		| "investmentMode"
+		| "renewalDate"
+		| "investmentAmount"
 		| "createdBy";
 	sortOrder: "asc" | "desc";
 }
