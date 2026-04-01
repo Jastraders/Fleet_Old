@@ -92,11 +92,7 @@ def orpc_list_vehicles(user):
         "vehicleName": "LOWER(v.name)",
         "model": "LOWER(v.model)",
         "year": "v.year",
-        "revenue": "v.total_revenue",
-        "renewalDate": "v.renewal_date",
-        "loadCapacity": "v.load_capacity",
         "investmentMode": "v.investment_mode",
-        "expense": "v.total_expense",
         "createdBy": "LOWER(COALESCE(u.name, ''))",
     }
     order_column = sort_map.get(sort_by, "LOWER(v.name)")
@@ -139,10 +135,10 @@ def orpc_create_vehicle(user):
         conn.execute(
             """
             INSERT INTO vehicles (
-                id,name,license_plate,model,year,renewal_date,load_capacity,
+                id,name,license_plate,model,year,renewal,renewal_date,load_capacity,
                 investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
                 total_revenue,color,created_by
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 vid,
@@ -150,8 +146,9 @@ def orpc_create_vehicle(user):
                 payload["licensePlate"],
                 payload["model"],
                 payload["year"],
+                payload.get("renewal"),
                 payload["renewalDate"],
-                payload["loadCapacity"],
+                payload.get("loadCapacity", 0),
                 payload["investmentMode"],
                 payload.get("totalPrice"),
                 payload.get("monthlyEmi"),
@@ -192,6 +189,7 @@ def orpc_update_vehicle(user):
         ("licensePlate", "license_plate"),
         ("model", "model"),
         ("year", "year"),
+        ("renewal", "renewal"),
         ("renewalDate", "renewal_date"),
         ("loadCapacity", "load_capacity"),
         ("investmentMode", "investment_mode"),
@@ -861,10 +859,10 @@ def create_vehicle(user):
         conn.execute(
             """
             INSERT INTO vehicles (
-                id,name,license_plate,model,year,renewal_date,load_capacity,
+                id,name,license_plate,model,year,renewal,renewal_date,load_capacity,
                 investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
                 total_revenue,color,created_by
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 vid,
@@ -872,8 +870,9 @@ def create_vehicle(user):
                 payload["licensePlate"],
                 payload["model"],
                 payload["year"],
+                payload.get("renewal"),
                 payload["renewalDate"],
-                payload["loadCapacity"],
+                payload.get("loadCapacity", 0),
                 payload["investmentMode"],
                 payload.get("totalPrice"),
                 payload.get("monthlyEmi"),
@@ -911,6 +910,7 @@ def update_vehicle(user, vehicle_id):
         ("licensePlate", "license_plate"),
         ("model", "model"),
         ("year", "year"),
+        ("renewal", "renewal"),
         ("renewalDate", "renewal_date"),
         ("loadCapacity", "load_capacity"),
         ("investmentMode", "investment_mode"),
