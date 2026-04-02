@@ -22,7 +22,13 @@ def sign_in():
         conn.commit()
 
     response = make_response(jsonify({"ok": True}))
-    response.set_cookie("session", token, httponly=True, samesite="Lax", max_age=SESSION_TTL_DAYS * 24 * 3600)
+    response.set_cookie(
+        "session",
+        token,
+        httponly=True,
+        samesite="None",
+        secure=True
+        )
     return response
 
 
@@ -43,7 +49,13 @@ def orpc_sign_in_with_email_and_password():
         conn.commit()
 
     response = make_response(rpc_response({"ok": True}))
-    response.set_cookie("session", token, httponly=True, samesite="Lax", max_age=SESSION_TTL_DAYS * 24 * 3600)
+    response.set_cookie(
+        "session",
+        token,
+        httponly=True,
+        samesite="None",
+        secure=True
+        )
     return response
 
 
