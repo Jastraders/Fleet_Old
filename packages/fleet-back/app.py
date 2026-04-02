@@ -3,7 +3,7 @@ import os
 from fleet_backend import create_app
 from flask_cors import CORS
 
-
+app = create_app()
 CORS(
     app,
     origins=["https://fleetold-production.up.railway.app"],
