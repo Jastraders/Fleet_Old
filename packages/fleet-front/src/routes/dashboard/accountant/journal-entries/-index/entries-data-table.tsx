@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/table";
 import { parseDateValue } from "@/lib/date";
 import { cn, formatINR } from "@/lib/utils";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { EntriesDataTableActionCell } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table/entries-data-table-action-cell";
 
 interface JournalEntryItem {
@@ -364,6 +368,21 @@ export function EntriesDataTable({
 					</p>
 				</div>
 				<div className="flex gap-4 max-sm:w-full max-sm:flex-col">
+					<AccountantDownloadButton
+						onDownload={() =>
+							downloadExcelCompatibleCsv(
+								"journal-entries",
+								data.map((entry) => ({
+									Vehicle: entry.vehicle?.name ?? "",
+									Revenue: getRevenue(entry.items),
+									Expenses: getExpenses(entry.items),
+									"Total Amount": getTotalAmount(entry.items),
+									"Created By": entry.createdByUser?.name ?? "",
+									"Created At": String(entry.createdAt),
+								})),
+							)
+						}
+					/>
 					<Input
 						placeholder="Search journal entries..."
 						value={searchValue}

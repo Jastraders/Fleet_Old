@@ -8,6 +8,10 @@ import { CategoriesDataTableSkeleton } from "@/routes/dashboard/accountant/expen
 import { CategoriesEmptyState } from "@/routes/dashboard/accountant/expense-categories/-index/categories-empty-state";
 import { CategoriesSearchInput } from "@/routes/dashboard/accountant/expense-categories/-index/categories-search-input";
 import { CreateCategoryDialog } from "@/routes/dashboard/accountant/expense-categories/-index/create-category-dialog";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -92,6 +96,19 @@ function CategoriesList() {
 					</p>
 				</div>
 				<div className="flex gap-4 max-sm:flex-col max-sm:w-full">
+					<AccountantDownloadButton
+						onDownload={() =>
+							downloadExcelCompatibleCsv(
+								"expense-categories",
+								(data?.data ?? []).map((category) => ({
+									Name: category.name,
+									Color: category.color ?? "",
+									"Created At": String(category.createdAt),
+									"Created By": category.createdByUser?.name ?? "",
+								})),
+							)
+						}
+					/>
 					<CategoriesSearchInput initialValue={query.search ?? ""} />
 					<CreateCategoryDialog />
 				</div>

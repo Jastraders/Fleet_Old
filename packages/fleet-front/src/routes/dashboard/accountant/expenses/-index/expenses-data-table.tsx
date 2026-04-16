@@ -18,6 +18,10 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn, formatINR } from "@/lib/utils";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 interface ExpenseRow {
 	id: string;
@@ -137,18 +141,37 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
 
 	return (
-		<div className="w-full space-y-4">
+		<div className="w-full min-w-0 space-y-4 overflow-x-hidden">
 			<div className="flex flex-wrap justify-between gap-4">
 				<div className="space-y-1">
 					<h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
 					<p className="text-muted-foreground text-sm">Expense register with voucher-level tracking</p>
 				</div>
 				<div className="flex gap-4 max-sm:w-full max-sm:flex-col">
+					<AccountantDownloadButton
+						onDownload={() =>
+							downloadExcelCompatibleCsv(
+								"expenses",
+								data.map((item) => ({
+									Voucher: item.voucher_id ?? "",
+									"Expense Category": item.category_name ?? "",
+									Amount: item.amount,
+									Handler: item.handler ?? "",
+									"Next Renewal": item.next_renewal_date ?? "",
+									"Expense Impact": item.category_impact ?? "",
+									Vehicle: item.vehicle_name ?? "",
+									Driver: item.driver_name ?? "",
+									"Created By": item.created_by_name ?? "",
+									"Created At": item.created_at,
+								})),
+							)
+						}
+					/>
 					<Input placeholder="Search expenses..." value={searchValue} onChange={(e) => setSearchValue(e.currentTarget.value)} />
 					<Button onClick={() => void router.navigate({ to: "/dashboard/accountant/journal-entries/new" })}><PlusIcon className="h-4 w-4" />Add Expense</Button>
 				</div>
 			</div>
-			<div className="overflow-x-auto rounded-lg border">
+			<div className="max-w-full overflow-x-auto rounded-lg border">
 				<Table className="min-w-[1100px]">
 					<TableHeader className="bg-muted sticky top-0 z-10">
 						{table.getHeaderGroups().map((hg) => <TableRow key={hg.id}>{hg.headers.map((h) => <TableHead key={h.id}>{h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}</TableHead>)}</TableRow>)}

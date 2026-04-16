@@ -8,6 +8,10 @@ import { DriversDataTableSkeleton } from "@/routes/dashboard/accountant/drivers/
 import { DriversEmptyState } from "@/routes/dashboard/accountant/drivers/-index/drivers-empty-state";
 import { DriversSearchInput } from "@/routes/dashboard/accountant/drivers/-index/drivers-search-input";
 import { CreateDriverDialog } from "@/routes/dashboard/accountant/drivers/-index/create-driver-dialog";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -98,6 +102,21 @@ function DriversList() {
 					</p>
 				</div>
 				<div className="flex gap-4 max-sm:flex-col max-sm:w-full">
+					<AccountantDownloadButton
+						onDownload={() =>
+							downloadExcelCompatibleCsv(
+								"drivers",
+								(data?.data ?? []).map((driver) => ({
+									Name: driver.name,
+									"Phone Number": driver.phoneNumber ?? "",
+									Color: driver.color ?? "",
+									"Total Expense": driver.totalExpense ?? "",
+									"Created At": String(driver.createdAt),
+									"Created By": driver.createdByUser?.name ?? "",
+								})),
+							)
+						}
+					/>
 					<DriversSearchInput initialValue={query.search ?? ""} />
 					<CreateDriverDialog />
 				</div>
