@@ -8,6 +8,10 @@ import { VehiclesDataTable } from "@/routes/dashboard/accountant/vehicles/-index
 import { VehiclesDataTableSkeleton } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table-skeleton";
 import { VehiclesEmptyState } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-empty-state";
 import { VehiclesSearchInput } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-search-input";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -96,6 +100,24 @@ function VehiclesList() {
 					</p>
 				</div>
 				<div className="flex gap-4 max-sm:flex-col max-sm:w-full">
+					<AccountantDownloadButton
+						onDownload={() =>
+							downloadExcelCompatibleCsv(
+								"vehicles",
+								(data?.data ?? []).map((vehicle) => ({
+									Name: vehicle.name,
+									"License Plate": vehicle.licensePlate ?? "",
+									Model: vehicle.model ?? "",
+									Year: vehicle.year ?? "",
+									Renewal: vehicle.renewal ?? "",
+									"Renewal Date": vehicle.renewalDate ?? "",
+									"Investment Mode": vehicle.investmentMode,
+									"Investment Amount": vehicle.investmentCharge ?? "",
+									"Created By": vehicle.createdByUser?.name ?? "",
+								})),
+							)
+						}
+					/>
 					<VehiclesSearchInput initialValue={query.search ?? ""} />
 					<CreateVehicleDialog />
 				</div>
