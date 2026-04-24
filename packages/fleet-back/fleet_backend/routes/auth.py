@@ -2,7 +2,7 @@ from flask import jsonify, make_response, request
 from werkzeug.security import check_password_hash
 
 from database import connect
-from fleet_backend.common import SESSION_TTL_DAYS, hash_secret, make_session_token, require_auth, rpc_payload, rpc_response
+from fleet_backend.common import SESSION_TTL_DAYS, hash_secret, make_session_token, now_iso, require_auth, rpc_payload, rpc_response
 from fleet_backend.server import app
 
 @app.post("/api/auth/sign-in")
@@ -19,6 +19,7 @@ def sign_in():
             "INSERT INTO sessions (id, secret_hash, user_id) VALUES (?,?,?)",
             (sid, hash_secret(secret), user["id"]),
         )
+        conn.execute("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?", (now_iso(), now_iso(), user["id"]))
         conn.commit()
 
     response = make_response(jsonify({"ok": True}))
@@ -46,6 +47,7 @@ def orpc_sign_in_with_email_and_password():
             "INSERT INTO sessions (id, secret_hash, user_id) VALUES (?,?,?)",
             (sid, hash_secret(secret), user["id"]),
         )
+        conn.execute("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?", (now_iso(), now_iso(), user["id"]))
         conn.commit()
 
     response = make_response(rpc_response({"ok": True}))
@@ -95,5 +97,4 @@ def me(user):
 @require_auth()
 def orpc_get_me(user):
     return rpc_response(user)
-
 

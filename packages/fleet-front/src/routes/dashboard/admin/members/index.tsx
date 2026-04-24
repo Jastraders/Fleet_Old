@@ -15,7 +15,7 @@ const querySchema = v.object({
 	search: v.optional(v.string()),
 	sortBy: v.optional(
 		v.fallback(
-			v.picklist(["memberName", "createdAt", "createdBy"]),
+			v.picklist(["memberName", "createdAt", "lastLogin"]),
 			"createdAt",
 		),
 		"createdAt",

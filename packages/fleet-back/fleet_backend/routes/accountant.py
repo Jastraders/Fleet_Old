@@ -93,7 +93,6 @@ def orpc_list_vehicles(user):
         "model": "LOWER(v.model)",
         "year": "v.year",
         "investmentMode": "v.investment_mode",
-        "renewalDate": "v.renewal_date",
         "investmentAmount": """
             CASE
                 WHEN v.investment_mode = 'full_amount' THEN COALESCE(v.total_price, 0)
@@ -178,10 +177,10 @@ def orpc_create_vehicle(user):
         conn.execute(
             """
             INSERT INTO vehicles (
-                id,name,license_plate,model,year,renewal,renewal_date,load_capacity,
+                id,name,license_plate,model,year,load_capacity,
                 investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
                 total_revenue,color,created_by
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 vid,
@@ -189,8 +188,6 @@ def orpc_create_vehicle(user):
                 payload["licensePlate"],
                 payload["model"],
                 payload["year"],
-                payload.get("renewal"),
-                payload["renewalDate"],
                 payload.get("loadCapacity", 0),
                 payload["investmentMode"],
                 payload.get("totalPrice"),
@@ -232,8 +229,6 @@ def orpc_update_vehicle(user):
         ("licensePlate", "license_plate"),
         ("model", "model"),
         ("year", "year"),
-        ("renewal", "renewal"),
-        ("renewalDate", "renewal_date"),
         ("loadCapacity", "load_capacity"),
         ("investmentMode", "investment_mode"),
         ("totalPrice", "total_price"),
@@ -459,6 +454,12 @@ def orpc_create_category(user):
     if not impacts:
         return rpc_error("Invalid impact", 400)
     with connect() as conn:
+        duplicate = conn.execute(
+            "SELECT id FROM expense_category WHERE LOWER(name) = LOWER(?)",
+            (payload["name"],),
+        ).fetchone()
+        if duplicate:
+            return rpc_error("Expense category already exists", 409)
         cid = str(uuid.uuid4())
         conn.execute(
             "INSERT INTO expense_category (id,name,color,impact,created_by) VALUES (?,?,?,?,?)",
@@ -489,6 +490,13 @@ def orpc_update_category(user):
     updates = []
     params: list[Any] = []
     if payload.get("name") is not None:
+        with connect() as conn:
+            duplicate = conn.execute(
+                "SELECT id FROM expense_category WHERE LOWER(name) = LOWER(?) AND id != ?",
+                (payload["name"], category_id),
+            ).fetchone()
+        if duplicate:
+            return rpc_error("Expense category already exists", 409)
         updates.append("name = ?")
         params.append(payload["name"])
     if payload.get("impact") is not None:
@@ -673,6 +681,7 @@ def orpc_list_expenses(user):
                 f"""
                     SELECT
                         i.*,
+                        i.transaction_date AS expense_date,
                         c.name AS category_name,
                         c.impact AS category_impact,
                         j.driver_id,
@@ -738,7 +747,7 @@ def orpc_create_entry(user):
                     item["type"],
                     float(item["amount"]),
                     next_voucher_id(conn) if item["type"] == "debit" else None,
-                    item.get("handler"),
+                    item.get("handler") or "Driver",
                     item.get("nextRenewalDate"),
                     item.get("expenseCategoryId"),
                 ),
@@ -824,7 +833,7 @@ def orpc_update_entry(user):
                         item["type"],
                         float(item["amount"]),
                         next_voucher_id(conn) if item["type"] == "debit" else None,
-                        item.get("handler"),
+                        item.get("handler") or "Driver",
                         item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
                     ),
@@ -1103,7 +1112,7 @@ def create_entry(user):
                     item["type"],
                     float(item["amount"]),
                     next_voucher_id(conn) if item["type"] == "debit" else None,
-                    item.get("handler"),
+                    item.get("handler") or "Driver",
                     item.get("nextRenewalDate"),
                     item.get("expenseCategoryId"),
                 ),
@@ -1159,7 +1168,7 @@ def update_entry(user, entry_id):
                         item["type"],
                         float(item["amount"]),
                         next_voucher_id(conn) if item["type"] == "debit" else None,
-                        item.get("handler"),
+                        item.get("handler") or "Driver",
                         item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
                     ),

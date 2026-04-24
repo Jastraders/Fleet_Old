@@ -27,7 +27,6 @@ const createSortHeader = (
 		| "model"
 		| "year"
 		| "investmentMode"
-		| "renewalDate"
 		| "investmentAmount"
 		| "createdBy",
 	currentSortBy: string,
@@ -81,19 +80,6 @@ const createColumns = (
 				<div className="text-muted-foreground">{row.original.year ?? "-"}</div>
 			</div>
 		),
-	},
-	{
-		accessorKey: "renewal",
-		header: () => <span>Renewal</span>,
-		cell: ({ row }) => <span>{row.original.renewal || "-"}</span>,
-	},
-	{
-		accessorKey: "renewalDate",
-		header: () => createSortHeader("Renewal Date", "renewalDate", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => {
-			if (!row.original.renewalDate) return <span>-</span>;
-			return <span>{new Date(row.original.renewalDate).toLocaleDateString()}</span>;
-		},
 	},
 	{
 		accessorKey: "investmentMode",
@@ -153,7 +139,6 @@ export interface VehiclesDataTableProps {
 		| "model"
 		| "year"
 		| "investmentMode"
-		| "renewalDate"
 		| "investmentAmount"
 		| "createdBy";
 	sortOrder: "asc" | "desc";

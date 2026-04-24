@@ -52,7 +52,7 @@ const getRoleBadgeColor = (role: MemberRole) => {
 
 const createSortHeader = (
 	label: string,
-	sortKey: "memberName" | "createdAt" | "createdBy",
+	sortKey: "memberName" | "createdAt" | "lastLogin",
 	currentSortBy: string,
 	currentSortOrder: string,
 	onSort: (sortBy: string, sortOrder: string) => void,
@@ -161,35 +161,24 @@ const createColumns = (
 		},
 	},
 	{
-		accessorKey: "createdByUser",
+		accessorKey: "lastLoginAt",
 		header: () =>
 			createSortHeader(
-				"Created By",
-				"createdBy",
+				"Last Login",
+				"lastLogin",
 				currentSortBy,
 				currentSortOrder,
 				onSort,
 			),
 		cell: ({ row }) => {
-			const user = row.original.createdByUser;
-			if (!user) {
+			const lastLogin = row.original.lastLoginAt;
+			if (!lastLogin) {
 				return <div className="text-muted-foreground text-sm">-</div>;
 			}
-
-			const initials = user.name
-				.split(" ")
-				.map((n) => n[0])
-				.join("")
-				.toUpperCase();
-
 			return (
-				<div className="flex items-center gap-2">
-					<Avatar size="sm">
-						{user.image && <AvatarImage src={user.image} alt={user.name} />}
-						<AvatarFallback>{initials}</AvatarFallback>
-					</Avatar>
-					<span className="text-sm">{user.name}</span>
-				</div>
+				<time className="text-sm text-muted-foreground" dateTime={new Date(lastLogin).toISOString()}>
+					{new Date(lastLogin).toLocaleString()}
+				</time>
 			);
 		},
 	},
@@ -207,7 +196,7 @@ export interface MembersDataTableProps {
 	total: number;
 	offset: number;
 	limit: number;
-	sortBy: "memberName" | "createdAt" | "createdBy";
+	sortBy: "memberName" | "createdAt" | "lastLogin";
 	sortOrder: "asc" | "desc";
 }
 
@@ -228,7 +217,7 @@ export function MembersDataTable({
 			to: ".",
 			search: (prev) => ({
 				...prev,
-				sortBy: newSortBy as "memberName" | "createdAt" | "createdBy",
+				sortBy: newSortBy as "memberName" | "createdAt" | "lastLogin",
 				sortOrder: newSortOrder as "asc" | "desc",
 				offset: 0,
 			}),

@@ -6,7 +6,6 @@ import {
 	Bar,
 	BarChart,
 	CartesianGrid,
-	ReferenceLine,
 	XAxis,
 	YAxis,
 } from "recharts";
@@ -91,12 +90,11 @@ function VehicleProfitChartContent({
 	});
 	const fleetStats = data;
 
-	// Transform data for the chart - debit should be negative for stacking below 0
+	// Total bar height equals revenue and is stacked by expense + profit.
 	const chartData = fleetStats.map((vehicle) => ({
 		vehicleName: vehicle.vehicleName,
-		profit: vehicle.profit + vehicle.debit, // to account for stacking offset
-		debit: -vehicle.debit, // Negative so it stacks below the x-axis
-		// Keep original debit value for tooltip
+		profit: Math.max(vehicle.profit, 0),
+		debit: vehicle.debit,
 		originalDebit: vehicle.debit,
 		originalProfit: vehicle.profit,
 	}));
@@ -179,9 +177,8 @@ function VehicleProfitChartContent({
 							<YAxis
 								tickLine={false}
 								axisLine={false}
-								tickFormatter={(value) => formatINR(Math.abs(value))}
+								tickFormatter={(value) => formatINR(value)}
 							/>
-							<ReferenceLine y={0} stroke="var(--border)" />
 							<ChartTooltip
 								content={
 									<ChartTooltipContent

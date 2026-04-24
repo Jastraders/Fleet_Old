@@ -27,6 +27,7 @@ interface ExpenseRow {
 	id: string;
 	voucher_id: number | null;
 	category_name: string | null;
+	expense_date: string | null;
 	amount: string;
 	handler: string | null;
 	next_renewal_date: string | null;
@@ -75,14 +76,15 @@ const createColumns = (
 	onSort: (sortBy: string, sortOrder: string) => void,
 ): ColumnDef<ExpenseRow>[] => [
 	{ accessorKey: "voucher_id", header: () => createSortHeader("Voucher", "voucherId", currentSortBy, currentSortOrder, onSort) },
-	{ accessorKey: "category_name", header: () => createSortHeader("Expense Category", "expenseCategory", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_name || "-" },
+	{ accessorKey: "category_name", header: () => createSortHeader("Expense", "expenseCategory", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_name || "-" },
+	{ accessorKey: "expense_date", header: () => createSortHeader("Date", "createdAt", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.expense_date ? new Date(row.original.expense_date).toLocaleDateString() : "-" },
 	{ accessorKey: "amount", header: () => createSortHeader("Amount", "amount", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatINR(parseFloat(row.original.amount) || 0) },
 	{ accessorKey: "handler", header: () => createSortHeader("Handler", "handler", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.handler || "-" },
 	{ accessorKey: "next_renewal_date", header: () => createSortHeader("Next Renewal", "nextRenewalDate", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.next_renewal_date ? new Date(row.original.next_renewal_date).toLocaleDateString() : "-" },
 	{ accessorKey: "category_impact", header: () => createSortHeader("Expense Impact", "expenseImpact", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_impact || "-" },
 	{ accessorKey: "vehicle_name", header: () => createSortHeader("Vehicle", "vehicle", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.vehicle_name || "-" },
-	{ accessorKey: "driver_name", header: () => createSortHeader("Driver", "driver", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.driver_name || "-" },
-	{ accessorKey: "created_by_name", header: () => createSortHeader("Expense Created By", "createdBy", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.created_by_name || "-" },
+	{ accessorKey: "driver_name", header: () => createSortHeader("Driver Name", "driver", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.driver_name || "-" },
+	{ accessorKey: "created_by_name", header: () => createSortHeader("Created By", "createdBy", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.created_by_name || "-" },
 ];
 
 export interface ExpensesDataTableProps {
@@ -154,13 +156,14 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 								"expenses",
 								data.map((item) => ({
 									Voucher: item.voucher_id ?? "",
-									"Expense Category": item.category_name ?? "",
+									Expense: item.category_name ?? "",
+									Date: item.expense_date ?? "",
 									Amount: item.amount,
 									Handler: item.handler ?? "",
 									"Next Renewal": item.next_renewal_date ?? "",
 									"Expense Impact": item.category_impact ?? "",
 									Vehicle: item.vehicle_name ?? "",
-									Driver: item.driver_name ?? "",
+									"Driver Name": item.driver_name ?? "",
 									"Created By": item.created_by_name ?? "",
 									"Created At": item.created_at,
 								})),
