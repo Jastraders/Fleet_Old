@@ -3,7 +3,10 @@ import { Link } from "@tanstack/react-router";
 import {
 	BanknoteArrowDownIcon,
 	ChartPieIcon,
-    CircleUserRoundIcon,
+	CircleUserRoundIcon,
+	FileBarChart2Icon,
+	LifeBuoyIcon,
+	BellIcon,
 	ReceiptTextIcon,
 	SettingsIcon,
 	TagIcon,
@@ -34,6 +37,7 @@ function hasRole(user: unknown, role: string): boolean {
 
 export function AppSidebarMainNav() {
 	const { data: user } = useSuspenseQuery(orpc.user.auth.getMe.queryOptions());
+	const { data: notificationCount } = useSuspenseQuery(orpc.general.notifications.count.queryOptions());
 
 	return (
 		<>
@@ -155,19 +159,42 @@ export function AppSidebarMainNav() {
 						</SidebarMenuButton>
 					</SidebarMenuItem>
 					<SidebarMenuItem>
-						{/* todo */}
 						<SidebarMenuButton
-							disabled
 							render={
-								<Link to="/">
-									<SettingsIcon />
-									Settings
+								<Link
+									to="/dashboard/admin/reports"
+									activeProps={{ "data-active": true }}
+									activeOptions={{ exact: true, includeSearch: false }}
+								>
+									<FileBarChart2Icon />
+									Reports
 								</Link>
 							}
 						/>
 					</SidebarMenuItem>
 				</SidebarGroup>
 			)}
+			<SidebarSeparator />
+			<SidebarGroup>
+				<SidebarGroupLabel>General</SidebarGroupLabel>
+				<SidebarMenuItem>
+					<SidebarMenuButton
+						render={
+							<Link to="/dashboard/general/notifications" activeProps={{ "data-active": true }}>
+								<BellIcon />
+								Notifications
+								{notificationCount?.unread > 0 ? <span className="ml-auto h-2 w-2 rounded-full bg-red-500" /> : null}
+							</Link>
+						}
+					/>
+				</SidebarMenuItem>
+				<SidebarMenuItem>
+					<SidebarMenuButton disabled render={<Link to="/"><SettingsIcon />Settings</Link>} />
+				</SidebarMenuItem>
+				<SidebarMenuItem>
+					<SidebarMenuButton disabled render={<Link to="/"><LifeBuoyIcon />Support</Link>} />
+				</SidebarMenuItem>
+			</SidebarGroup>
 		</>
 	);
 }

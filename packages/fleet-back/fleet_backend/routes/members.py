@@ -21,7 +21,7 @@ def orpc_list_members(user):
     sort_map = {
         "memberName": "u.name",
         "createdAt": "u.created_at",
-        "createdBy": "cb.name",
+        "lastLogin": "u.last_login_at",
     }
     order_field = sort_map.get(sort_by, "u.created_at")
     order_dir = "ASC" if sort_order == "asc" else "DESC"
@@ -45,6 +45,7 @@ def orpc_list_members(user):
                     u.email,
                     u.image,
                     u.created_by,
+                    u.last_login_at,
                     u.created_at,
                     u.updated_at,
                     cb.name AS created_by_name,
@@ -112,6 +113,7 @@ def orpc_create_member(user):
                 u.email,
                 u.image,
                 u.created_by,
+                u.last_login_at,
                 u.created_at,
                 u.updated_at,
                 cb.name AS created_by_name,
@@ -148,6 +150,7 @@ def orpc_get_member(user):
                 u.email,
                 u.image,
                 u.created_by,
+                u.last_login_at,
                 u.created_at,
                 u.updated_at,
                 cb.name AS created_by_name,
@@ -204,6 +207,7 @@ def orpc_update_member(user):
                 u.email,
                 u.image,
                 u.created_by,
+                u.last_login_at,
                 u.created_at,
                 u.updated_at,
                 cb.name AS created_by_name,
@@ -245,6 +249,7 @@ def orpc_delete_member(user):
                 u.email,
                 u.image,
                 u.created_by,
+                u.last_login_at,
                 u.created_at,
                 u.updated_at,
                 cb.name AS created_by_name,
@@ -370,5 +375,4 @@ def delete_member(user, member_id):
         conn.execute("DELETE FROM users WHERE id = ?", (member_id,))
         conn.commit()
     return jsonify(dict(existing))
-
 

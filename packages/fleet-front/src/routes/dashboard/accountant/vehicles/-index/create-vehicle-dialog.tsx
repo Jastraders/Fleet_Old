@@ -41,8 +41,6 @@ const baseSchema = v.object({
 	),
 	model: v.pipe(v.string(), v.minLength(1, "Model is required"), v.maxLength(255)),
 	year: v.pipe(v.number(), v.minValue(1900, "Enter valid year"), v.maxValue(3000)),
-	renewal: v.pipe(v.string(), v.minLength(1, "Renewal is required"), v.maxLength(255)),
-	renewalDate: v.pipe(v.string(), v.minLength(1, "Renewal date is required")),
 	investmentMode: v.picklist(["full_amount", "full_loan", "flexible"]),
 	totalPrice: v.optional(v.nullable(v.number())),
 	monthlyEmi: v.optional(v.nullable(v.number())),
@@ -78,8 +76,6 @@ const defaultValues: v.InferInput<typeof createVehicleFormSchema> = {
 	licensePlate: "",
 	model: "",
 	year: new Date().getFullYear(),
-	renewal: "",
-	renewalDate: "",
 	investmentMode: "full_amount",
 	totalPrice: null,
 	monthlyEmi: null,
@@ -196,24 +192,6 @@ export function CreateVehicleDialog() {
 											<Field>
 												<FieldLabel htmlFor="vehicle-year">Year<span className="text-destructive">*</span></FieldLabel>
 												<Input id="vehicle-year" type="number" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(Number(e.target.value || 0))} />
-												<FieldError errors={field.state.meta.errors} />
-											</Field>
-										)}
-									</form.Field>
-									<form.Field name="renewal">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor="vehicle-renewal">Renewal<span className="text-destructive">*</span></FieldLabel>
-												<Input id="vehicle-renewal" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} placeholder="e.g., Insurance, RTO" />
-												<FieldError errors={field.state.meta.errors} />
-											</Field>
-										)}
-									</form.Field>
-									<form.Field name="renewalDate">
-										{(field) => (
-											<Field>
-												<FieldLabel htmlFor="vehicle-renewal-date">Renewal Date<span className="text-destructive">*</span></FieldLabel>
-												<Input id="vehicle-renewal-date" type="date" name={field.name} value={field.state.value} onBlur={field.handleBlur} onChange={(e) => field.handleChange(e.target.value)} />
 												<FieldError errors={field.state.meta.errors} />
 											</Field>
 										)}

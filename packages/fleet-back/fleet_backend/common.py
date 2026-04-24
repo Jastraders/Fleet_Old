@@ -437,8 +437,9 @@ def serialize_member_row(member: dict[str, Any], roles: list[dict[str, Any]]):
         "name": member["name"],
         "email": member["email"],
         "image": member.get("image"),
-        "createdAt": member["created_at"],
-        "updatedAt": member["updated_at"],
+        "createdAt": to_iso_datetime(member["created_at"]),
+        "updatedAt": to_iso_datetime(member["updated_at"]),
+        "lastLoginAt": to_iso_datetime(member.get("last_login_at")),
         "createdByUser": created_by_user,
         "roles": roles,
     }

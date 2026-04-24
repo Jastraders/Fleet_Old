@@ -36,6 +36,9 @@ function AdminsSidebarUserContent() {
 	const { isMobile } = useSidebar();
 
 	const { data } = useSuspenseQuery(orpc.user.auth.getMe.queryOptions());
+	const { data: notificationCount } = useSuspenseQuery(
+		orpc.general.notifications.count.queryOptions(),
+	);
 	const signOutMutation = useMutation({
 		...orpc.user.auth.signOut.mutationOptions(),
 		onSuccess: () => {
@@ -111,9 +114,10 @@ function AdminsSidebarUserContent() {
 								Account
 							</DropdownMenuItem>
 							{/* todo */}
-							<DropdownMenuItem disabled>
+							<DropdownMenuItem onClick={() => void router.navigate({ to: "/dashboard/general/notifications" })}>
 								<BellIcon />
 								Notifications
+								{notificationCount?.unread > 0 ? <span className="ml-auto h-2 w-2 rounded-full bg-red-500" /> : null}
 							</DropdownMenuItem>
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />

@@ -23,6 +23,7 @@ def init_db() -> None:
                 password_hash TEXT NOT NULL,
                 image TEXT,
                 created_by TEXT,
+                last_login_at TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -120,6 +121,20 @@ def init_db() -> None:
                 FOREIGN KEY(vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE,
                 FOREIGN KEY(expense_category_id) REFERENCES expense_category(id) ON DELETE SET NULL
             );
+
+            CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                recipient_user_id TEXT,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                resource_type TEXT,
+                resource_id TEXT,
+                metadata TEXT,
+                is_read INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(recipient_user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
             """
         )
 
@@ -127,6 +142,9 @@ def init_db() -> None:
         category_columns = {
             row["name"] for row in conn.execute("PRAGMA table_info(expense_category)").fetchall()
         }
+        user_columns = {row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "last_login_at" not in user_columns:
+            conn.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT")
         if "impact" not in category_columns:
             conn.execute(
                 "ALTER TABLE expense_category ADD COLUMN impact TEXT NOT NULL DEFAULT 'company'"
@@ -256,6 +274,9 @@ def init_db() -> None:
             conn.execute("ALTER TABLE vehicles ADD COLUMN down_payment REAL")
         if "total_revenue" not in vehicle_columns:
             conn.execute("ALTER TABLE vehicles ADD COLUMN total_revenue REAL NOT NULL DEFAULT 0")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_category_name_ci ON expense_category(LOWER(name))"
+        )
 
         conn.commit()
 

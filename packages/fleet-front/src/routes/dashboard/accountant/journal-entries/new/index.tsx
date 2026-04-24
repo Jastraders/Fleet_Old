@@ -36,7 +36,7 @@ const expenseItemSchema = v.object({
 		v.minLength(1, "Amount is required"),
 		v.transform((val) => parseFloat(val) || 0),
 	),
-	handler: v.pipe(v.string(), v.minLength(1, "Handler is required")),
+	handler: v.optional(v.string()),
 	nextRenewalDate: v.optional(v.string()),
 });
 
@@ -101,7 +101,7 @@ function RouteComponent() {
 					type: "debit" as const,
 					amount: exp.amount.toString(),
 					expenseCategoryId: exp.expenseCategoryId,
-					handler: exp.handler,
+					handler: exp.handler || "Driver",
 					nextRenewalDate: exp.nextRenewalDate || undefined,
 				})),
 			];
@@ -120,7 +120,7 @@ function RouteComponent() {
 			// biome-ignore lint/suspicious/noExplicitAny: default to unselected
 			expenseCategoryId: null as any,
 			amount: "",
-			handler: "",
+			handler: "Driver",
 			nextRenewalDate: "",
 		});
 	};
@@ -472,7 +472,6 @@ function RouteComponent() {
 																			<Field data-invalid={handlerIsInvalid}>
 																				<FieldLabel htmlFor={`expense-handler-${index}`}>
 																					Handler
-																					<span className="text-destructive">*</span>
 																				</FieldLabel>
 																				<Input
 																					id={`expense-handler-${index}`}
@@ -484,7 +483,8 @@ function RouteComponent() {
 																							e.target.value,
 																						)
 																					}
-																					placeholder="Enter handler name"
+																					placeholder="Driver"
+																					className="placeholder:text-black/55"
 																				/>
 																				{handlerIsInvalid && (
 																					<FieldError

@@ -1,4 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { BellIcon } from "lucide-react";
 import * as v from "valibot";
 import {
 	Breadcrumb,
@@ -16,6 +18,8 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { orpc } from "@/orpc";
 import { ExpenseCategoriesStatsCard } from "@/routes/dashboard/analyst/analytics/-index/expense-categories-stats-card";
 import { SummaryStatsCards } from "@/routes/dashboard/analyst/analytics/-index/summary-stats-cards";
 import { VehicleLeaderboardCard } from "@/routes/dashboard/analyst/analytics/-index/vehicle-leaderboard-card";
@@ -67,6 +71,9 @@ const periodOptions = [
 function RouteComponent() {
 	const { period } = Route.useSearch();
 	const navigate = useNavigate({ from: Route.fullPath });
+	const { data: notificationCount } = useSuspenseQuery(
+		orpc.general.notifications.count.queryOptions(),
+	);
 
 	function handlePeriodChange(value: typeof period | null) {
 		if (value === null) return;
@@ -94,7 +101,11 @@ function RouteComponent() {
 						</BreadcrumbList>
 					</Breadcrumb>
 				</div>
-				<div className="ml-auto mr-4">
+				<div className="ml-auto mr-4 flex items-center gap-2">
+					<Button variant="outline" size="icon" onClick={() => navigate({ to: "/dashboard/general/notifications" })} className="relative">
+						<BellIcon className="h-4 w-4" />
+						{notificationCount?.unread > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+					</Button>
 					<Select
 						items={periodOptions}
 						value={period}
