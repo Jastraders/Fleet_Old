@@ -724,6 +724,7 @@ def orpc_list_expenses(user):
 @require_auth({"accountant"})
 def orpc_create_entry(user):
     payload = rpc_payload()
+    source_notification_id = payload.get("sourceNotificationId")
     with connect() as conn:
         eid = str(uuid.uuid4())
         conn.execute(
@@ -754,6 +755,8 @@ def orpc_create_entry(user):
             )
         refresh_driver_total_expense(conn, payload.get("driverId"))
         refresh_vehicle_total_expense(conn, payload["vehicleId"])
+        if source_notification_id:
+            conn.execute("DELETE FROM notifications WHERE id = ?", (source_notification_id,))
         conn.commit()
         entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
         items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())

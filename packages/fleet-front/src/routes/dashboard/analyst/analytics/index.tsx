@@ -19,6 +19,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { orpc } from "@/orpc";
 import { ExpenseCategoriesStatsCard } from "@/routes/dashboard/analyst/analytics/-index/expense-categories-stats-card";
 import { SummaryStatsCards } from "@/routes/dashboard/analyst/analytics/-index/summary-stats-cards";
@@ -74,6 +82,9 @@ function RouteComponent() {
 	const { data: notificationCount } = useSuspenseQuery(
 		orpc.general.notifications.count.queryOptions(),
 	);
+	const { data: unreadNotifications } = useSuspenseQuery(
+		orpc.general.notifications.list.queryOptions({ input: { filter: "unread" } }),
+	);
 
 	function handlePeriodChange(value: typeof period | null) {
 		if (value === null) return;
@@ -102,10 +113,42 @@ function RouteComponent() {
 					</Breadcrumb>
 				</div>
 				<div className="ml-auto mr-4 flex items-center gap-2">
-					<Button variant="outline" size="icon" onClick={() => navigate({ to: "/dashboard/general/notifications" })} className="relative">
-						<BellIcon className="h-4 w-4" />
-						{notificationCount?.unread > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
-					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="outline" size="icon" className="relative">
+									<BellIcon className="h-4 w-4" />
+									{notificationCount?.unread > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+								</Button>
+							}
+						/>
+						<DropdownMenuContent align="end" className="w-96 max-w-[90vw]">
+							<DropdownMenuLabel>Notifications</DropdownMenuLabel>
+							<DropdownMenuSeparator />
+							{unreadNotifications.length === 0 ? (
+								<div className="px-2 py-3 text-sm text-muted-foreground">No new notifications.</div>
+							) : (
+								unreadNotifications.slice(0, 5).map((item: any) => {
+									const meta = (() => {
+										try {
+											return item.metadata ? JSON.parse(item.metadata) : {};
+										} catch {
+											return {};
+										}
+									})();
+									return (
+										<DropdownMenuItem
+											key={item.id}
+											onClick={() => navigate({ to: "/dashboard/general/notifications" })}
+											className="items-start whitespace-normal"
+										>
+											{meta.renewalType ?? "Renewal"} for {meta.vehicleName ?? "vehicle"} is due in {meta.daysRemaining ?? "-"} day(s).
+										</DropdownMenuItem>
+									);
+								})
+							)}
+						</DropdownMenuContent>
+					</DropdownMenu>
 					<Select
 						items={periodOptions}
 						value={period}

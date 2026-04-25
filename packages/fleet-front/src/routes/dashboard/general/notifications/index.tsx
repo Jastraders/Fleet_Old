@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { BellIcon, CheckIcon, EyeIcon, TrashIcon } from "lucide-react";
+import { BellIcon, RefreshCcwIcon, EyeIcon, TrashIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { orpc } from "@/orpc";
@@ -14,13 +14,12 @@ function RouteComponent() {
   const navigate = useNavigate();
   const { data } = useSuspenseQuery(orpc.general.notifications.list.queryOptions({ input: { filter: 'all' } }));
 
-  const markRead = useMutation({
-    ...orpc.general.notifications.markRead.mutationOptions(),
-    onSuccess: () => queryClient.invalidateQueries(),
-  });
   const deleteNotification = useMutation({
     ...orpc.general.notifications.delete.mutationOptions(),
     onSuccess: () => queryClient.invalidateQueries(),
+  });
+  const reviewNotification = useMutation({
+    ...orpc.general.notifications.review.mutationOptions(),
   });
 
   return (
@@ -37,11 +36,37 @@ function RouteComponent() {
               <div key={item.id} className="rounded-xl border bg-white p-4 shadow-sm">
                 <p className="font-semibold">{item.title}</p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  "{meta.renewalType ?? 'Renewal'}" renewal of "{meta.vehicleName ?? 'Vehicle'}" is within "{meta.daysRemaining ?? '-'}" days. Renewal date is on "{meta.renewalDate ?? '-'}", last renewed date is "{meta.lastRenewedDate ?? '-'}".
+                  {meta.renewalType ?? "Renewal"} renewal for {meta.vehicleName ?? "Vehicle"} is due in {meta.daysRemaining ?? "-"} day(s). Renewal date: {meta.renewalDate ?? "-"}.
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => markRead.mutate({ id: item.id } as never)}><CheckIcon className="h-4 w-4" />Mark as read</Button>
-                  <Button size="sm" variant="outline" onClick={() => navigate({ to: '/dashboard/accountant/expenses', search: { search: meta.renewalType ?? undefined } as never })}><EyeIcon className="h-4 w-4" />Review</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      navigate({
+                        to: "/dashboard/accountant/journal-entries/new",
+                        search: {
+                          sourceNotificationId: item.id,
+                          prefillVehicleId: meta.vehicleId ?? "",
+                          prefillExpenseCategoryId: meta.expenseCategoryId ?? "",
+                          prefillTransactionDate: new Date().toISOString().slice(0, 10),
+                          prefillNextRenewalDate: meta.renewalDate ?? "",
+                          prefillNotes: `${meta.renewalType ?? "Renewal"} renewal for ${meta.vehicleName ?? "Vehicle"}`,
+                        } as never,
+                      })
+                    }
+                  ><RefreshCcwIcon className="h-4 w-4" />Renew</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      reviewNotification.mutate({ id: item.id } as never, {
+                        onSuccess: (result: any) => {
+                          navigate({ to: "/dashboard/accountant/expenses", search: { search: result?.search ?? undefined } as never });
+                        },
+                      });
+                    }}
+                  ><EyeIcon className="h-4 w-4" />Review</Button>
                   <Button size="sm" variant="destructive" onClick={() => deleteNotification.mutate({ id: item.id } as never)}><TrashIcon className="h-4 w-4" />Delete</Button>
                 </div>
               </div>

@@ -11,7 +11,6 @@ import {
 	SidebarRail,
 } from "@/components/ui/sidebar";
 import { AppSidebarMainNav } from "@/routes/dashboard/-route/app-sidebar/app-sidebar-main-nav";
-import { AppSidebarSecondaryNav } from "@/routes/dashboard/-route/app-sidebar/app-sidebar-secondary-nav";
 import { AdminsSidebarUser } from "@/routes/dashboard/-route/app-sidebar/app-sidebar-user";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -34,7 +33,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 			</SidebarHeader>
 			<SidebarContent>
 				<AppSidebarMainNav />
-				<AppSidebarSecondaryNav className="mt-auto" />
 			</SidebarContent>
 			<SidebarFooter>
 				<AdminsSidebarUser />

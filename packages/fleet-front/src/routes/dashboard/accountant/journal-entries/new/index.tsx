@@ -2,6 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { ArrowLeftIcon, Loader2Icon, TrashIcon } from "lucide-react";
+import { useEffect, useRef } from "react";
 import * as v from "valibot";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -63,14 +64,25 @@ const defaultValues: FormValues = {
 	expenses: [],
 };
 
+const searchSchema = v.object({
+	sourceNotificationId: v.optional(v.string()),
+	prefillVehicleId: v.optional(v.string()),
+	prefillExpenseCategoryId: v.optional(v.string()),
+	prefillTransactionDate: v.optional(v.string()),
+	prefillNextRenewalDate: v.optional(v.string()),
+	prefillNotes: v.optional(v.string()),
+});
+
 export const Route = createFileRoute(
 	"/dashboard/accountant/journal-entries/new/",
 )({
+	validateSearch: searchSchema,
 	component: RouteComponent,
 });
 
 function RouteComponent() {
 	const router = useRouter();
+	const search = Route.useSearch();
 	const queryClient = useQueryClient();
 
 	const createEntryMutation = useMutation({
@@ -111,9 +123,34 @@ function RouteComponent() {
 				driverId: value.driverId,
 				notes: value.notes || undefined,
 				items,
+				sourceNotificationId: search.sourceNotificationId || undefined,
 			} as never);
 		},
 	});
+
+	const hasPrefillData =
+		Boolean(search.prefillVehicleId) ||
+		Boolean(search.prefillExpenseCategoryId) ||
+		Boolean(search.prefillTransactionDate) ||
+		Boolean(search.prefillNextRenewalDate) ||
+		Boolean(search.prefillNotes);
+	const hasAppliedPrefillRef = useRef(false);
+	useEffect(() => {
+		if (!hasPrefillData || hasAppliedPrefillRef.current) return;
+		hasAppliedPrefillRef.current = true;
+		form.setFieldValue("vehicleId", search.prefillVehicleId || "");
+		form.setFieldValue("transactionDate", search.prefillTransactionDate || defaultValues.transactionDate);
+		form.setFieldValue("notes", search.prefillNotes || "");
+		if (form.state.values.expenses.length === 0) {
+			form.pushFieldValue("expenses", {
+				// biome-ignore lint/suspicious/noExplicitAny: default to optional prefilled values
+				expenseCategoryId: (search.prefillExpenseCategoryId || null) as any,
+				amount: "",
+				handler: "Driver",
+				nextRenewalDate: search.prefillNextRenewalDate || "",
+			});
+		}
+	}, [hasPrefillData, search, form]);
 
 	const handleAddExpense = () => {
 		form.pushFieldValue("expenses", {

@@ -1,13 +1,20 @@
 import { useRouter } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	type ColumnDef,
 	flexRender,
 	getCoreRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, MoreHorizontalIcon, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
 	Table,
@@ -18,6 +25,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { cn, formatINR } from "@/lib/utils";
+import { orpc } from "@/orpc";
 import {
 	AccountantDownloadButton,
 	downloadExcelCompatibleCsv,
@@ -25,6 +33,7 @@ import {
 
 interface ExpenseRow {
 	id: string;
+	journal_entry_id: string;
 	voucher_id: number | null;
 	category_name: string | null;
 	expense_date: string | null;
@@ -74,6 +83,8 @@ const createColumns = (
 	currentSortBy: string,
 	currentSortOrder: string,
 	onSort: (sortBy: string, sortOrder: string) => void,
+	onEditRow: (row: ExpenseRow) => void,
+	onDeleteRow: (row: ExpenseRow) => void,
 ): ColumnDef<ExpenseRow>[] => [
 	{ accessorKey: "voucher_id", header: () => createSortHeader("Voucher", "voucherId", currentSortBy, currentSortOrder, onSort) },
 	{ accessorKey: "category_name", header: () => createSortHeader("Expense", "expenseCategory", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_name || "-" },
@@ -85,6 +96,21 @@ const createColumns = (
 	{ accessorKey: "vehicle_name", header: () => createSortHeader("Vehicle", "vehicle", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.vehicle_name || "-" },
 	{ accessorKey: "driver_name", header: () => createSortHeader("Driver Name", "driver", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.driver_name || "-" },
 	{ accessorKey: "created_by_name", header: () => createSortHeader("Created By", "createdBy", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.created_by_name || "-" },
+	{
+		id: "actions",
+		header: "Actions",
+		cell: ({ row }) => (
+			<DropdownMenu>
+				<DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontalIcon className="h-4 w-4" /></Button>} />
+				<DropdownMenuContent align="end">
+					<DropdownMenuItem onClick={() => onEditRow(row.original)}>Edit</DropdownMenuItem>
+					<DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeleteRow(row.original)}>
+						Delete
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
+		),
+	},
 ];
 
 export interface ExpensesDataTableProps {
@@ -109,9 +135,23 @@ export interface ExpensesDataTableProps {
 
 export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, sortOrder }: ExpensesDataTableProps) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const [searchValue, setSearchValue] = useState(search ?? "");
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.max(1, Math.ceil(total / limit));
+	const deleteEntryMutation = useMutation({
+		...orpc.accountant.journalEntries.delete.mutationOptions(),
+		onSuccess: () => queryClient.invalidateQueries(),
+	});
+
+	const onEditRow = (row: ExpenseRow) => {
+		void router.navigate({ to: "/dashboard/accountant/journal-entries/$entryId", params: { entryId: row.journal_entry_id } });
+	};
+
+	const onDeleteRow = (row: ExpenseRow) => {
+		if (!row.journal_entry_id) return;
+		deleteEntryMutation.mutate({ id: row.journal_entry_id } as never);
+	};
 
 	useEffect(() => setSearchValue(search ?? ""), [search]);
 	useEffect(() => {
@@ -139,11 +179,11 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 			}),
 		});
 	};
-	const columns = createColumns(sortBy, sortOrder, handleSort);
+	const columns = createColumns(sortBy, sortOrder, handleSort, onEditRow, onDeleteRow);
 	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
 
 	return (
-		<div className="w-full min-w-0 space-y-4 overflow-x-hidden">
+		<div className="w-full min-w-0 space-y-4">
 			<div className="flex flex-wrap justify-between gap-4">
 				<div className="space-y-1">
 					<h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
@@ -175,7 +215,7 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 				</div>
 			</div>
 			<div className="max-w-full overflow-x-auto rounded-lg border">
-				<Table className="min-w-[1100px]">
+				<Table className="min-w-[1320px]">
 					<TableHeader className="bg-muted sticky top-0 z-10">
 						{table.getHeaderGroups().map((hg) => <TableRow key={hg.id}>{hg.headers.map((h) => <TableHead key={h.id}>{h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}</TableHead>)}</TableRow>)}
 					</TableHeader>

@@ -3,7 +3,7 @@ import uuid
 from datetime import date, datetime
 
 from database import connect, rows_to_dicts
-from fleet_backend.common import now_iso, require_auth, rpc_payload, rpc_response
+from fleet_backend.common import require_auth, rpc_payload, rpc_response
 from fleet_backend.server import app
 
 
@@ -23,7 +23,7 @@ def sync_renewal_notifications(conn):
     today = date.today()
     due_rows = rows_to_dicts(conn.execute(
         """
-        SELECT i.id, i.next_renewal_date, i.transaction_date, i.expense_category_id,
+        SELECT i.id, i.vehicle_id, i.voucher_id, i.next_renewal_date, i.transaction_date, i.expense_category_id,
                c.name AS category_name, v.name AS vehicle_name
         FROM journal_entry_items i
         LEFT JOIN vehicles v ON v.id = i.vehicle_id
@@ -59,6 +59,9 @@ def sync_renewal_notifications(conn):
             'lastRenewedDate': row.get('transaction_date'),
             'vehicleName': vehicle_name,
             'renewalType': category_name,
+            'voucherId': row.get('voucher_id'),
+            'vehicleId': row.get('vehicle_id'),
+            'expenseCategoryId': row.get('expense_category_id'),
         })
         conn.execute(
             "INSERT INTO notifications (id,type,title,message,resource_type,resource_id,metadata) VALUES (?,?,?,?,?,?,?)",
@@ -114,3 +117,22 @@ def delete_notification(user):
         conn.execute('DELETE FROM notifications WHERE id = ?', (payload.get('id'),))
         conn.commit()
     return rpc_response({'ok': True})
+
+
+@app.post('/orpc/general/notifications/review')
+@require_auth()
+def review_notification(user):
+    payload = rpc_payload()
+    with connect() as conn:
+        row = conn.execute("SELECT * FROM notifications WHERE id = ?", (payload.get("id"),)).fetchone()
+        if not row:
+            return rpc_response({"search": None})
+        metadata = {}
+        raw_metadata = row["metadata"]
+        if raw_metadata:
+            try:
+                metadata = json.loads(raw_metadata)
+            except json.JSONDecodeError:
+                metadata = {}
+    search_value = metadata.get("voucherId") or metadata.get("renewalType")
+    return rpc_response({"search": str(search_value) if search_value else None})
