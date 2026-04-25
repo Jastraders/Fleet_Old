@@ -10,6 +10,11 @@ from werkzeug.security import generate_password_hash
 
 from database import connect, rows_to_dicts
 
+import logging
+import re
+
+log = logging.getLogger(__name__)
+
 SESSION_TTL_DAYS = 30
 PERIODS = {"all_time", "last_7d", "last_30d", "last_6m", "last_12m"}
 VEHICLE_PERIODS = {"all_time", "last_30d", "last_3m", "last_6m", "last_9m", "last_12m"}
@@ -130,7 +135,39 @@ def get_user_from_session() -> dict[str, Any] | None:
         if not session:
             return None
 
-        created_at = datetime.fromisoformat(session["created_at"].replace(" ", "T"))
+        # Parse ISO datetimes robustly. Supabase/Postgres may store offsets like '+00'
+        def parse_iso_datetime(value: str) -> datetime:
+            if not value:
+                raise ValueError("empty datetime")
+            s = value.replace(" ", "T")
+            s = s.replace("Z", "+00:00")
+            # handle offsets like +00 (no minutes) -> +00:00
+            if re.search(r"[+-]\d{2}$", s) and not re.search(r"[+-]\d{2}:\d{2}$", s):
+                s = s + ":00"
+            # handle offsets like +0000 -> +00:00
+            m = re.search(r"([+-]\d{4})$", s)
+            if m:
+                tz = m.group(1)
+                s = s[:-5] + tz[:3] + ":" + tz[3:]
+            try:
+                dt = datetime.fromisoformat(s)
+            except Exception as e:
+                log.exception("Failed to parse datetime '%s'", value)
+                raise
+            # normalize to naive UTC for existing TTL comparisons
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+
+        try:
+            created_at = parse_iso_datetime(session["created_at"])
+        except Exception:
+            # If we can't parse the stored timestamp, remove the session and treat as missing
+            log.warning("Invalid session created_at, deleting session %s", sid)
+            conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
+            conn.commit()
+            return None
+
         if datetime.now(timezone.utc).replace(tzinfo=None) - created_at > timedelta(days=SESSION_TTL_DAYS):
             conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
             conn.commit()
