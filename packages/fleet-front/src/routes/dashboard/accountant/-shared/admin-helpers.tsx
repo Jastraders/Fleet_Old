@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { AlertTriangleIcon, DownloadIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogMedia,
 	AlertDialogTitle,
+	AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
 import { orpc } from "@/orpc";
 
@@ -110,3 +111,81 @@ export function downloadExcelCompatibleCsv(filename: string, rows: Array<Record<
 	URL.revokeObjectURL(url);
 }
 
+export function useRowAccess() {
+	const queryClient = useQueryClient();
+
+	const canAccess = async (input: {
+		pageName: string;
+		resourceType: string;
+		resourceId: string;
+		action: "edit" | "delete";
+	}) => {
+		const result = await queryClient.fetchQuery(
+			orpc.general.access.check.queryOptions({ input: input as never }),
+		);
+		return Boolean((result as { allowed?: boolean })?.allowed);
+	};
+
+	return { canAccess };
+}
+
+interface AccessDeniedDialogProps {
+	open: boolean;
+	onOpenChange: (next: boolean) => void;
+	pageName: string;
+	resourceType: string;
+	resourceId: string;
+	primaryLabel: string;
+}
+
+export function AccessDeniedDialog({
+	open,
+	onOpenChange,
+	pageName,
+	resourceType,
+	resourceId,
+	primaryLabel,
+}: AccessDeniedDialogProps) {
+	const requestMutation = useMutation({
+		...orpc.general.access.request.mutationOptions(),
+	});
+
+	return (
+		<AlertDialog open={open} onOpenChange={onOpenChange}>
+			<AlertDialogContent size="sm">
+				<AlertDialogHeader>
+					<AlertDialogMedia>
+						<AlertTriangleIcon className="text-amber-600" />
+					</AlertDialogMedia>
+					<AlertDialogTitle>Access denied</AlertDialogTitle>
+					<AlertDialogDescription>Only admin can edit or delete.</AlertDialogDescription>
+				</AlertDialogHeader>
+				<AlertDialogFooter>
+					<AlertDialogCancel type="button" onClick={() => onOpenChange(false)}>
+						OK
+					</AlertDialogCancel>
+					<AlertDialogAction
+						type="button"
+						onClick={() => {
+							requestMutation.mutate(
+								{
+									pageName,
+									resourceType,
+									resourceId,
+									primaryLabel,
+									actions: ["edit", "delete"],
+								} as never,
+								{
+									onSuccess: () => onOpenChange(false),
+								},
+							);
+						}}
+						disabled={requestMutation.isPending}
+					>
+						Request Access
+					</AlertDialogAction>
+				</AlertDialogFooter>
+			</AlertDialogContent>
+		</AlertDialog>
+	);
+}

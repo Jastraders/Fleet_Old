@@ -2,16 +2,6 @@ import { MoreVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogMedia,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -19,7 +9,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useIsAdmin } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteCategoryAlertDialog } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table/categories-data-table-action-cell/delete-category-alert-dialog";
 import { UpdateCategoryDialog } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table/categories-data-table-action-cell/update-category-dialog";
 import type { ExpenseCategory } from "@/routes/dashboard/accountant/expense-categories/-route/types";
@@ -35,24 +25,25 @@ export function CategoriesDataTableActionCell({
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isBlockedDialogOpen, setIsBlockedDialogOpen] = useState(false);
 	const isAdmin = useIsAdmin();
+	const { canAccess } = useRowAccess();
 
-	const handleEdit = useCallback(() => {
-		if (!isAdmin) {
+	const handleEdit = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Expense Categories", resourceType: "expense_category", resourceId: category.id, action: "edit" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
 		setSelectedCategory(category);
 		setIsUpdateDialogOpen(true);
-	}, [category, isAdmin]);
+	}, [category, isAdmin, canAccess]);
 
-	const handleDeleteClick = useCallback(() => {
-		if (!isAdmin) {
+	const handleDeleteClick = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Expense Categories", resourceType: "expense_category", resourceId: category.id, action: "delete" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
 		setSelectedCategory(category);
 		setIsDeleteDialogOpen(true);
-	}, [category, isAdmin]);
+	}, [category, isAdmin, canAccess]);
 
 	return (
 		<>
@@ -93,22 +84,14 @@ export function CategoriesDataTableActionCell({
 				isOpen={isDeleteDialogOpen}
 				onOpenChange={setIsDeleteDialogOpen}
 			/>
-			<AlertDialog open={isBlockedDialogOpen} onOpenChange={setIsBlockedDialogOpen}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogMedia>
-							<TrashIcon className="text-amber-600" />
-						</AlertDialogMedia>
-						<AlertDialogTitle>Access denied</AlertDialogTitle>
-						<AlertDialogDescription>Only admin can edit or delete.</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogAction type="button" onClick={() => setIsBlockedDialogOpen(false)}>
-							OK
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<AccessDeniedDialog
+				open={isBlockedDialogOpen}
+				onOpenChange={setIsBlockedDialogOpen}
+				pageName="Expense Categories"
+				resourceType="expense_category"
+				resourceId={category.id}
+				primaryLabel={category.name}
+			/>
 		</>
 	);
 }

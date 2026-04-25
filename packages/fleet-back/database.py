@@ -135,6 +135,37 @@ def init_db() -> None:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(recipient_user_id) REFERENCES users(id) ON DELETE CASCADE
             );
+
+            CREATE TABLE IF NOT EXISTS access_requests (
+                id TEXT PRIMARY KEY,
+                requester_user_id TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','allowed','denied')),
+                page_name TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                resource_id TEXT NOT NULL,
+                primary_label TEXT NOT NULL,
+                requested_actions TEXT NOT NULL,
+                notification_id TEXT,
+                reviewed_by TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(requester_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(notification_id) REFERENCES notifications(id) ON DELETE SET NULL,
+                FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS access_grants (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                page_name TEXT NOT NULL,
+                resource_type TEXT NOT NULL,
+                resource_id TEXT NOT NULL,
+                action TEXT NOT NULL CHECK(action IN ('edit','delete')),
+                granted_by TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY(granted_by) REFERENCES users(id) ON DELETE SET NULL
+            );
             """
         )
 
@@ -236,6 +267,9 @@ def init_db() -> None:
 
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entry_items_voucher_id ON journal_entry_items(voucher_id) WHERE voucher_id IS NOT NULL"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_access_grants_unique ON access_grants(user_id,page_name,resource_type,resource_id,action)"
         )
 
         driver_columns = {

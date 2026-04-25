@@ -2,16 +2,6 @@ import { MoreVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogMedia,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuGroup,
@@ -20,7 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Vehicle } from "@/models/vehicle";
-import { useIsAdmin } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteVehicleAlertDialog } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell/delete-vehicle-alert-dialog";
 import { UpdateVehicleDialog } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell/update-vehicle-dialog";
 
@@ -30,24 +20,25 @@ export function VehiclesDataTableActionCell({ vehicle }: { vehicle: Vehicle }) {
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isBlockedDialogOpen, setIsBlockedDialogOpen] = useState(false);
 	const isAdmin = useIsAdmin();
+	const { canAccess } = useRowAccess();
 
-	const handleEdit = useCallback(() => {
-		if (!isAdmin) {
+	const handleEdit = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Vehicles", resourceType: "vehicle", resourceId: vehicle.id, action: "edit" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
 		setSelectedVehicle(vehicle);
 		setIsUpdateDialogOpen(true);
-	}, [vehicle, isAdmin]);
+	}, [vehicle, isAdmin, canAccess]);
 
-	const handleDeleteClick = useCallback(() => {
-		if (!isAdmin) {
+	const handleDeleteClick = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Vehicles", resourceType: "vehicle", resourceId: vehicle.id, action: "delete" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
 		setSelectedVehicle(vehicle);
 		setIsDeleteDialogOpen(true);
-	}, [vehicle, isAdmin]);
+	}, [vehicle, isAdmin, canAccess]);
 
 	return (
 		<>
@@ -88,22 +79,14 @@ export function VehiclesDataTableActionCell({ vehicle }: { vehicle: Vehicle }) {
 				isOpen={isDeleteDialogOpen}
 				onOpenChange={setIsDeleteDialogOpen}
 			/>
-			<AlertDialog open={isBlockedDialogOpen} onOpenChange={setIsBlockedDialogOpen}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogMedia>
-							<TrashIcon className="text-amber-600" />
-						</AlertDialogMedia>
-						<AlertDialogTitle>Access denied</AlertDialogTitle>
-						<AlertDialogDescription>Only admin can edit or delete.</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogAction type="button" onClick={() => setIsBlockedDialogOpen(false)}>
-							OK
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<AccessDeniedDialog
+				open={isBlockedDialogOpen}
+				onOpenChange={setIsBlockedDialogOpen}
+				pageName="Vehicles"
+				resourceType="vehicle"
+				resourceId={vehicle.id}
+				primaryLabel={vehicle.name}
+			/>
 		</>
 	);
 }

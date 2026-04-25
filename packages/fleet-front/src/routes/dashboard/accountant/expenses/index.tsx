@@ -93,14 +93,16 @@ function ExpensesList() {
 	}
 
 	return (
-		<ExpensesDataTable
-			data={data.data}
-			total={data.meta.total}
-			offset={query.offset}
-			limit={query.limit}
-			search={query.search}
-			sortBy={query.sortBy}
-			sortOrder={query.sortOrder}
-		/>
+		<div className="min-w-0 overflow-x-hidden">
+			<ExpensesDataTable
+				data={data.data}
+				total={data.meta.total}
+				offset={query.offset}
+				limit={query.limit}
+				search={query.search}
+				sortBy={query.sortBy}
+				sortOrder={query.sortOrder}
+			/>
+		</div>
 	);
 }

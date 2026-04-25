@@ -27,8 +27,11 @@ import {
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 import {
+	AccessDeniedDialog,
 	AccountantDownloadButton,
 	downloadExcelCompatibleCsv,
+	useIsAdmin,
+	useRowAccess,
 } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 interface ExpenseRow {
@@ -136,7 +139,10 @@ export interface ExpensesDataTableProps {
 export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, sortOrder }: ExpensesDataTableProps) {
 	const router = useRouter();
 	const queryClient = useQueryClient();
+	const isAdmin = useIsAdmin();
+	const { canAccess } = useRowAccess();
 	const [searchValue, setSearchValue] = useState(search ?? "");
+	const [blockedRow, setBlockedRow] = useState<ExpenseRow | null>(null);
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.max(1, Math.ceil(total / limit));
 	const deleteEntryMutation = useMutation({
@@ -144,11 +150,19 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 		onSuccess: () => queryClient.invalidateQueries(),
 	});
 
-	const onEditRow = (row: ExpenseRow) => {
+	const onEditRow = async (row: ExpenseRow) => {
+		if (!isAdmin && !(await canAccess({ pageName: "Expenses", resourceType: "journal_entry", resourceId: row.journal_entry_id, action: "edit" }))) {
+			setBlockedRow(row);
+			return;
+		}
 		void router.navigate({ to: "/dashboard/accountant/journal-entries/$entryId", params: { entryId: row.journal_entry_id } });
 	};
 
-	const onDeleteRow = (row: ExpenseRow) => {
+	const onDeleteRow = async (row: ExpenseRow) => {
+		if (!isAdmin && !(await canAccess({ pageName: "Expenses", resourceType: "journal_entry", resourceId: row.journal_entry_id, action: "delete" }))) {
+			setBlockedRow(row);
+			return;
+		}
 		if (!row.journal_entry_id) return;
 		deleteEntryMutation.mutate({ id: row.journal_entry_id } as never);
 	};
@@ -260,6 +274,16 @@ export function ExpensesDataTable({ data, total, offset, limit, search, sortBy, 
 					</button>
 				</div>
 			</div>
+			<AccessDeniedDialog
+				open={Boolean(blockedRow)}
+				onOpenChange={(open) => {
+					if (!open) setBlockedRow(null);
+				}}
+				pageName="Expenses"
+				resourceType="journal_entry"
+				resourceId={blockedRow?.journal_entry_id ?? ""}
+				primaryLabel={blockedRow?.voucher_id ? String(blockedRow.voucher_id) : blockedRow?.journal_entry_id ?? ""}
+			/>
 		</div>
 	);
 }
