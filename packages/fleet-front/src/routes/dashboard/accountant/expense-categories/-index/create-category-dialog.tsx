@@ -79,6 +79,15 @@ export function CreateCategoryDialog() {
 		form.handleSubmit();
 	}, [form]);
 
+	const createCategoryErrorMessage = (() => {
+		if (!createCategoryMutation.error) return null;
+		const errorMessage = String(createCategoryMutation.error.message ?? "");
+		if (errorMessage.includes("409") || errorMessage.toLowerCase().includes("conflict")) {
+			return "Expense category already exists.";
+		}
+		return errorMessage || "Unable to create category.";
+	})();
+
 	return (
 		<Dialog open={isOpen} onOpenChange={handleOpenChange}>
 			<DialogTrigger
@@ -182,7 +191,7 @@ export function CreateCategoryDialog() {
 								<Alert>
 									<InfoIcon />
 									<AlertDescription>
-										{createCategoryMutation.error.message}
+										{createCategoryErrorMessage}
 									</AlertDescription>
 								</Alert>
 							)}
