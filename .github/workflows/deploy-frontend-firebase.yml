@@ -2,7 +2,7 @@ name: CI / Deploy Frontend (Firebase Hosting)
 
 on:
   push:
-    branches: [ main, deploy-main ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
