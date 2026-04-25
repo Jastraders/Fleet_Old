@@ -19,6 +19,7 @@ from fleet_backend.common import (
     serialize_vehicle_row,
     with_meta,
 )
+from fleet_backend.routes.notifications import sync_renewal_notifications
 from fleet_backend.server import app
 
 
@@ -738,10 +739,11 @@ def orpc_create_entry(user):
             ),
         )
         for item in payload.get("items", []):
+            item_id = str(uuid.uuid4())
             conn.execute(
                 "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
                 (
-                    str(uuid.uuid4()),
+                    item_id,
                     eid,
                     payload["vehicleId"],
                     item["transactionDate"],
@@ -753,10 +755,28 @@ def orpc_create_entry(user):
                     item.get("expenseCategoryId"),
                 ),
             )
+            if item["type"] == "debit" and item.get("expenseCategoryId"):
+                stale_rows = rows_to_dicts(
+                    conn.execute(
+                        """
+                        SELECT n.id
+                        FROM notifications n
+                        JOIN journal_entry_items ji ON ji.id = n.resource_id
+                        WHERE n.type = 'renewal_reminder'
+                          AND ji.vehicle_id = ?
+                          AND ji.expense_category_id = ?
+                          AND ji.id != ?
+                        """,
+                        (payload["vehicleId"], item.get("expenseCategoryId"), item_id),
+                    ).fetchall()
+                )
+                for stale in stale_rows:
+                    conn.execute("DELETE FROM notifications WHERE id = ?", (stale["id"],))
         refresh_driver_total_expense(conn, payload.get("driverId"))
         refresh_vehicle_total_expense(conn, payload["vehicleId"])
         if source_notification_id:
             conn.execute("DELETE FROM notifications WHERE id = ?", (source_notification_id,))
+        sync_renewal_notifications(conn)
         conn.commit()
         entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
         items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())

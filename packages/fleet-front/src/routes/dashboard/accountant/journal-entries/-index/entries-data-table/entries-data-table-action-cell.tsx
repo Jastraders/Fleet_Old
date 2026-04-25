@@ -1,16 +1,7 @@
+import { useRouter } from "@tanstack/react-router";
 import { MoreVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogMedia,
-	AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -19,7 +10,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useIsAdmin } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteEntryAlertDialog } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table/entries-data-table-action-cell/delete-entry-alert-dialog";
 
 interface JournalEntryItem {
@@ -49,16 +40,15 @@ interface JournalEntry {
 	} | null;
 }
 
-import { useRouter } from "@tanstack/react-router";
-
 export function EntriesDataTableActionCell({ entry }: { entry: JournalEntry }) {
 	const router = useRouter();
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isBlockedDialogOpen, setIsBlockedDialogOpen] = useState(false);
 	const isAdmin = useIsAdmin();
+	const { canAccess } = useRowAccess();
 
-	const handleEdit = useCallback(() => {
-		if (!isAdmin) {
+	const handleEdit = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Journal Entries", resourceType: "journal_entry", resourceId: entry.id, action: "edit" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
@@ -66,15 +56,15 @@ export function EntriesDataTableActionCell({ entry }: { entry: JournalEntry }) {
 			to: "/dashboard/accountant/journal-entries/$entryId",
 			params: { entryId: entry.id },
 		});
-	}, [entry.id, router, isAdmin]);
+	}, [entry.id, router, isAdmin, canAccess]);
 
-	const handleDeleteClick = useCallback(() => {
-		if (!isAdmin) {
+	const handleDeleteClick = useCallback(async () => {
+		if (!isAdmin && !(await canAccess({ pageName: "Journal Entries", resourceType: "journal_entry", resourceId: entry.id, action: "delete" }))) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
 		setIsDeleteDialogOpen(true);
-	}, [isAdmin]);
+	}, [isAdmin, canAccess, entry.id]);
 
 	return (
 		<>
@@ -109,22 +99,14 @@ export function EntriesDataTableActionCell({ entry }: { entry: JournalEntry }) {
 				isOpen={isDeleteDialogOpen}
 				onOpenChange={setIsDeleteDialogOpen}
 			/>
-			<AlertDialog open={isBlockedDialogOpen} onOpenChange={setIsBlockedDialogOpen}>
-				<AlertDialogContent size="sm">
-					<AlertDialogHeader>
-						<AlertDialogMedia>
-							<TrashIcon className="text-amber-600" />
-						</AlertDialogMedia>
-						<AlertDialogTitle>Access denied</AlertDialogTitle>
-						<AlertDialogDescription>Only admin can edit or delete.</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogAction type="button" onClick={() => setIsBlockedDialogOpen(false)}>
-							OK
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<AccessDeniedDialog
+				open={isBlockedDialogOpen}
+				onOpenChange={setIsBlockedDialogOpen}
+				pageName="Journal Entries"
+				resourceType="journal_entry"
+				resourceId={entry.id}
+				primaryLabel={entry.id}
+			/>
 		</>
 	);
 }
