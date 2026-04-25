@@ -2,7 +2,7 @@ name: Deploy Backend (App Engine)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, deploy-main ]
   workflow_dispatch:
 
 jobs:
