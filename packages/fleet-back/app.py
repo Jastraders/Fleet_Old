@@ -11,6 +11,8 @@ ALLOWED_ORIGINS = [
     "https://fleetold-production.up.railway.app",
     "https://fleet-494408.web.app",
     "https://fleet-494408.firebaseapp.com",
+    "https://api.jasfleet.cloud",
+    "https://jasfleet.cloud"
 ]
 
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
