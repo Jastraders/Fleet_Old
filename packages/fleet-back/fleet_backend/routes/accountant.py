@@ -32,14 +32,15 @@ def refresh_driver_total_expense(conn, driver_id: str | None):
             FROM journal_entries j
             JOIN journal_entry_items i ON i.journal_entry_id = j.id
             JOIN expense_category c ON c.id = i.expense_category_id
-                        WHERE j.driver_id = ?
-                            AND i.type = 'debit'
-                            AND (',' || c.impact || ',') LIKE '%,driver,%'
+            WHERE j.driver_id = %s
+                AND i.type = 'debit'
+                AND (',' || c.impact || ',') LIKE '%%,driver,%%'
         """,
         (driver_id,),
     ).fetchone()
+    
     conn.execute(
-        "UPDATE drivers SET total_expense = ?, updated_at = ? WHERE id = ?",
+        "UPDATE drivers SET total_expense = %s, updated_at = %s WHERE id = %s",
         (float(row["total"] or 0), now_iso(), driver_id),
     )
 
@@ -52,14 +53,15 @@ def refresh_vehicle_total_expense(conn, vehicle_id: str | None):
             SELECT COALESCE(SUM(i.amount), 0) AS total
             FROM journal_entry_items i
             JOIN expense_category c ON c.id = i.expense_category_id
-                        WHERE i.vehicle_id = ?
-                            AND i.type = 'debit'
-                            AND (',' || c.impact || ',') LIKE '%,vehicle,%'
+            WHERE i.vehicle_id = %s
+                AND i.type = 'debit'
+                AND (',' || c.impact || ',') LIKE '%%,vehicle,%%'
         """,
         (vehicle_id,),
     ).fetchone()
+    
     conn.execute(
-        "UPDATE vehicles SET total_expense = ?, updated_at = ? WHERE id = ?",
+        "UPDATE vehicles SET total_expense = %s, updated_at = %s WHERE id = %s",
         (float(row["total"] or 0), now_iso(), vehicle_id),
     )
 
