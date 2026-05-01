@@ -244,12 +244,12 @@ def orpc_vehicle_vehicle_stats(user):
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
             f"""
-            SELECT strftime('%Y-%m-01T00:00:00', transaction_date) AS bucket,
+            SELECT to_char(transaction_date::timestamp, 'YYYY-MM-01T00:00:00') AS bucket,
                    COALESCE(SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END), 0) AS credit,
                    COALESCE(SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END), 0) AS debit
             FROM journal_entry_items
             WHERE {' AND '.join(where)}
-            GROUP BY strftime('%Y-%m-01T00:00:00', transaction_date)
+            GROUP BY to_char(transaction_date::timestamp, 'YYYY-MM-01T00:00:00')
             ORDER BY bucket
             """,
             tuple(params),
@@ -329,7 +329,7 @@ def orpc_vehicle_roi_stats(user):
     impact_where = [
         "i.vehicle_id = ?",
         "i.type = 'debit'",
-        "INSTR(',' || c.impact || ',', ',vehicle,') > 0",
+            "( ',' || c.impact || ',' ) LIKE '%,vehicle,%'",
     ]
     if start is not None:
         impact_where.append("i.transaction_date >= ?")

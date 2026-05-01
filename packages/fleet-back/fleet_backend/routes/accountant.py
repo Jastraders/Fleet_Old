@@ -32,9 +32,9 @@ def refresh_driver_total_expense(conn, driver_id: str | None):
             FROM journal_entries j
             JOIN journal_entry_items i ON i.journal_entry_id = j.id
             JOIN expense_category c ON c.id = i.expense_category_id
-            WHERE j.driver_id = ?
-              AND i.type = 'debit'
-              AND INSTR(',' || c.impact || ',', ',driver,') > 0
+                        WHERE j.driver_id = ?
+                            AND i.type = 'debit'
+                            AND (',' || c.impact || ',') LIKE '%,driver,%'
         """,
         (driver_id,),
     ).fetchone()
@@ -52,9 +52,9 @@ def refresh_vehicle_total_expense(conn, vehicle_id: str | None):
             SELECT COALESCE(SUM(i.amount), 0) AS total
             FROM journal_entry_items i
             JOIN expense_category c ON c.id = i.expense_category_id
-            WHERE i.vehicle_id = ?
-              AND i.type = 'debit'
-              AND INSTR(',' || c.impact || ',', ',vehicle,') > 0
+                        WHERE i.vehicle_id = ?
+                            AND i.type = 'debit'
+                            AND (',' || c.impact || ',') LIKE '%,vehicle,%'
         """,
         (vehicle_id,),
     ).fetchone()
@@ -100,14 +100,14 @@ def orpc_list_vehicles(user):
                 WHEN v.investment_mode = 'full_loan' THEN COALESCE(v.monthly_emi, 0) * (
                     CASE
                         WHEN v.emi_start_date IS NULL OR v.emi_duration_months IS NULL OR v.emi_duration_months <= 0 THEN 0
-                        ELSE MIN(
+                                ELSE LEAST(
                             v.emi_duration_months,
-                            MAX(
+                            GREATEST(
                                 0,
-                                ((CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', v.emi_start_date) AS INTEGER)) * 12)
-                                + (CAST(strftime('%m', 'now') AS INTEGER) - CAST(strftime('%m', v.emi_start_date) AS INTEGER))
+                                ((CAST(EXTRACT(YEAR FROM now()) AS INTEGER) - CAST(EXTRACT(YEAR FROM v.emi_start_date::timestamp) AS INTEGER)) * 12)
+                                + (CAST(EXTRACT(MONTH FROM now()) AS INTEGER) - CAST(EXTRACT(MONTH FROM v.emi_start_date::timestamp) AS INTEGER))
                                 + CASE
-                                    WHEN CAST(strftime('%d', 'now') AS INTEGER) >= CAST(strftime('%d', v.emi_start_date) AS INTEGER)
+                                    WHEN CAST(EXTRACT(DAY FROM now()) AS INTEGER) >= CAST(EXTRACT(DAY FROM v.emi_start_date::timestamp) AS INTEGER)
                                         THEN 1
                                     ELSE 0
                                 END
@@ -118,14 +118,14 @@ def orpc_list_vehicles(user):
                 WHEN v.investment_mode = 'flexible' THEN COALESCE(v.down_payment, 0) + (COALESCE(v.monthly_emi, 0) * (
                     CASE
                         WHEN v.emi_start_date IS NULL OR v.emi_duration_months IS NULL OR v.emi_duration_months <= 0 THEN 0
-                        ELSE MIN(
+                                ELSE LEAST(
                             v.emi_duration_months,
-                            MAX(
+                            GREATEST(
                                 0,
-                                ((CAST(strftime('%Y', 'now') AS INTEGER) - CAST(strftime('%Y', v.emi_start_date) AS INTEGER)) * 12)
-                                + (CAST(strftime('%m', 'now') AS INTEGER) - CAST(strftime('%m', v.emi_start_date) AS INTEGER))
+                                ((CAST(EXTRACT(YEAR FROM now()) AS INTEGER) - CAST(EXTRACT(YEAR FROM v.emi_start_date::timestamp) AS INTEGER)) * 12)
+                                + (CAST(EXTRACT(MONTH FROM now()) AS INTEGER) - CAST(EXTRACT(MONTH FROM v.emi_start_date::timestamp) AS INTEGER))
                                 + CASE
-                                    WHEN CAST(strftime('%d', 'now') AS INTEGER) >= CAST(strftime('%d', v.emi_start_date) AS INTEGER)
+                                    WHEN CAST(EXTRACT(DAY FROM now()) AS INTEGER) >= CAST(EXTRACT(DAY FROM v.emi_start_date::timestamp) AS INTEGER)
                                         THEN 1
                                     ELSE 0
                                 END
