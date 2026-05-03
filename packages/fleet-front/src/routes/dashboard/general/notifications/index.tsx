@@ -47,7 +47,12 @@ function RouteComponent() {
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {item.type !== "access_request" ? (
+                  {item.type === "access_result" ? (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => reviewNotification.mutate({ id: item.id } as never, { onSuccess: (result: any) => navigate({ to: (result?.metadata?.pageName === "Drivers" ? "/dashboard/accountant/drivers" : result?.metadata?.pageName === "Vehicles" ? "/dashboard/accountant/vehicles" : result?.metadata?.pageName === "Expense Categories" ? "/dashboard/accountant/expense-categories" : result?.metadata?.pageName === "Journal Entries" ? "/dashboard/accountant/journal-entries" : "/dashboard/accountant/expenses"), search: { search: result?.search ?? undefined } as never }) })}><EyeIcon className="h-4 w-4" />Review</Button>
+                      <Button size="sm" variant="destructive" onClick={() => deleteNotification.mutate({ id: item.id } as never)}><TrashIcon className="h-4 w-4" />Delete</Button>
+                    </>
+                  ) : item.type !== "access_request" ? (
                     <>
                       <Button
                         size="sm"
@@ -80,7 +85,7 @@ function RouteComponent() {
                     </>
                   ) : (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => navigate({ to: (meta.pageName === "Drivers" ? "/dashboard/accountant/drivers" : meta.pageName === "Vehicles" ? "/dashboard/accountant/vehicles" : meta.pageName === "Expense Categories" ? "/dashboard/accountant/expense-categories" : meta.pageName === "Journal Entries" ? "/dashboard/accountant/journal-entries" : "/dashboard/accountant/expenses"), search: { search: meta.primaryLabel ?? undefined } as never })}><EyeIcon className="h-4 w-4" />Review</Button>
+                      <Button size="sm" variant="outline" onClick={() => reviewNotification.mutate({ id: item.id } as never, { onSuccess: (result: any) => navigate({ to: (meta.pageName === "Drivers" ? "/dashboard/accountant/drivers" : meta.pageName === "Vehicles" ? "/dashboard/accountant/vehicles" : meta.pageName === "Expense Categories" ? "/dashboard/accountant/expense-categories" : meta.pageName === "Journal Entries" ? "/dashboard/accountant/journal-entries" : "/dashboard/accountant/expenses"), search: { search: result?.search ?? meta.primaryLabel ?? undefined } as never }) })}><EyeIcon className="h-4 w-4" />Review</Button>
                       <Button size="sm" onClick={() => resolveAccessRequest.mutate({ notificationId: item.id, decision: "allow" } as never)}><CheckIcon className="h-4 w-4" />Allow Access</Button>
                       <Button size="sm" variant="destructive" onClick={() => resolveAccessRequest.mutate({ notificationId: item.id, decision: "deny" } as never)}><XIcon className="h-4 w-4" />Deny Access</Button>
                     </>

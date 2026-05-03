@@ -783,6 +783,26 @@ def orpc_create_entry(user):
     return rpc_response(serialize_journal_entry_row(entry, items))
 
 
+
+
+def _has_entry_access(conn, user, entry, action):
+    if entry["created_by"] == user["id"]:
+        return True
+    role_row = conn.execute(
+        "SELECT 1 FROM user_roles WHERE user_id = ? AND role IN ('admin','owner') LIMIT 1",
+        (user["id"],),
+    ).fetchone()
+    if role_row:
+        return True
+    grant_row = conn.execute(
+        """
+        SELECT 1 FROM access_grants
+        WHERE user_id = ? AND page_name = 'Expenses' AND resource_type = 'journal_entry' AND resource_id = ? AND action = ?
+        LIMIT 1
+        """,
+        (user["id"], entry["id"], action),
+    ).fetchone()
+    return bool(grant_row)
 @app.post("/orpc/accountant/journalEntries/get")
 @require_auth({"accountant"})
 def orpc_get_entry(user):
@@ -828,7 +848,7 @@ def orpc_update_entry(user):
         existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
         if not existing:
             return rpc_error("Journal entry not found", 404)
-        if existing["created_by"] != user["id"]:
+        if not _has_entry_access(conn, user, existing, "edit"):
             return rpc_error("Forbidden", 403)
         update_parts = []
         update_params: list[Any] = []
@@ -903,7 +923,7 @@ def orpc_delete_entry(user):
         existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
         if not existing:
             return rpc_error("Journal entry not found", 404)
-        if existing["created_by"] != user["id"]:
+        if not _has_entry_access(conn, user, existing, "delete"):
             return rpc_error("Forbidden", 403)
         conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         refresh_driver_total_expense(conn, existing["driver_id"])
