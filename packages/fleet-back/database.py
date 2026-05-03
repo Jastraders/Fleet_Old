@@ -136,6 +136,15 @@ def init_db() -> None:
                 FOREIGN KEY(recipient_user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
+
+            CREATE TABLE IF NOT EXISTS notification_dismissals (
+                type TEXT NOT NULL,
+                resource_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (type, resource_id, message)
+            );
+
             CREATE TABLE IF NOT EXISTS access_requests (
                 id TEXT PRIMARY KEY,
                 requester_user_id TEXT NOT NULL,
