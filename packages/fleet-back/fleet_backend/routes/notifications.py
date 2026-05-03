@@ -65,9 +65,17 @@ def sync_renewal_notifications(conn):
             continue
 
         resource_id = row['id']
+        message = f"{days}-day"
+        dismissed = conn.execute(
+            "SELECT 1 FROM notification_dismissals WHERE type = 'renewal_reminder' AND resource_id = ? LIMIT 1",
+            (resource_id,),
+        ).fetchone()
+        if dismissed:
+            continue
+
         exists = conn.execute(
             "SELECT id FROM notifications WHERE type = 'renewal_reminder' AND resource_id = ? AND message = ?",
-            (resource_id, f"{days}-day"),
+            (resource_id, message),
         ).fetchone()
         if exists:
             continue
@@ -75,7 +83,6 @@ def sync_renewal_notifications(conn):
         category_name = row.get('category_name') or 'Renewal'
         vehicle_name = row.get('vehicle_name') or 'Vehicle'
         title = f"{category_name} renewal due for {vehicle_name}"
-        message = f"{days}-day"
         metadata = json.dumps({
             'daysRemaining': days,
             'renewalDate': row.get('next_renewal_date'),
@@ -141,6 +148,15 @@ def mark_read(user):
 def delete_notification(user):
     payload = rpc_payload()
     with connect() as conn:
+        row = conn.execute(
+            "SELECT type, resource_id, message FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)",
+            (payload.get('id'), user["id"]),
+        ).fetchone()
+        if row and row["type"] == "renewal_reminder":
+            conn.execute(
+                "INSERT OR IGNORE INTO notification_dismissals (type, resource_id, message) VALUES (?, ?, ?)",
+                (row["type"], row["resource_id"], row["message"]),
+            )
         conn.execute(
             'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
             (payload.get('id'), user["id"]),
@@ -167,12 +183,14 @@ def review_notification(user):
     search_value = metadata.get("voucherId") or metadata.get("renewalType") or metadata.get("primaryLabel")
     if metadata.get("pageName") == "Journal Entries" and metadata.get("resourceId"):
         search_value = metadata.get("resourceId")
-    with connect() as conn:
-        conn.execute(
-            'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
-            (payload.get("id"), user["id"]),
-        )
-        conn.commit()
+    should_delete = row["type"] != "access_request"
+    if should_delete:
+        with connect() as conn:
+            conn.execute(
+                'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
+                (payload.get("id"), user["id"]),
+            )
+            conn.commit()
     return rpc_response({"search": str(search_value) if search_value else None, "metadata": metadata})
 
 
