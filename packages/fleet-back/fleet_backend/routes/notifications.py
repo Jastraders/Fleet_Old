@@ -164,8 +164,14 @@ def review_notification(user):
                 metadata = json.loads(raw_metadata)
             except json.JSONDecodeError:
                 metadata = {}
-    search_value = metadata.get("voucherId") or metadata.get("renewalType")
-    return rpc_response({"search": str(search_value) if search_value else None})
+    search_value = metadata.get("voucherId") or metadata.get("renewalType") or metadata.get("primaryLabel")
+    with connect() as conn:
+        conn.execute(
+            'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
+            (payload.get("id"), user["id"]),
+        )
+        conn.commit()
+    return rpc_response({"search": str(search_value) if search_value else None, "metadata": metadata})
 
 
 @app.post('/orpc/general/access/request')
@@ -319,6 +325,20 @@ def resolve_access_request(user):
         conn.execute(
             "UPDATE access_requests SET status = ?, reviewed_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (new_status, user["id"], request_id),
+        )
+        notify_title = f"Access request {new_status}"
+        notify_message = f'Your access request for "{request_row["primary_label"]}" has been {new_status}.'
+        notify_metadata = json.dumps({
+            "pageName": request_row["page_name"],
+            "resourceType": request_row["resource_type"],
+            "resourceId": request_row["resource_id"],
+            "primaryLabel": request_row["primary_label"],
+            "actions": actions,
+            "status": new_status,
+        })
+        conn.execute(
+            "INSERT INTO notifications (id,recipient_user_id,type,title,message,resource_type,resource_id,metadata) VALUES (?,?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()), request_row["requester_user_id"], "access_result", notify_title, notify_message, request_row["resource_type"], request_row["resource_id"], notify_metadata),
         )
         conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
         conn.commit()

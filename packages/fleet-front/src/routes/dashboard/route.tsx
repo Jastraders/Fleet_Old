@@ -23,7 +23,7 @@ function RouteComponent() {
 			<div className="bg-sidebar w-1/2 h-full absolute top-0 left-0" />
 			<SidebarProvider>
 				<AppSidebar className="sticky" />
-				<SidebarInset>
+				<SidebarInset className="min-w-0 overflow-x-hidden">
 					<Outlet />
 				</SidebarInset>
 			</SidebarProvider>
