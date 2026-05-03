@@ -50,8 +50,7 @@ function RouteComponent() {
                   {item.type === "access_result" ? (
                     <>
                       <Button size="sm" variant="outline" onClick={() => reviewNotification.mutate({ id: item.id } as never, { onSuccess: (result: any) => navigate({ to: (result?.metadata?.pageName === "Drivers" ? "/dashboard/accountant/drivers" : result?.metadata?.pageName === "Vehicles" ? "/dashboard/accountant/vehicles" : result?.metadata?.pageName === "Expense Categories" ? "/dashboard/accountant/expense-categories" : result?.metadata?.pageName === "Journal Entries" ? "/dashboard/accountant/journal-entries" : "/dashboard/accountant/expenses"), search: { search: result?.search ?? undefined } as never }) })}><EyeIcon className="h-4 w-4" />Review</Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteNotification.mutate({ id: item.id } as never)}><TrashIcon className="h-4 w-4" />Delete</Button>
-                    </>
+                      </>
                   ) : item.type !== "access_request" ? (
                     <>
                       <Button

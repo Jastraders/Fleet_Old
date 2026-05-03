@@ -60,7 +60,7 @@ def sync_renewal_notifications(conn):
         if not renewal_date:
             continue
         days = (renewal_date - today).days
-        should_create = days in {30, 1, 0} or (days > 1 and days < 30 and days % 7 == 0)
+        should_create = 0 <= days <= 30
         if not should_create:
             continue
 
@@ -165,6 +165,8 @@ def review_notification(user):
             except json.JSONDecodeError:
                 metadata = {}
     search_value = metadata.get("voucherId") or metadata.get("renewalType") or metadata.get("primaryLabel")
+    if metadata.get("pageName") == "Journal Entries" and metadata.get("resourceId"):
+        search_value = metadata.get("resourceId")
     with connect() as conn:
         conn.execute(
             'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
