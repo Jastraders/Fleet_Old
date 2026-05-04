@@ -206,6 +206,15 @@ def init_db() -> None:
         created_at TEXT DEFAULT now()::text
     );
 
+
+    CREATE TABLE IF NOT EXISTS notification_dismissals (
+        type TEXT NOT NULL,
+        resource_id TEXT NOT NULL,
+        message TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (type, resource_id, message)
+    );
+
     CREATE TABLE IF NOT EXISTS access_requests (
         id TEXT PRIMARY KEY,
         requester_user_id TEXT NOT NULL,
@@ -217,8 +226,11 @@ def init_db() -> None:
         requested_actions TEXT NOT NULL,
         notification_id TEXT,
         reviewed_by TEXT,
-        created_at TEXT DEFAULT now()::text,
-        updated_at TEXT DEFAULT now()::text
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(requester_user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY(notification_id) REFERENCES notifications(id) ON DELETE SET NULL,
+        FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS access_grants (

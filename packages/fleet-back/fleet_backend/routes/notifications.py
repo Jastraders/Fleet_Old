@@ -60,14 +60,22 @@ def sync_renewal_notifications(conn):
         if not renewal_date:
             continue
         days = (renewal_date - today).days
-        should_create = days in {30, 1, 0} or (days > 1 and days < 30 and days % 7 == 0)
+        should_create = 0 <= days <= 30
         if not should_create:
             continue
 
         resource_id = row['id']
+        message = f"{days}-day"
+        dismissed = conn.execute(
+            "SELECT 1 FROM notification_dismissals WHERE type = 'renewal_reminder' AND resource_id = ? LIMIT 1",
+            (resource_id,),
+        ).fetchone()
+        if dismissed:
+            continue
+
         exists = conn.execute(
             "SELECT id FROM notifications WHERE type = 'renewal_reminder' AND resource_id = ? AND message = ?",
-            (resource_id, f"{days}-day"),
+            (resource_id, message),
         ).fetchone()
         if exists:
             continue
@@ -75,7 +83,6 @@ def sync_renewal_notifications(conn):
         category_name = row.get('category_name') or 'Renewal'
         vehicle_name = row.get('vehicle_name') or 'Vehicle'
         title = f"{category_name} renewal due for {vehicle_name}"
-        message = f"{days}-day"
         metadata = json.dumps({
             'daysRemaining': days,
             'renewalDate': row.get('next_renewal_date'),
@@ -141,6 +148,15 @@ def mark_read(user):
 def delete_notification(user):
     payload = rpc_payload()
     with connect() as conn:
+        row = conn.execute(
+            "SELECT type, resource_id, message FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)",
+            (payload.get('id'), user["id"]),
+        ).fetchone()
+        if row and row["type"] == "renewal_reminder":
+            conn.execute(
+                "INSERT OR IGNORE INTO notification_dismissals (type, resource_id, message) VALUES (?, ?, ?)",
+                (row["type"], row["resource_id"], row["message"]),
+            )
         conn.execute(
             'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
             (payload.get('id'), user["id"]),
@@ -164,8 +180,18 @@ def review_notification(user):
                 metadata = json.loads(raw_metadata)
             except json.JSONDecodeError:
                 metadata = {}
-    search_value = metadata.get("voucherId") or metadata.get("renewalType")
-    return rpc_response({"search": str(search_value) if search_value else None})
+    search_value = metadata.get("voucherId") or metadata.get("renewalType") or metadata.get("primaryLabel")
+    if metadata.get("pageName") == "Journal Entries" and metadata.get("resourceId"):
+        search_value = metadata.get("resourceId")
+    should_delete = row["type"] != "access_request"
+    if should_delete:
+        with connect() as conn:
+            conn.execute(
+                'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
+                (payload.get("id"), user["id"]),
+            )
+            conn.commit()
+    return rpc_response({"search": str(search_value) if search_value else None, "metadata": metadata})
 
 
 @app.post('/orpc/general/access/request')
@@ -319,6 +345,20 @@ def resolve_access_request(user):
         conn.execute(
             "UPDATE access_requests SET status = ?, reviewed_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
             (new_status, user["id"], request_id),
+        )
+        notify_title = f"Access request {new_status}"
+        notify_message = f'Your access request for "{request_row["primary_label"]}" has been {new_status}.'
+        notify_metadata = json.dumps({
+            "pageName": request_row["page_name"],
+            "resourceType": request_row["resource_type"],
+            "resourceId": request_row["resource_id"],
+            "primaryLabel": request_row["primary_label"],
+            "actions": actions,
+            "status": new_status,
+        })
+        conn.execute(
+            "INSERT INTO notifications (id,recipient_user_id,type,title,message,resource_type,resource_id,metadata) VALUES (?,?,?,?,?,?,?,?)",
+            (str(uuid.uuid4()), request_row["requester_user_id"], "access_result", notify_title, notify_message, request_row["resource_type"], request_row["resource_id"], notify_metadata),
         )
         conn.execute("DELETE FROM notifications WHERE id = ?", (notification_id,))
         conn.commit()

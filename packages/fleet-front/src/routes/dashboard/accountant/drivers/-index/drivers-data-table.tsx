@@ -95,7 +95,7 @@ const createColumns = (
 		accessorKey: "phoneNumber",
 		header: () =>
 			createSortHeader(
-				"Driver Phone Number",
+				"Phone Number",
 				"driverPhoneNumber",
 				currentSortBy,
 				currentSortOrder,
@@ -105,40 +105,11 @@ const createColumns = (
 			<span className="text-sm">{row.original.phoneNumber || "-"}</span>
 		),
 	},
-	{
-		accessorKey: "createdAt",
-		header: () =>
-			createSortHeader(
-				"Created",
-				"createdAt",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const date = parseDateValue(row.original.createdAt);
-			if (!date) {
-				return <span className="text-muted-foreground text-sm">-</span>;
-			}
-			return (
-				<time
-					className="text-muted-foreground text-sm"
-					dateTime={date.toISOString()}
-				>
-					{date.toLocaleDateString("en-US", {
-						month: "short",
-						day: "numeric",
-						year: "numeric",
-					})}
-				</time>
-			);
-		},
-	},
-	{
+		{
 		accessorKey: "totalExpense",
 		header: () =>
 			createSortHeader(
-				"Total Expense",
+				"Expense",
 				"totalExpense",
 				currentSortBy,
 				currentSortOrder,
