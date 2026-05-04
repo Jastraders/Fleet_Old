@@ -569,8 +569,8 @@ def orpc_list_entries(user):
     where_params: list[Any] = []
     if search:
         search_term = f"%{search}%"
-        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ? OR COALESCE(u.name, '') LIKE ?)")
-        where_params.extend([search_term, search_term, search_term])
+        where_clauses.append("(j.id::text = %s OR v.name ILIKE %s OR v.license_plate ILIKE %s OR COALESCE(u.name, '') ILIKE %s)") 
+        where_params.extend([search, search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
