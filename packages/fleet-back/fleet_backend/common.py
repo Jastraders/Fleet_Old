@@ -10,12 +10,19 @@ from werkzeug.security import generate_password_hash
 
 from database import connect, rows_to_dicts
 
+import logging
+import re
+
+log = logging.getLogger(__name__)
+
 SESSION_TTL_DAYS = 30
 PERIODS = {"all_time", "last_7d", "last_30d", "last_6m", "last_12m"}
 VEHICLE_PERIODS = {"all_time", "last_30d", "last_3m", "last_6m", "last_9m", "last_12m"}
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    # return RFC3339 with millisecond precision and Z timezone
+    now = datetime.now(timezone.utc)
+    return now.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 
 def hash_secret(secret: str) -> str:
@@ -130,7 +137,39 @@ def get_user_from_session() -> dict[str, Any] | None:
         if not session:
             return None
 
-        created_at = datetime.fromisoformat(session["created_at"].replace(" ", "T"))
+        # Parse ISO datetimes robustly. Supabase/Postgres may store offsets like '+00'
+        def parse_iso_datetime(value: str) -> datetime:
+            if not value:
+                raise ValueError("empty datetime")
+            s = value.replace(" ", "T")
+            s = s.replace("Z", "+00:00")
+            # handle offsets like +00 (no minutes) -> +00:00
+            if re.search(r"[+-]\d{2}$", s) and not re.search(r"[+-]\d{2}:\d{2}$", s):
+                s = s + ":00"
+            # handle offsets like +0000 -> +00:00
+            m = re.search(r"([+-]\d{4})$", s)
+            if m:
+                tz = m.group(1)
+                s = s[:-5] + tz[:3] + ":" + tz[3:]
+            try:
+                dt = datetime.fromisoformat(s)
+            except Exception as e:
+                log.exception("Failed to parse datetime '%s'", value)
+                raise
+            # normalize to naive UTC for existing TTL comparisons
+            if dt.tzinfo is not None:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+
+        try:
+            created_at = parse_iso_datetime(session["created_at"])
+        except Exception:
+            # If we can't parse the stored timestamp, remove the session and treat as missing
+            log.warning("Invalid session created_at, deleting session %s", sid)
+            conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
+            conn.commit()
+            return None
+
         if datetime.now(timezone.utc).replace(tzinfo=None) - created_at > timedelta(days=SESSION_TTL_DAYS):
             conn.execute("DELETE FROM sessions WHERE id = ?", (sid,))
             conn.commit()
@@ -219,9 +258,42 @@ def rpc_error(message: str, status: int):
 
 
 def to_iso_datetime(value: str | None) -> str | None:
+    """Normalize various timestamp formats into RFC3339 with millisecond precision.
+
+    Examples produced: '2026-04-28T10:15:42.218Z' or None
+    """
     if not value:
         return value
-    return value.replace(" ", "T")
+    s = value.strip()
+    # normalize spaces to T
+    s = s.replace(" ", "T")
+    # replace trailing Z with +00:00 for parsing
+    s = s.replace("Z", "+00:00")
+    # ensure timezone offsets like +00 or +0000 become +00:00
+    if re.search(r"[+-]\d{2}$", s) and not re.search(r"[+-]\d{2}:\d{2}$", s):
+        s = s + ":00"
+    m = re.search(r"([+-]\d{4})$", s)
+    if m:
+        tz = m.group(1)
+        s = s[:-5] + tz[:3] + ":" + tz[3:]
+    # Some databases emit microseconds (6 digits). Python handles them, but we'll parse and reformat
+    try:
+        dt = datetime.fromisoformat(s)
+    except Exception:
+        # fallback: try removing subseconds beyond microseconds
+        # remove any non-ISO oddities and attempt parse again
+        cleaned = re.sub(r"(\.\d+)", lambda mo: mo.group(1)[:7], s)
+        try:
+            dt = datetime.fromisoformat(cleaned)
+        except Exception:
+            # if still failing, return original (best-effort)
+            return value
+    # normalize to UTC and format with milliseconds + Z
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc)
+    else:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
 
 
 def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:

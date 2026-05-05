@@ -1,0 +1,16 @@
+runtime: python310
+entrypoint: gunicorn -b :$PORT app:app
+
+instance_class: F1
+
+env_variables:
+  SUPABASE_DATABASE_URL: "postgresql://postgres:hamdan4040!@db.gpqkhbctrtvopqvxlahe.supabase.co:5432/postgres"
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1
+  target_cpu_utilization: 0.8
+
+handlers:
+- url: /.*
+  script: auto
