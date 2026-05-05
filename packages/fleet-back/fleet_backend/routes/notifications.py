@@ -154,8 +154,16 @@ def delete_notification(user):
         ).fetchone()
         if row and row["type"] == "renewal_reminder":
             conn.execute(
-                "INSERT OR IGNORE INTO notification_dismissals (type, resource_id, message) VALUES (?, ?, ?)",
-                (row["type"], row["resource_id"], row["message"]),
+                """
+                INSERT INTO notification_dismissals (type, resource_id, message)
+                SELECT ?, ?, ?
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM notification_dismissals
+                    WHERE type = ? AND resource_id = ? AND message = ?
+                )
+                """,
+                (row["type"], row["resource_id"], row["message"], row["type"], row["resource_id"], row["message"]),
             )
         conn.execute(
             'DELETE FROM notifications WHERE id = ? AND (recipient_user_id IS NULL OR recipient_user_id = ?)',
@@ -326,8 +334,17 @@ def resolve_access_request(user):
                     continue
                 conn.execute(
                     """
-                    INSERT OR IGNORE INTO access_grants (id,user_id,page_name,resource_type,resource_id,action,granted_by)
-                    VALUES (?,?,?,?,?,?,?)
+                    INSERT INTO access_grants (id,user_id,page_name,resource_type,resource_id,action,granted_by)
+                    SELECT ?,?,?,?,?,?,?
+                    WHERE NOT EXISTS (
+                        SELECT 1
+                        FROM access_grants
+                        WHERE user_id = ?
+                          AND page_name = ?
+                          AND resource_type = ?
+                          AND resource_id = ?
+                          AND action = ?
+                    )
                     """,
                     (
                         str(uuid.uuid4()),
@@ -337,6 +354,11 @@ def resolve_access_request(user):
                         request_row["resource_id"],
                         action,
                         user["id"],
+                        request_row["requester_user_id"],
+                        request_row["page_name"],
+                        request_row["resource_type"],
+                        request_row["resource_id"],
+                        action,
                     ),
                 )
             new_status = "allowed"
