@@ -60,6 +60,8 @@ const chartConfig = {
 	},
 } satisfies ChartConfig;
 
+const chartDataMinWidth = (vehicleCount: number) => vehicleCount * 120;
+
 function VehicleProfitChartSkeleton({
 	className,
 	...props
@@ -89,6 +91,7 @@ function VehicleProfitChartContent({
 		}),
 	});
 	const fleetStats = data;
+	const minChartWidth = Math.max(chartDataMinWidth(fleetStats.length), 640);
 
 	// Total bar height equals revenue and is stacked by expense + profit.
 	const chartData = fleetStats.map((vehicle) => ({
@@ -161,12 +164,13 @@ function VehicleProfitChartContent({
 				</CardAction>
 			</CardHeader>
 			<CardContent className="px-2 sm:p-6">
-				<div ref={chartContainerRef}>
-					<ChartContainer
-						config={chartConfig}
-						className="aspect-auto h-[250px] w-full"
-					>
-						<BarChart accessibilityLayer data={chartData}>
+				<div className="overflow-x-auto" ref={chartContainerRef}>
+					<div style={{ minWidth: `${minChartWidth}px` }}>
+						<ChartContainer
+							config={chartConfig}
+							className="aspect-auto h-[250px] w-full"
+						>
+							<BarChart accessibilityLayer data={chartData}>
 							<CartesianGrid vertical={false} />
 							<XAxis
 								dataKey="vehicleName"
@@ -235,8 +239,9 @@ function VehicleProfitChartContent({
 								radius={[4, 4, 4, 4]}
 								zIndex={0}
 							/>
-						</BarChart>
-					</ChartContainer>
+							</BarChart>
+						</ChartContainer>
+					</div>
 				</div>
 			</CardContent>
 		</Card>

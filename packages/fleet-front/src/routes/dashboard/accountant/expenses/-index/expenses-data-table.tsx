@@ -82,6 +82,15 @@ const createSortHeader = (
 	);
 };
 
+const formatExpenseDate = (value: string | null) =>
+	value
+		? new Intl.DateTimeFormat("en-GB", {
+			day: "2-digit",
+			month: "2-digit",
+			year: "numeric",
+		}).format(new Date(value))
+		: "-";
+
 const createColumns = (
 	currentSortBy: string,
 	currentSortOrder: string,
@@ -91,10 +100,10 @@ const createColumns = (
 ): ColumnDef<ExpenseRow>[] => [
 	{ accessorKey: "voucher_id", header: () => createSortHeader("Voucher", "voucherId", currentSortBy, currentSortOrder, onSort) },
 	{ accessorKey: "category_name", header: () => createSortHeader("Expense", "expenseCategory", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_name || "-" },
-	{ accessorKey: "expense_date", header: () => createSortHeader("Date", "createdAt", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.expense_date ? new Date(row.original.expense_date).toLocaleDateString() : "-" },
+	{ accessorKey: "expense_date", header: () => createSortHeader("Date", "createdAt", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatExpenseDate(row.original.expense_date) },
 	{ accessorKey: "amount", header: () => createSortHeader("Amount", "amount", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatINR(parseFloat(row.original.amount) || 0) },
 	{ accessorKey: "handler", header: () => createSortHeader("Handler", "handler", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.handler || "-" },
-	{ accessorKey: "next_renewal_date", header: () => createSortHeader("Next Renewal", "nextRenewalDate", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.next_renewal_date ? new Date(row.original.next_renewal_date).toLocaleDateString() : "-" },
+	{ accessorKey: "next_renewal_date", header: () => createSortHeader("Next Renewal", "nextRenewalDate", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatExpenseDate(row.original.next_renewal_date) },
 	{ accessorKey: "category_impact", header: () => createSortHeader("Expense Impact", "expenseImpact", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_impact || "-" },
 	{ accessorKey: "vehicle_name", header: () => createSortHeader("Vehicle", "vehicle", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.vehicle_name || "-" },
 	{ accessorKey: "driver_name", header: () => createSortHeader("Driver Name", "driver", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.driver_name || "-" },
