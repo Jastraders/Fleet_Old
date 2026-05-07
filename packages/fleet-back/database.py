@@ -83,7 +83,7 @@ class PGConnection:
         # translate sqlite '?' placeholders to psycopg2 '%s'
         if params is None:
             params = ()
-        sql2 = sql.replace("?", "%s")
+        sql2 = sql.replace("%", "%%").replace("?", "%s")
         self._cur.execute(sql2, tuple(params))
         return CursorWrapper(self._cur)
 
