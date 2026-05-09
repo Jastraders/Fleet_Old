@@ -154,8 +154,16 @@ def get_user_from_session() -> dict[str, Any] | None:
             try:
                 dt = datetime.fromisoformat(s)
             except Exception as e:
-                log.exception("Failed to parse datetime '%s'", value)
-                raise
+                # Fallback: pad or truncate microseconds to 6 digits
+                def fix_frac(match):
+                    frac = match.group(1)
+                    return frac[:7] if len(frac) > 7 else frac.ljust(7, '0')
+                s = re.sub(r"(\.\d+)", fix_frac, s)
+                try:
+                    dt = datetime.fromisoformat(s)
+                except Exception:
+                    log.exception("Failed to parse datetime '%s'", value)
+                    raise
             # normalize to naive UTC for existing TTL comparisons
             if dt.tzinfo is not None:
                 dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
@@ -282,7 +290,10 @@ def to_iso_datetime(value: str | None) -> str | None:
     except Exception:
         # fallback: try removing subseconds beyond microseconds
         # remove any non-ISO oddities and attempt parse again
-        cleaned = re.sub(r"(\.\d+)", lambda mo: mo.group(1)[:7], s)
+        def fix_frac(match):
+            frac = match.group(1)
+            return frac[:7] if len(frac) > 7 else frac.ljust(7, '0')
+        cleaned = re.sub(r"(\.\d+)", fix_frac, s)
         try:
             dt = datetime.fromisoformat(cleaned)
         except Exception:
