@@ -183,7 +183,7 @@ def orpc_create_vehicle(user):
                 id,name,license_plate,model,year,load_capacity,
                 investment_mode,total_price,monthly_emi,emi_start_date,emi_duration_months,down_payment,
                 total_revenue,color,created_by
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 vid,
@@ -614,7 +614,7 @@ def orpc_list_entries(user):
                     ) t ON t.journal_entry_id = j.id
                     {where_sql}
                     ORDER BY {order_column} {order_direction}
-                    LIMIT %s OFFSET %s
+                    LIMIT ? OFFSET ?
                 """,
                 (*where_params, limit, offset),
             ).fetchall()
@@ -623,7 +623,7 @@ def orpc_list_entries(user):
         for entry in entries:
             items = rows_to_dicts(
                 conn.execute(
-                    "SELECT * FROM journal_entry_items WHERE journal_entry_id = %s ORDER BY transaction_date DESC",
+                    "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
                     (entry["id"],),
                 ).fetchall()
             )
@@ -941,7 +941,7 @@ def list_vehicles(user):
     offset = int(request.args.get("offset", 0))
     limit = min(int(request.args.get("limit", 20)), 100)
     with connect() as conn:
-        rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles ORDER BY created_at DESC LIMIT %s OFFSET %s", (limit, offset)).fetchall())
+        rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
         total = conn.execute("SELECT COUNT(*) AS c FROM vehicles").fetchone()["c"]
     return jsonify(with_meta(rows, offset, limit, total))
 
@@ -1052,7 +1052,7 @@ def list_categories(user):
     offset = int(request.args.get("offset", 0))
     limit = min(int(request.args.get("limit", 20)), 100)
     with connect() as conn:
-        rows = rows_to_dicts(conn.execute("SELECT * FROM expense_category ORDER BY created_at DESC LIMIT %s OFFSET %s", (limit, offset)).fetchall())
+        rows = rows_to_dicts(conn.execute("SELECT * FROM expense_category ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
         total = conn.execute("SELECT COUNT(*) AS c FROM expense_category").fetchone()["c"]
     return jsonify(with_meta(rows, offset, limit, total))
 
@@ -1129,7 +1129,7 @@ def list_entries(user):
     offset = int(request.args.get("offset", 0))
     limit = min(int(request.args.get("limit", 20)), 100)
     with connect() as conn:
-        entries = rows_to_dicts(conn.execute("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT %s OFFSET %s", (limit, offset)).fetchall())
+        entries = rows_to_dicts(conn.execute("SELECT * FROM journal_entries ORDER BY created_at DESC LIMIT ? OFFSET ?", (limit, offset)).fetchall())
         for entry in entries:
             entry["items"] = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC", (entry["id"],)).fetchall())
         total = conn.execute("SELECT COUNT(*) AS c FROM journal_entries").fetchone()["c"]
