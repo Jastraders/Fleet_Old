@@ -139,24 +139,25 @@ def get_user_from_session() -> dict[str, Any] | None:
 
         # Parse ISO datetimes robustly. Supabase/Postgres may store offsets like '+00'
         def parse_iso_datetime(value: str) -> datetime:
+            """Parse ISO 8601 datetime strings with varying microsecond precision."""
             if not value:
                 raise ValueError("empty datetime")
-            s = value.replace(" ", "T")
-            s = s.replace("Z", "+00:00")
-            # handle offsets like +00 (no minutes) -> +00:00
+            s = value.replace(" ", "T").replace("Z", "+00:00")
+            # Handle offsets like +00 (no minutes) -> +00:00
             if re.search(r"[+-]\d{2}$", s) and not re.search(r"[+-]\d{2}:\d{2}$", s):
                 s = s + ":00"
-            # handle offsets like +0000 -> +00:00
+            # Handle offsets like +0000 -> +00:00
             m = re.search(r"([+-]\d{4})$", s)
             if m:
                 tz = m.group(1)
                 s = s[:-5] + tz[:3] + ":" + tz[3:]
             try:
                 dt = datetime.fromisoformat(s)
-            except Exception as e:
-                log.exception("Failed to parse datetime '%s'", value)
-                raise
-            # normalize to naive UTC for existing TTL comparisons
+            except ValueError:
+                # Fallback: truncate microseconds to 6 digits
+                s = re.sub(r"(\.\d{1,6})\d*", r"\1", s)
+                dt = datetime.fromisoformat(s)
+            # Normalize to UTC
             if dt.tzinfo is not None:
                 dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
             return dt
