@@ -32,15 +32,15 @@ def refresh_driver_total_expense(conn, driver_id: str | None):
             FROM journal_entries j
             JOIN journal_entry_items i ON i.journal_entry_id = j.id
             JOIN expense_category c ON c.id = i.expense_category_id
-            WHERE j.driver_id = %s
+            WHERE j.driver_id = ?
                 AND i.type = 'debit'
-                AND (',' || c.impact || ',') LIKE '%%,driver,%%'
+                AND (',' || c.impact || ',') LIKE '%,driver,%'
         """,
         (driver_id,),
     ).fetchone()
     
     conn.execute(
-        "UPDATE drivers SET total_expense = %s, updated_at = %s WHERE id = %s",
+        "UPDATE drivers SET total_expense = ?, updated_at = ? WHERE id = ?",
         (float(row["total"] or 0), now_iso(), driver_id),
     )
 
@@ -53,15 +53,15 @@ def refresh_vehicle_total_expense(conn, vehicle_id: str | None):
             SELECT COALESCE(SUM(i.amount), 0) AS total
             FROM journal_entry_items i
             JOIN expense_category c ON c.id = i.expense_category_id
-            WHERE i.vehicle_id = %s
+            WHERE i.vehicle_id = ?
                 AND i.type = 'debit'
-                AND (',' || c.impact || ',') LIKE '%%,vehicle,%%'
+                AND (',' || c.impact || ',') LIKE '%,vehicle,%'
         """,
         (vehicle_id,),
     ).fetchone()
     
     conn.execute(
-        "UPDATE vehicles SET total_expense = %s, updated_at = %s WHERE id = %s",
+        "UPDATE vehicles SET total_expense = ?, updated_at = ? WHERE id = ?",
         (float(row["total"] or 0), now_iso(), vehicle_id),
     )
 
@@ -569,7 +569,7 @@ def orpc_list_entries(user):
     where_params: list[Any] = []
     if search:
         search_term = f"%{search}%"
-        where_clauses.append("(j.id::text = %s OR v.name ILIKE %s OR v.license_plate ILIKE %s OR COALESCE(u.name, '') ILIKE %s)") 
+        where_clauses.append("(j.id::text = ? OR v.name ILIKE ? OR v.license_plate ILIKE ? OR COALESCE(u.name, '') ILIKE ?)") 
         where_params.extend([search, search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
