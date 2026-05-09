@@ -87,7 +87,7 @@ def orpc_create_member(user):
 
     with connect() as conn:
         existing = conn.execute(
-            "SELECT id FROM users WHERE email = %s",
+            "SELECT id FROM users WHERE email = ?",
             (payload["email"],),
         ).fetchone()
         if existing:
@@ -95,12 +95,12 @@ def orpc_create_member(user):
 
         uid = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO users (id,name,email,password_hash,created_by) VALUES (%s,%s,%s,%s,%s)",
+            "INSERT INTO users (id,name,email,password_hash,created_by) VALUES (?,?,?,?,?)",
             (uid, payload["name"], payload["email"], generate_password_hash(payload["password"]), user["id"]),
         )
         for role in roles:
             conn.execute(
-                "INSERT INTO user_roles (id,user_id,role) VALUES (%s,%s,%s)",
+                "INSERT INTO user_roles (id,user_id,role) VALUES (?,?,?)",
                 (str(uuid.uuid4()), uid, role),
             )
         conn.commit()
