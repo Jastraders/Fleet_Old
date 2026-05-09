@@ -162,9 +162,6 @@ def init_db() -> None:
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         phone_number TEXT NOT NULL,
-        color TEXT NOT NULL UNIQUE,
-        total_expense REAL NOT NULL DEFAULT 0,
-        created_by TEXT,
         created_at TEXT DEFAULT now()::text,
         updated_at TEXT DEFAULT now()::text
     );
@@ -206,7 +203,6 @@ def init_db() -> None:
         created_at TEXT DEFAULT now()::text
     );
 
-
     CREATE TABLE IF NOT EXISTS notification_dismissals (
         type TEXT NOT NULL,
         resource_id TEXT NOT NULL,
@@ -228,7 +224,6 @@ def init_db() -> None:
         reviewed_by TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(requester_user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY(notification_id) REFERENCES notifications(id) ON DELETE SET NULL,
         FOREIGN KEY(reviewed_by) REFERENCES users(id) ON DELETE SET NULL
     );
