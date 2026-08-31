@@ -190,6 +190,12 @@ def init_db() -> None:
         handler TEXT,
         next_renewal_date TEXT,
         expense_category_id TEXT,
+        revenue_mode TEXT DEFAULT 'direct' CHECK(revenue_mode IN ('direct', 'calculated')),
+        quantity REAL,
+        per_item_rate REAL,
+        value REAL,
+        bata_percentage REAL,
+        bata_value REAL,
         created_at TEXT DEFAULT now()::text
     );
 
@@ -247,6 +253,22 @@ def init_db() -> None:
     CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entry_items_voucher_id ON journal_entry_items(voucher_id) WHERE voucher_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_access_grants_unique ON access_grants(user_id, page_name, resource_type, resource_id, action);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_expense_category_name_ci ON expense_category(LOWER(name));
+    
+     CREATE TABLE IF NOT EXISTS warehouse_records (
+        id TEXT PRIMARY KEY,
+        record_date TEXT NOT NULL,
+        workers_count INTEGER NOT NULL CHECK(workers_count >= 0),
+        union_count INTEGER NOT NULL CHECK(union_count >= 0),
+        rate_per_unload REAL NOT NULL CHECK(rate_per_unload >= 0),
+        total_unloads INTEGER NOT NULL CHECK(total_unloads >= 0),
+        status TEXT NOT NULL DEFAULT 'unpaid' CHECK(status IN ('paid', 'unpaid')),
+        created_by TEXT NOT NULL,
+        created_at TEXT DEFAULT now()::text,
+        updated_at TEXT DEFAULT now()::text,
+        FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_warehouse_records_date ON warehouse_records(record_date);
+    CREATE INDEX IF NOT EXISTS idx_warehouse_records_status ON warehouse_records(status);
     """
 
     with connect() as conn:

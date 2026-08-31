@@ -44,10 +44,14 @@ const expenseItemSchema = v.object({
 
 const editEntryFormSchema = v.object({
 	transactionDate: v.pipe(v.string(), v.minLength(1, "Date is required")),
+	revenueMode: v.optional(v.picklist(["direct", "calculated"]), "direct"),
 	revenue: v.pipe(
 		v.optional(v.string(), "0"),
 		v.transform((val) => parseFloat(val || "0") || 0),
 	),
+	quantity: v.optional(v.string(), "0"),
+	perItemRate: v.optional(v.string(), "0"),
+	bataPercentage: v.optional(v.string(), "0"),
 	notes: v.optional(v.string()),
 	expenses: v.array(expenseItemSchema),
 });
@@ -82,19 +86,17 @@ function RouteComponent() {
 	});
 
 	// Transform entry data to form values
+	const creditItem = entry?.items?.find((item: { type: string }) => item.type === "credit");
+
 	const defaultValues: FormValues = {
 		transactionDate: entry?.items?.[0]?.transactionDate
 			? new Date(entry.items[0].transactionDate).toISOString().split("T")[0]
 			: new Date().toISOString().split("T")[0],
-		revenue:
-			entry?.items
-				?.filter((item: { type: string }) => item.type === "credit")
-				.reduce(
-					(sum: number, item: { amount: string }) =>
-						sum + parseFloat(item.amount),
-					0,
-				)
-				.toString() || "0",
+		revenueMode: creditItem?.revenueMode || "direct",
+		revenue: creditItem?.amount?.toString() || "0",
+		quantity: creditItem?.quantity?.toString() || "0",
+		perItemRate: creditItem?.perItemRate?.toString() || "0",
+		bataPercentage: creditItem?.bataPercentage?.toString() || "0",
 		notes: entry?.notes || "",
 		expenses:
 			entry?.items
@@ -120,12 +122,23 @@ function RouteComponent() {
 			onSubmit: editEntryFormSchema,
 		},
 		onSubmit: async ({ value }) => {
+			const isCalc = value.revenueMode === "calculated";
+			const qty = isCalc ? parseFloat(value.quantity || "0") : 0;
+			const rate = isCalc ? parseFloat(value.perItemRate || "0") : 0;
+			const bata = isCalc ? parseFloat(value.bataPercentage || "0") : 0;
+
+			const calculatedAmount = isCalc ? ((qty * rate * bata) / 100) : (value.revenue || 0);
+
 			const items = [
 				{
 					transactionDate: value.transactionDate,
 					type: "credit" as const,
-					amount: (value.revenue || 0).toString(),
+					amount: calculatedAmount.toString(),
 					expenseCategoryId: undefined,
+					revenueMode: value.revenueMode,
+					quantity: isCalc ? qty : undefined,
+					perItemRate: isCalc ? rate : undefined,
+					bataPercentage: isCalc ? bata : undefined,
 				},
 				...value.expenses.map((exp) => ({
 					transactionDate: value.transactionDate,
@@ -253,37 +266,149 @@ function RouteComponent() {
 									</form.Field>
 
 									{/* Revenue */}
-									<form.Field name="revenue">
-										{(field) => {
-											const isInvalid =
-												field.state.meta.isTouched && !field.state.meta.isValid;
-											return (
-												<Field data-invalid={isInvalid}>
-													<FieldLabel htmlFor="revenue">Revenue</FieldLabel>
-													<InputGroup>
-														<InputGroupAddon>₹</InputGroupAddon>
-														<InputGroupInput
-															id="revenue"
-															type="number"
-															step="0.01"
-															min="0"
-															name={field.name}
-															value={field.state.value}
-															onBlur={field.handleBlur}
-															onChange={(e) => {
-																field.handleChange(e.target.value);
-															}}
-															placeholder="0.00"
-															aria-invalid={isInvalid}
-														/>
-													</InputGroup>
-													{isInvalid && (
-														<FieldError errors={field.state.meta.errors} />
-													)}
-												</Field>
-											);
-										}}
+									{/* Revenue Mode Selector */}
+									<form.Field name="revenueMode">
+										{(field: any) => (
+											<Field>
+												<FieldLabel>Revenue Entry Mode</FieldLabel>
+												<select
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value as "direct" | "calculated")}
+													className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+												>
+													<option value="direct">Direct Amount</option>
+													<option value="calculated">Calculated Amount</option>
+												</select>
+											</Field>
+										)}
 									</form.Field>
+
+									{/* Direct Mode Input */}
+									<form.Subscribe selector={(state) => state.values.revenueMode}>
+										{(mode) => mode === "direct" ? (
+											<form.Field name="revenue">
+												{(field: any) => {
+													const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+													return (
+														<Field data-invalid={isInvalid}>
+															<FieldLabel htmlFor="revenue">Revenue Amount</FieldLabel>
+															<InputGroup>
+																<InputGroupAddon>₹</InputGroupAddon>
+																<InputGroupInput
+																	id="revenue"
+																	type="number"
+																	step="0.01"
+																	min="0"
+																	name={field.name}
+																	value={field.state.value}
+																	onBlur={field.handleBlur}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	placeholder="0.00"
+																	aria-invalid={isInvalid}
+																/>
+															</InputGroup>
+															{isInvalid && <FieldError errors={field.state.meta.errors} />}
+														</Field>
+													);
+												}}
+											</form.Field>
+										) : (
+											/* Calculated Mode Inputs */
+											<div className="space-y-4 border p-4 rounded-lg bg-muted/20">
+												<div className="grid grid-cols-2 gap-4">
+													<form.Field name="quantity">
+														{(field: any) => (
+															<Field>
+																<FieldLabel>Quantity</FieldLabel>
+																<Input
+																	type="number"
+																	name={field.name}
+																	value={field.state.value}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	placeholder="0"
+																/>
+															</Field>
+														)}
+													</form.Field>
+
+													<form.Field name="perItemRate">
+														{(field: any) => (
+															<Field>
+																<FieldLabel>Per Item Rate (₹)</FieldLabel>
+																<Input
+																	type="number"
+																	step="0.01"
+																	name={field.name}
+																	value={field.state.value}
+																	onChange={(e) => field.handleChange(e.target.value)}
+																	placeholder="0.00"
+																/>
+															</Field>
+														)}
+													</form.Field>
+												</div>
+
+												<form.Field name="bataPercentage">
+													{(field: any) => (
+														<Field>
+															<FieldLabel>Bata Percentage (%)</FieldLabel>
+															<Input
+																type="number"
+																name={field.name}
+																value={field.state.value}
+																onChange={(e) => field.handleChange(e.target.value)}
+																placeholder="0"
+															/>
+														</Field>
+													)}
+												</form.Field>
+
+												{/* Computed Live Display */}
+
+												<form.Subscribe selector={(state) => ({ qty: state.values.quantity, rate: state.values.perItemRate, bata: state.values.bataPercentage })}>
+													{({ qty, rate, bata }) => {
+														const q = parseFloat(qty || "0") || 0;
+														const r = parseFloat(rate || "0") || 0;
+														const b = parseFloat(bata || "0") || 0;
+														const val = q * r;
+														const bataVal = (val * b) / 100;
+														return (
+															<div className="space-y-4">
+																<div className="text-xs space-y-1 text-muted-foreground border-t pt-2 mt-2">
+																	<div className="flex justify-between">
+																		<span>Calculated Value (Qty × Rate):</span>
+																		<span className="font-medium text-foreground">₹{val.toFixed(2)}</span>
+																	</div>
+																	<div className="flex justify-between">
+																		<span>Bata Value (Value × Bata %):</span>
+																		<span className="font-semibold text-green-600">₹{bataVal.toFixed(2)}</span>
+																	</div>
+																</div>
+
+																{/* Highlighted Auto-filled Revenue Field */}
+																<Field className="border-t pt-4">
+																	<FieldLabel htmlFor="calculated-revenue-display" className="text-green-600 dark:text-green-400 font-semibold">
+																		Revenue Amount (Calculated)
+																	</FieldLabel>
+																	<InputGroup className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+																		<InputGroupAddon className="text-green-600 dark:text-green-400 font-semibold">₹</InputGroupAddon>
+																		<InputGroupInput
+																			id="calculated-revenue-display"
+																			type="text"
+																			value={bataVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																			disabled
+																			readOnly
+																			className="bg-transparent border-none text-green-700 dark:text-green-400 font-bold select-all disabled:opacity-100"
+																		/>
+																	</InputGroup>
+																</Field>
+															</div>
+														);
+													}}
+												</form.Subscribe>
+											</div>
+										)}
+									</form.Subscribe>
 
 									{/* Notes */}
 									<form.Field name="notes">
@@ -357,172 +482,172 @@ function RouteComponent() {
 															<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 																{/* Category Field */}
 																<div>
-																<form.Field
-																	name={`expenses[${index}].expenseCategoryId`}
-																>
-																	{(field) => {
-																		const isInvalid =
-																			field.state.meta.isTouched &&
-																			!field.state.meta.isValid;
-																		return (
-																			<Field data-invalid={isInvalid}>
-																				<FieldLabel
-																					htmlFor={`expense-category-${index}`}
-																				>
-																					Expense Category
-																					<span className="text-destructive">
-																						*
-																					</span>
-																				</FieldLabel>
-																				<CategorySelectField
-																					fieldId={`expense-category-${index}`}
-																					value={field.state.value}
-																					onChange={(value) => {
-																						field.handleChange(value);
-																					}}
-																					onBlur={field.handleBlur}
-																				/>
-																				{isInvalid && (
-																					<FieldError
-																						errors={field.state.meta.errors}
+																	<form.Field
+																		name={`expenses[${index}].expenseCategoryId`}
+																	>
+																		{(field) => {
+																			const isInvalid =
+																				field.state.meta.isTouched &&
+																				!field.state.meta.isValid;
+																			return (
+																				<Field data-invalid={isInvalid}>
+																					<FieldLabel
+																						htmlFor={`expense-category-${index}`}
+																					>
+																						Expense Category
+																						<span className="text-destructive">
+																							*
+																						</span>
+																					</FieldLabel>
+																					<CategorySelectField
+																						fieldId={`expense-category-${index}`}
+																						value={field.state.value}
+																						onChange={(value) => {
+																							field.handleChange(value);
+																						}}
+																						onBlur={field.handleBlur}
 																					/>
-																				)}
-																			</Field>
-																		);
-																	}}
-																</form.Field>
+																					{isInvalid && (
+																						<FieldError
+																							errors={field.state.meta.errors}
+																						/>
+																					)}
+																				</Field>
+																			);
+																		}}
+																	</form.Field>
 																</div>
 
 																{/* Amount Field */}
 																<div>
-																<form.Field name={`expenses[${index}].amount`}>
-																	{(amountField) => {
-																		const amountIsInvalid =
-																			amountField.state.meta.isTouched &&
-																			!amountField.state.meta.isValid;
-																		return (
-																			<Field data-invalid={amountIsInvalid}>
-																				<FieldLabel
-																					htmlFor={`expense-amount-${index}`}
-																				>
-																					Amount
-																					<span className="text-destructive">
-																						*
-																					</span>
-																				</FieldLabel>
-																				<InputGroup>
-																					<InputGroupAddon>₹</InputGroupAddon>
-																					<InputGroupInput
-																						id={`expense-amount-${index}`}
-																						type="number"
-																						step="0.01"
-																						min="0"
-																						name={amountField.name}
-																						value={amountField.state.value}
-																						onBlur={amountField.handleBlur}
-																						onChange={(e) => {
-																							amountField.handleChange(
-																								e.target.value,
-																							);
-																						}}
-																						placeholder="0.00"
-																						aria-invalid={amountIsInvalid}
-																					/>
-																				</InputGroup>
-																				{amountIsInvalid && (
-																					<FieldError
-																						errors={
-																							amountField.state.meta.errors
-																						}
-																					/>
-																				)}
-																			</Field>
-																		);
-																	}}
-																</form.Field>
+																	<form.Field name={`expenses[${index}].amount`}>
+																		{(amountField) => {
+																			const amountIsInvalid =
+																				amountField.state.meta.isTouched &&
+																				!amountField.state.meta.isValid;
+																			return (
+																				<Field data-invalid={amountIsInvalid}>
+																					<FieldLabel
+																						htmlFor={`expense-amount-${index}`}
+																					>
+																						Amount
+																						<span className="text-destructive">
+																							*
+																						</span>
+																					</FieldLabel>
+																					<InputGroup>
+																						<InputGroupAddon>₹</InputGroupAddon>
+																						<InputGroupInput
+																							id={`expense-amount-${index}`}
+																							type="number"
+																							step="0.01"
+																							min="0"
+																							name={amountField.name}
+																							value={amountField.state.value}
+																							onBlur={amountField.handleBlur}
+																							onChange={(e) => {
+																								amountField.handleChange(
+																									e.target.value,
+																								);
+																							}}
+																							placeholder="0.00"
+																							aria-invalid={amountIsInvalid}
+																						/>
+																					</InputGroup>
+																					{amountIsInvalid && (
+																						<FieldError
+																							errors={
+																								amountField.state.meta.errors
+																							}
+																						/>
+																					)}
+																				</Field>
+																			);
+																		}}
+																	</form.Field>
 																</div>
 															</div>
 
 															<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
 																<div>
-																<form.Field name={`expenses[${index}].handler`}>
-																	{(handlerField) => {
-																		const handlerIsInvalid =
-																			handlerField.state.meta.isTouched &&
-																			!handlerField.state.meta.isValid;
-																		return (
-																			<Field data-invalid={handlerIsInvalid}>
-																				<FieldLabel htmlFor={`expense-handler-${index}`}>
-																					Handler
-																					<span className="text-destructive">*</span>
-																				</FieldLabel>
-																				<Input
-																					id={`expense-handler-${index}`}
-																					name={handlerField.name}
-																					value={handlerField.state.value}
-																					onBlur={handlerField.handleBlur}
-																					onChange={(e) =>
-																						handlerField.handleChange(
-																							e.target.value,
-																						)
-																					}
-																					placeholder="Enter handler name"
-																				/>
-																				{handlerIsInvalid && (
-																					<FieldError
-																						errors={handlerField.state.meta.errors}
+																	<form.Field name={`expenses[${index}].handler`}>
+																		{(handlerField) => {
+																			const handlerIsInvalid =
+																				handlerField.state.meta.isTouched &&
+																				!handlerField.state.meta.isValid;
+																			return (
+																				<Field data-invalid={handlerIsInvalid}>
+																					<FieldLabel htmlFor={`expense-handler-${index}`}>
+																						Handler
+																						<span className="text-destructive">*</span>
+																					</FieldLabel>
+																					<Input
+																						id={`expense-handler-${index}`}
+																						name={handlerField.name}
+																						value={handlerField.state.value}
+																						onBlur={handlerField.handleBlur}
+																						onChange={(e) =>
+																							handlerField.handleChange(
+																								e.target.value,
+																							)
+																						}
+																						placeholder="Enter handler name"
 																					/>
-																				)}
-																			</Field>
-																		);
-																	}}
-																</form.Field>
+																					{handlerIsInvalid && (
+																						<FieldError
+																							errors={handlerField.state.meta.errors}
+																						/>
+																					)}
+																				</Field>
+																			);
+																		}}
+																	</form.Field>
 																</div>
 
 																<div>
-																<form.Field
-																	name={`expenses[${index}].nextRenewalDate`}
-																>
-																	{(renewalField) => (
-																		<Field>
-																			<FieldLabel htmlFor={`expense-renewal-${index}`}>
-																				Next Renewal
-																			</FieldLabel>
-																			<Input
-																				id={`expense-renewal-${index}`}
-																				type="date"
-																				name={renewalField.name}
-																				value={renewalField.state.value || ""}
-																				onBlur={renewalField.handleBlur}
-																				onChange={(e) =>
-																					renewalField.handleChange(e.target.value)
-																				}
-																			/>
-																		</Field>
-																	)}
-																</form.Field>
+																	<form.Field
+																		name={`expenses[${index}].nextRenewalDate`}
+																	>
+																		{(renewalField) => (
+																			<Field>
+																				<FieldLabel htmlFor={`expense-renewal-${index}`}>
+																					Next Renewal
+																				</FieldLabel>
+																				<Input
+																					id={`expense-renewal-${index}`}
+																					type="date"
+																					name={renewalField.name}
+																					value={renewalField.state.value || ""}
+																					onBlur={renewalField.handleBlur}
+																					onChange={(e) =>
+																						renewalField.handleChange(e.target.value)
+																					}
+																				/>
+																			</Field>
+																		)}
+																	</form.Field>
 																</div>
 
 																{/* Delete Button */}
 																<div className="flex items-center justify-end">
-																<Button
-																	className="max-md:hidden"
-																	type="button"
-																	size="icon"
-																	variant="destructive"
-																	onClick={createRemoveExpenseHandler(index)}
-																>
-																	<TrashIcon className="h-4 w-4" />
-																</Button>
-																<Button
-																	className="md:hidden"
-																	type="button"
-																	variant="destructive"
-																	onClick={createRemoveExpenseHandler(index)}
-																>
-																	Delete
-																	<TrashIcon className="h-4 w-4" />
-																</Button>
+																	<Button
+																		className="max-md:hidden"
+																		type="button"
+																		size="icon"
+																		variant="destructive"
+																		onClick={createRemoveExpenseHandler(index)}
+																	>
+																		<TrashIcon className="h-4 w-4" />
+																	</Button>
+																	<Button
+																		className="md:hidden"
+																		type="button"
+																		variant="destructive"
+																		onClick={createRemoveExpenseHandler(index)}
+																	>
+																		Delete
+																		<TrashIcon className="h-4 w-4" />
+																	</Button>
 																</div>
 															</div>
 														</div>
@@ -552,13 +677,22 @@ function RouteComponent() {
 
 						<form.Subscribe
 							selector={(state) => ({
+								revenueMode: state.values.revenueMode,
 								revenue: state.values.revenue,
+								quantity: state.values.quantity,
+								perItemRate: state.values.perItemRate,
+								bataPercentage: state.values.bataPercentage,
 								expenses: state.values.expenses,
 							})}
 						>
-							{({ revenue: revenueValue, expenses: expensesValue }) => {
-								const revenue = parseFloat(revenueValue || "0") || 0;
-								const totalExpenses = expensesValue.reduce(
+							{(values) => {
+								const isCalc = values.revenueMode === "calculated";
+								const qty = isCalc ? parseFloat(values.quantity || "0") : 0;
+								const rate = isCalc ? parseFloat(values.perItemRate || "0") : 0;
+								const bata = isCalc ? parseFloat(values.bataPercentage || "0") : 0;
+
+								const revenue = isCalc ? ((qty * rate * bata) / 100) : (parseFloat(values.revenue || "0") || 0);
+								const totalExpenses = values.expenses.reduce(
 									(sum: number, exp: { amount: string }) =>
 										sum + (parseFloat(exp.amount) || 0),
 									0,
@@ -592,9 +726,8 @@ function RouteComponent() {
 										<div className="space-y-1">
 											<p className="text-muted-foreground text-sm">Profit</p>
 											<p
-												className={`text-2xl font-bold ${
-													profit >= 0 ? "text-green-600" : "text-red-600"
-												}`}
+												className={`text-2xl font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"
+													}`}
 											>
 												{formatINR(profit)}
 											</p>
@@ -604,11 +737,10 @@ function RouteComponent() {
 										<div className="space-y-1">
 											<p className="text-muted-foreground text-sm">Profit %</p>
 											<p
-												className={`text-2xl font-bold ${
-													profitPercentage >= 0
-														? "text-green-600"
-														: "text-red-600"
-												}`}
+												className={`text-2xl font-bold ${profitPercentage >= 0
+													? "text-green-600"
+													: "text-red-600"
+													}`}
 											>
 												{profitPercentage.toFixed(2)}%
 											</p>

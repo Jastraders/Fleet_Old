@@ -461,6 +461,12 @@ def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
         "handler": item.get("handler"),
         "nextRenewalDate": to_iso_datetime(item.get("next_renewal_date")),
         "expenseCategoryId": item.get("expense_category_id"),
+        "revenueMode": item.get("revenue_mode") or "direct",
+        "quantity": item.get("quantity"),
+        "perItemRate": item.get("per_item_rate"),
+        "value": item.get("value"),
+        "bataPercentage": item.get("bata_percentage"),
+        "bataValue": item.get("bata_value"),
         "createdAt": to_iso_datetime(item.get("created_at")),
     }
 

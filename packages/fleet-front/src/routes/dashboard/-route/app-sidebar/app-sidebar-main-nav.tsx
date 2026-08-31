@@ -12,6 +12,7 @@ import {
 	TagIcon,
 	TruckIcon,
 	UsersIcon,
+	WarehouseIcon,
 } from "lucide-react";
 import {
 	SidebarGroup,
@@ -172,6 +173,24 @@ export function AppSidebarMainNav() {
 							}
 						/>
 					</SidebarMenuItem>
+
+					{/* Add this new Warehouse item: */}
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							render={
+								<Link
+									to="/dashboard/admin/warehouse"
+									activeProps={{ "data-active": true }}
+									activeOptions={{ exact: true, includeSearch: false }}
+								/>
+							}
+						>
+							<WarehouseIcon />
+							Warehouse
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+
 				</SidebarGroup>
 			)}
 			<SidebarSeparator />

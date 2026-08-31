@@ -13,6 +13,7 @@ import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DashboardGeneralNotificationsRouteRouteImport } from './routes/dashboard/general/notifications/route'
+import { Route as DashboardAdminWarehouseRouteRouteImport } from './routes/dashboard/admin/warehouse/route'
 import { Route as DashboardAdminReportsRouteRouteImport } from './routes/dashboard/admin/reports/route'
 import { Route as DashboardAdminMembersRouteRouteImport } from './routes/dashboard/admin/members/route'
 import { Route as DashboardAccountantVehiclesRouteRouteImport } from './routes/dashboard/accountant/vehicles/route'
@@ -22,6 +23,7 @@ import { Route as DashboardAccountantExpenseCategoriesRouteRouteImport } from '.
 import { Route as DashboardAccountantDriversRouteRouteImport } from './routes/dashboard/accountant/drivers/route'
 import { Route as DashboardGeneralNotificationsIndexRouteImport } from './routes/dashboard/general/notifications/index'
 import { Route as DashboardAnalystAnalyticsIndexRouteImport } from './routes/dashboard/analyst/analytics/index'
+import { Route as DashboardAdminWarehouseIndexRouteImport } from './routes/dashboard/admin/warehouse/index'
 import { Route as DashboardAdminReportsIndexRouteImport } from './routes/dashboard/admin/reports/index'
 import { Route as DashboardAdminMembersIndexRouteImport } from './routes/dashboard/admin/members/index'
 import { Route as DashboardAccountantVehiclesIndexRouteImport } from './routes/dashboard/accountant/vehicles/index'
@@ -52,6 +54,12 @@ const DashboardGeneralNotificationsRouteRoute =
   DashboardGeneralNotificationsRouteRouteImport.update({
     id: '/general/notifications',
     path: '/general/notifications',
+    getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const DashboardAdminWarehouseRouteRoute =
+  DashboardAdminWarehouseRouteRouteImport.update({
+    id: '/admin/warehouse',
+    path: '/admin/warehouse',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
 const DashboardAdminReportsRouteRoute =
@@ -107,6 +115,12 @@ const DashboardAnalystAnalyticsIndexRoute =
     id: '/analyst/analytics/',
     path: '/analyst/analytics/',
     getParentRoute: () => DashboardRouteRoute,
+  } as any)
+const DashboardAdminWarehouseIndexRoute =
+  DashboardAdminWarehouseIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => DashboardAdminWarehouseRouteRoute,
   } as any)
 const DashboardAdminReportsIndexRoute =
   DashboardAdminReportsIndexRouteImport.update({
@@ -180,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/accountant/vehicles': typeof DashboardAccountantVehiclesRouteRouteWithChildren
   '/dashboard/admin/members': typeof DashboardAdminMembersRouteRouteWithChildren
   '/dashboard/admin/reports': typeof DashboardAdminReportsRouteRouteWithChildren
+  '/dashboard/admin/warehouse': typeof DashboardAdminWarehouseRouteRouteWithChildren
   '/dashboard/general/notifications': typeof DashboardGeneralNotificationsRouteRouteWithChildren
   '/dashboard/accountant/drivers/': typeof DashboardAccountantDriversIndexRoute
   '/dashboard/accountant/expense-categories/': typeof DashboardAccountantExpenseCategoriesIndexRoute
@@ -188,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/accountant/vehicles/': typeof DashboardAccountantVehiclesIndexRoute
   '/dashboard/admin/members/': typeof DashboardAdminMembersIndexRoute
   '/dashboard/admin/reports/': typeof DashboardAdminReportsIndexRoute
+  '/dashboard/admin/warehouse/': typeof DashboardAdminWarehouseIndexRoute
   '/dashboard/analyst/analytics/': typeof DashboardAnalystAnalyticsIndexRoute
   '/dashboard/general/notifications/': typeof DashboardGeneralNotificationsIndexRoute
   '/dashboard/accountant/journal-entries/$entryId/': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
@@ -204,6 +220,7 @@ export interface FileRoutesByTo {
   '/dashboard/accountant/vehicles': typeof DashboardAccountantVehiclesIndexRoute
   '/dashboard/admin/members': typeof DashboardAdminMembersIndexRoute
   '/dashboard/admin/reports': typeof DashboardAdminReportsIndexRoute
+  '/dashboard/admin/warehouse': typeof DashboardAdminWarehouseIndexRoute
   '/dashboard/analyst/analytics': typeof DashboardAnalystAnalyticsIndexRoute
   '/dashboard/general/notifications': typeof DashboardGeneralNotificationsIndexRoute
   '/dashboard/accountant/journal-entries/$entryId': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
@@ -222,6 +239,7 @@ export interface FileRoutesById {
   '/dashboard/accountant/vehicles': typeof DashboardAccountantVehiclesRouteRouteWithChildren
   '/dashboard/admin/members': typeof DashboardAdminMembersRouteRouteWithChildren
   '/dashboard/admin/reports': typeof DashboardAdminReportsRouteRouteWithChildren
+  '/dashboard/admin/warehouse': typeof DashboardAdminWarehouseRouteRouteWithChildren
   '/dashboard/general/notifications': typeof DashboardGeneralNotificationsRouteRouteWithChildren
   '/dashboard/accountant/drivers/': typeof DashboardAccountantDriversIndexRoute
   '/dashboard/accountant/expense-categories/': typeof DashboardAccountantExpenseCategoriesIndexRoute
@@ -230,6 +248,7 @@ export interface FileRoutesById {
   '/dashboard/accountant/vehicles/': typeof DashboardAccountantVehiclesIndexRoute
   '/dashboard/admin/members/': typeof DashboardAdminMembersIndexRoute
   '/dashboard/admin/reports/': typeof DashboardAdminReportsIndexRoute
+  '/dashboard/admin/warehouse/': typeof DashboardAdminWarehouseIndexRoute
   '/dashboard/analyst/analytics/': typeof DashboardAnalystAnalyticsIndexRoute
   '/dashboard/general/notifications/': typeof DashboardGeneralNotificationsIndexRoute
   '/dashboard/accountant/journal-entries/$entryId/': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
@@ -249,6 +268,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/vehicles'
     | '/dashboard/admin/members'
     | '/dashboard/admin/reports'
+    | '/dashboard/admin/warehouse'
     | '/dashboard/general/notifications'
     | '/dashboard/accountant/drivers/'
     | '/dashboard/accountant/expense-categories/'
@@ -257,6 +277,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/vehicles/'
     | '/dashboard/admin/members/'
     | '/dashboard/admin/reports/'
+    | '/dashboard/admin/warehouse/'
     | '/dashboard/analyst/analytics/'
     | '/dashboard/general/notifications/'
     | '/dashboard/accountant/journal-entries/$entryId/'
@@ -273,6 +294,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/vehicles'
     | '/dashboard/admin/members'
     | '/dashboard/admin/reports'
+    | '/dashboard/admin/warehouse'
     | '/dashboard/analyst/analytics'
     | '/dashboard/general/notifications'
     | '/dashboard/accountant/journal-entries/$entryId'
@@ -290,6 +312,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/vehicles'
     | '/dashboard/admin/members'
     | '/dashboard/admin/reports'
+    | '/dashboard/admin/warehouse'
     | '/dashboard/general/notifications'
     | '/dashboard/accountant/drivers/'
     | '/dashboard/accountant/expense-categories/'
@@ -298,6 +321,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/vehicles/'
     | '/dashboard/admin/members/'
     | '/dashboard/admin/reports/'
+    | '/dashboard/admin/warehouse/'
     | '/dashboard/analyst/analytics/'
     | '/dashboard/general/notifications/'
     | '/dashboard/accountant/journal-entries/$entryId/'
@@ -338,6 +362,13 @@ declare module '@tanstack/react-router' {
       path: '/general/notifications'
       fullPath: '/dashboard/general/notifications'
       preLoaderRoute: typeof DashboardGeneralNotificationsRouteRouteImport
+      parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/admin/warehouse': {
+      id: '/dashboard/admin/warehouse'
+      path: '/admin/warehouse'
+      fullPath: '/dashboard/admin/warehouse'
+      preLoaderRoute: typeof DashboardAdminWarehouseRouteRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/admin/reports': {
@@ -402,6 +433,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/analyst/analytics/'
       preLoaderRoute: typeof DashboardAnalystAnalyticsIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
+    }
+    '/dashboard/admin/warehouse/': {
+      id: '/dashboard/admin/warehouse/'
+      path: '/'
+      fullPath: '/dashboard/admin/warehouse/'
+      preLoaderRoute: typeof DashboardAdminWarehouseIndexRouteImport
+      parentRoute: typeof DashboardAdminWarehouseRouteRoute
     }
     '/dashboard/admin/reports/': {
       id: '/dashboard/admin/reports/'
@@ -584,6 +622,20 @@ const DashboardAdminReportsRouteRouteWithChildren =
     DashboardAdminReportsRouteRouteChildren,
   )
 
+interface DashboardAdminWarehouseRouteRouteChildren {
+  DashboardAdminWarehouseIndexRoute: typeof DashboardAdminWarehouseIndexRoute
+}
+
+const DashboardAdminWarehouseRouteRouteChildren: DashboardAdminWarehouseRouteRouteChildren =
+  {
+    DashboardAdminWarehouseIndexRoute: DashboardAdminWarehouseIndexRoute,
+  }
+
+const DashboardAdminWarehouseRouteRouteWithChildren =
+  DashboardAdminWarehouseRouteRoute._addFileChildren(
+    DashboardAdminWarehouseRouteRouteChildren,
+  )
+
 interface DashboardGeneralNotificationsRouteRouteChildren {
   DashboardGeneralNotificationsIndexRoute: typeof DashboardGeneralNotificationsIndexRoute
 }
@@ -608,6 +660,7 @@ interface DashboardRouteRouteChildren {
   DashboardAccountantVehiclesRouteRoute: typeof DashboardAccountantVehiclesRouteRouteWithChildren
   DashboardAdminMembersRouteRoute: typeof DashboardAdminMembersRouteRouteWithChildren
   DashboardAdminReportsRouteRoute: typeof DashboardAdminReportsRouteRouteWithChildren
+  DashboardAdminWarehouseRouteRoute: typeof DashboardAdminWarehouseRouteRouteWithChildren
   DashboardGeneralNotificationsRouteRoute: typeof DashboardGeneralNotificationsRouteRouteWithChildren
   DashboardAnalystAnalyticsIndexRoute: typeof DashboardAnalystAnalyticsIndexRoute
   DashboardAnalystAnalyticsVehicleIdIndexRoute: typeof DashboardAnalystAnalyticsVehicleIdIndexRoute
@@ -627,6 +680,8 @@ const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
     DashboardAccountantVehiclesRouteRouteWithChildren,
   DashboardAdminMembersRouteRoute: DashboardAdminMembersRouteRouteWithChildren,
   DashboardAdminReportsRouteRoute: DashboardAdminReportsRouteRouteWithChildren,
+  DashboardAdminWarehouseRouteRoute:
+    DashboardAdminWarehouseRouteRouteWithChildren,
   DashboardGeneralNotificationsRouteRoute:
     DashboardGeneralNotificationsRouteRouteWithChildren,
   DashboardAnalystAnalyticsIndexRoute: DashboardAnalystAnalyticsIndexRoute,

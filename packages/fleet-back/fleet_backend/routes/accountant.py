@@ -742,21 +742,62 @@ def orpc_create_entry(user):
         )
         for item in payload.get("items", []):
             item_id = str(uuid.uuid4())
+            
+            # Read calculation values from the payload item
+            revenue_mode = item.get("revenueMode", "direct")
+            quantity = item.get("quantity")
+            per_item_rate = item.get("perItemRate")
+            bata_percentage = item.get("bataPercentage")
+            
+            value = None
+            bata_value = None
+            amount = float(item["amount"])
+            
+            # Recalculate on the backend if mode is calculated
+            if item["type"] == "credit" and revenue_mode == "calculated":
+                if quantity is None or per_item_rate is None or bata_percentage is None:
+                    return rpc_error("Quantity, Per Item Rate, and Bata Percentage are required for Calculated Mode.", 400)
+                
+                qty_val = float(quantity)
+                rate_val = float(per_item_rate)
+                bata_val = float(bata_percentage)
+                
+                if qty_val < 0 or rate_val < 0 or bata_val < 0:
+                    return rpc_error("Calculation fields cannot be negative.", 400)
+                
+                value = qty_val * rate_val
+                bata_value = (value * bata_val) / 100.0
+                amount = bata_value  # Use the backend calculated Bata Value as the revenue amount
+                
             conn.execute(
-                "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                """
+                INSERT INTO journal_entry_items (
+                    id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
+                    voucher_id, handler, next_renewal_date, expense_category_id,
+                    revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     item_id,
                     eid,
                     payload["vehicleId"],
                     item["transactionDate"],
                     item["type"],
-                    float(item["amount"]),
+                    amount,
                     next_voucher_id(conn) if item["type"] == "debit" else None,
                     item.get("handler") or "Driver",
                     item.get("nextRenewalDate"),
                     item.get("expenseCategoryId"),
+                    revenue_mode,
+                    quantity,
+                    per_item_rate,
+                    value,
+                    bata_percentage,
+                    bata_value,
                 ),
             )
+
+            
             if item["type"] == "debit" and item.get("expenseCategoryId"):
                 stale_rows = rows_to_dicts(
                     conn.execute(
@@ -868,19 +909,59 @@ def orpc_update_entry(user):
         if isinstance(payload.get("items"), list) and payload["items"]:
             conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
             for item in payload["items"]:
+                item_id = str(uuid.uuid4())
+                
+                # Read calculation values from the payload item
+                revenue_mode = item.get("revenueMode", "direct")
+                quantity = item.get("quantity")
+                per_item_rate = item.get("perItemRate")
+                bata_percentage = item.get("bataPercentage")
+                
+                value = None
+                bata_value = None
+                amount = float(item["amount"])
+                
+                # Recalculate on the backend if mode is calculated
+                if item["type"] == "credit" and revenue_mode == "calculated":
+                    if quantity is None or per_item_rate is None or bata_percentage is None:
+                        return rpc_error("Quantity, Per Item Rate, and Bata Percentage are required for Calculated Mode.", 400)
+                    
+                    qty_val = float(quantity)
+                    rate_val = float(per_item_rate)
+                    bata_val = float(bata_percentage)
+                    
+                    if qty_val < 0 or rate_val < 0 or bata_val < 0:
+                        return rpc_error("Calculation fields cannot be negative.", 400)
+                    
+                    value = qty_val * rate_val
+                    bata_value = (value * bata_val) / 100.0
+                    amount = bata_value  # Use the backend calculated Bata Value as the revenue amount
+                    
                 conn.execute(
-                    "INSERT INTO journal_entry_items (id,journal_entry_id,vehicle_id,transaction_date,type,amount,voucher_id,handler,next_renewal_date,expense_category_id) VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    """
+                    INSERT INTO journal_entry_items (
+                        id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
+                        voucher_id, handler, next_renewal_date, expense_category_id,
+                        revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
                     (
-                        str(uuid.uuid4()),
+                        item_id,
                         entry_id,
                         existing["vehicle_id"],
                         item["transactionDate"],
                         item["type"],
-                        float(item["amount"]),
+                        amount,
                         next_voucher_id(conn) if item["type"] == "debit" else None,
                         item.get("handler") or "Driver",
                         item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
+                        revenue_mode,
+                        quantity,
+                        per_item_rate,
+                        value,
+                        bata_percentage,
+                        bata_value,
                     ),
                 )
         updated_driver_id = payload.get("driverId", existing["driver_id"])

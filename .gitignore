@@ -1,3 +1,8 @@
 node_modules
 settings.local.json
 plans
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
