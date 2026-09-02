@@ -29,10 +29,12 @@ import useSvgExport from "@/hooks/use-svg-export";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m";
+type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
 
 interface ExpenseCategoriesStatsCardProps extends ComponentProps<typeof Card> {
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 type ExpenseCategoryStatsItem = {
@@ -106,6 +108,8 @@ function CustomLegend({
 
 function ExpenseCategoryChartContent({
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: ExpenseCategoriesStatsCardProps) {
@@ -114,7 +118,7 @@ function ExpenseCategoryChartContent({
 
 	const { data } = useSuspenseQuery({
 		...orpc.analyst.analytics.expensesStats.queryOptions({
-			input: { period },
+			input: { period, startDate, endDate },
 		}),
 	});
 	const expenseStats = data as ExpenseCategoryStatsItem[];
@@ -250,20 +254,14 @@ function ExpenseCategoryChartContent({
 	);
 }
 
-export function ExpenseCategoriesStatsCard({
-	period,
-	className,
-	...props
-}: ExpenseCategoriesStatsCardProps) {
+export function ExpenseCategoriesStatsCard(props: ExpenseCategoriesStatsCardProps) {
 	return (
 		<Suspense
 			fallback={
-				<ExpenseCategoryChartSkeleton className={className} {...props} />
+				<ExpenseCategoryChartSkeleton className={props.className} {...props} />
 			}
 		>
 			<ExpenseCategoryChartContent
-				period={period}
-				className={className}
 				{...props}
 			/>
 		</Suspense>

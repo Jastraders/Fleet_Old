@@ -37,10 +37,12 @@ import useSvgExport from "@/hooks/use-svg-export";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m";
+type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
 
 interface VehicleProfitChartProps extends ComponentProps<typeof Card> {
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 type FleetProfitChartItem = {
@@ -81,13 +83,15 @@ function VehicleProfitChartSkeleton({
 
 function VehicleProfitChartContent({
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleProfitChartProps) {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const { data } = useSuspenseQuery<FleetProfitChartItem[]>({
 		...orpc.analyst.analytics.fleetStats.queryOptions({
-			input: { period },
+			input: { period, startDate, endDate },
 		}),
 	});
 	const fleetStats = data;
@@ -171,74 +175,74 @@ function VehicleProfitChartContent({
 							className="aspect-auto h-[250px] w-full"
 						>
 							<BarChart accessibilityLayer data={chartData}>
-							<CartesianGrid vertical={false} />
-							<XAxis
-								dataKey="vehicleName"
-								tickLine={false}
-								tickMargin={10}
-								axisLine={false}
-							/>
-							<YAxis
-								tickLine={false}
-								axisLine={false}
-								tickFormatter={(value) => formatINR(value)}
-							/>
-							<ChartTooltip
-								content={
-									<ChartTooltipContent
-										hideLabel
-										className="w-50"
-										formatter={(_value, name, item) => {
-											const payload =
-												typeof item === "object" &&
-												item !== null &&
-												"payload" in item
-													? (item as {
+								<CartesianGrid vertical={false} />
+								<XAxis
+									dataKey="vehicleName"
+									tickLine={false}
+									tickMargin={10}
+									axisLine={false}
+								/>
+								<YAxis
+									tickLine={false}
+									axisLine={false}
+									tickFormatter={(value) => formatINR(value)}
+								/>
+								<ChartTooltip
+									content={
+										<ChartTooltipContent
+											hideLabel
+											className="w-50"
+											formatter={(_value, name, item) => {
+												const payload =
+													typeof item === "object" &&
+														item !== null &&
+														"payload" in item
+														? (item as {
 															payload?: {
 																originalDebit?: number;
 																originalProfit?: number;
 															};
 														}).payload
-													: undefined;
+														: undefined;
 
-											return (
-												<>
-												<div
-													className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
-													style={
-														{
-															"--color-bg": `var(--color-${name})`,
-														} as React.CSSProperties
-													}
-												/>
-												{chartConfig[name as keyof typeof chartConfig]?.label ||
-													name}
-												<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
-													{name === "debit" && payload?.originalDebit}
-													{name === "profit" && payload?.originalProfit}
-												</div>
-											</>
-											);
-										}}
-									/>
-								}
-								cursor={false}
-							/>
-							<ChartLegend content={<ChartLegendContent />} />
-							<Bar
-								dataKey="debit"
-								stackId="a"
-								fill="#2f6196"
-								radius={[4, 4, 4, 4]}
-								zIndex={1}
-							/>
-							<Bar
-								dataKey="profit"
-								stackId="a"
-								fill="#072d54"
-								radius={[4, 4, 4, 4]}
-								zIndex={0}
-							/>
+												return (
+													<>
+														<div
+															className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
+															style={
+																{
+																	"--color-bg": `var(--color-${name})`,
+																} as React.CSSProperties
+															}
+														/>
+														{chartConfig[name as keyof typeof chartConfig]?.label ||
+															name}
+														<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+															{name === "debit" && payload?.originalDebit}
+															{name === "profit" && payload?.originalProfit}
+														</div>
+													</>
+												);
+											}}
+										/>
+									}
+									cursor={false}
+								/>
+								<ChartLegend content={<ChartLegendContent />} />
+								<Bar
+									dataKey="debit"
+									stackId="a"
+									fill="#2f6196"
+									radius={[4, 4, 4, 4]}
+									zIndex={1}
+								/>
+								<Bar
+									dataKey="profit"
+									stackId="a"
+									fill="#072d54"
+									radius={[4, 4, 4, 4]}
+									zIndex={0}
+								/>
 							</BarChart>
 						</ChartContainer>
 					</div>

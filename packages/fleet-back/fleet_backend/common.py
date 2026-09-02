@@ -16,7 +16,7 @@ import re
 log = logging.getLogger(__name__)
 
 SESSION_TTL_DAYS = 30
-PERIODS = {"all_time", "last_7d", "last_30d", "last_6m", "last_12m"}
+PERIODS = {"all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"}
 VEHICLE_PERIODS = {"all_time", "last_30d", "last_3m", "last_6m", "last_9m", "last_12m"}
 
 def now_iso() -> str:
@@ -39,7 +39,12 @@ def random_color() -> str:
     return f"{secrets.randbelow(16**6):06x}"
 
 
-def period_start(period: str) -> datetime | None:
+def period_start(period: str, start_date_str: str | None = None) -> datetime | None:
+    if period == "custom" and start_date_str:
+        try:
+            return datetime.fromisoformat(start_date_str.replace("Z", "")).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+        except Exception:
+            return None
     now = datetime.now(timezone.utc)
     if period == "last_7d":
         return now - timedelta(days=7)
@@ -67,17 +72,55 @@ def vehicle_period_start(period: str) -> datetime | None:
     return None
 
 
-def period_bounds(period: str) -> tuple[datetime | None, datetime | None, datetime | None]:
+def period_date_bounds(
+    period: str,
+    custom_start_str: str | None = None,
+    custom_end_str: str | None = None,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """
+    Returns (current_start_date, current_end_date, previous_start_date, previous_end_date)
+    all as 10-character 'YYYY-MM-DD' strings.
+    """
+    today = datetime.now(timezone.utc).date()
+    
     if period == "all_time":
-        return None, None, None
-    now = datetime.now(timezone.utc)
-    current_start = period_start(period)
-    if not current_start:
-        return None, None, None
-    span = now - current_start
-    previous_end = current_start
-    previous_start = previous_end - span
-    return current_start, previous_start, previous_end
+        return None, None, None, None
+        
+    if period == "custom":
+        if not custom_start_str or not custom_end_str:
+            return None, None, None, None
+        try:
+            d_start = datetime.fromisoformat(custom_start_str.replace("Z", "")).date()
+            d_end = datetime.fromisoformat(custom_end_str.replace("Z", "")).date()
+            if d_start > d_end:
+                d_start, d_end = d_end, d_start
+            num_days = (d_end - d_start).days + 1
+            p_end = d_start - timedelta(days=1)
+            p_start = p_end - timedelta(days=num_days - 1)
+            return d_start.strftime("%Y-%m-%d"), d_end.strftime("%Y-%m-%d"), p_start.strftime("%Y-%m-%d"), p_end.strftime("%Y-%m-%d")
+        except Exception:
+            return None, None, None, None
+
+    if period == "last_7d":
+        num_days = 7
+    elif period == "last_30d":
+        num_days = 30
+    elif period == "last_6m":
+        num_days = 183
+    elif period == "last_12m":
+        num_days = 365
+    else:
+        return None, None, None, None
+
+    c_start = today - timedelta(days=num_days - 1)
+    c_end = today
+    p_end = c_start - timedelta(days=1)
+    p_start = p_end - timedelta(days=num_days - 1)
+    
+    return c_start.strftime("%Y-%m-%d"), c_end.strftime("%Y-%m-%d"), p_start.strftime("%Y-%m-%d"), p_end.strftime("%Y-%m-%d")
+
+
+period_bounds = period_date_bounds
 
 
 def vehicle_period_bounds(period: str) -> tuple[datetime | None, datetime | None, datetime | None]:
@@ -102,25 +145,23 @@ def calculate_percentage_change(current: float, previous: float) -> float | None
 def sum_amount(
     conn,
     entry_type: str,
-    start: datetime | None = None,
-    end: datetime | None = None,
+    start: str | None = None,
+    end: str | None = None,
     vehicle_id: str | None = None,
 ) -> float:
     conditions = ["type = ?"]
     params: list[Any] = [entry_type]
     if start is not None:
-        conditions.append("transaction_date >= ?")
-        params.append(start.isoformat())
+        conditions.append("SUBSTR(transaction_date, 1, 10) >= ?")
+        params.append(start)
     if end is not None:
-        conditions.append("transaction_date < ?")
-        params.append(end.isoformat())
+        conditions.append("SUBSTR(transaction_date, 1, 10) <= ?")
+        params.append(end)
     if vehicle_id is not None:
         conditions.append("vehicle_id = ?")
         params.append(vehicle_id)
-    row = conn.execute(
-        f"SELECT COALESCE(SUM(amount), 0) AS total FROM journal_entry_items WHERE {' AND '.join(conditions)}",
-        tuple(params),
-    ).fetchone()
+    query = f"SELECT COALESCE(SUM(amount), 0) AS total FROM journal_entry_items WHERE {' AND '.join(conditions)}"
+    row = conn.execute(query, tuple(params)).fetchone()
     return float(row["total"] or 0)
 
 

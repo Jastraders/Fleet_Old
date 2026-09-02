@@ -13,10 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m";
+type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
 
 interface VehicleLeaderboardCardProps extends ComponentProps<typeof Card> {
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 interface BarListItem {
@@ -143,17 +145,19 @@ function VehicleLeaderboardCardSkeleton({
 
 function VehicleLeaderboardCardContent({
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleLeaderboardCardProps) {
-	const { data } = useSuspenseQuery<FleetStatsItem[]>({
+	const { data: fleetStats } = useSuspenseQuery<FleetStatsItem[]>({
 		...orpc.analyst.analytics.fleetStats.queryOptions({
-			input: { period },
+			input: { period, startDate, endDate },
 		}),
 	});
 
 	// Calculate profit percentage and transform to BarList format
-	const leaderboardData: BarListItem[] = data
+	const leaderboardData: BarListItem[] = fleetStats
 		.map((vehicle) => ({
 			key: vehicle.vehicleName,
 			name: vehicle.vehicleName,

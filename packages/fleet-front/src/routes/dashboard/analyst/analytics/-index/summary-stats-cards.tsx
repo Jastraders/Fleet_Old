@@ -14,10 +14,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m";
+type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
 
 interface SummaryStatsCardsProps {
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 interface SummaryStatValue {
@@ -44,6 +46,8 @@ function getPeriodDescription(period: Period): string {
 			return "Compared to previous 6 months";
 		case "last_12m":
 			return "Compared to previous 12 months";
+		case "custom":
+			return "Compared to previous equal period";
 	}
 }
 
@@ -76,10 +80,10 @@ function SummaryStatsCardsSkeleton() {
 	);
 }
 
-function SummaryStatsCardsContent({ period }: SummaryStatsCardsProps) {
+function SummaryStatsCardsContent({ period, startDate, endDate }: SummaryStatsCardsProps) {
 	const { data } = useSuspenseQuery<SummaryStatsData>({
 		...orpc.analyst.analytics.summaryStats.queryOptions({
-			input: { period },
+			input: { period, startDate, endDate },
 		}),
 	});
 
@@ -156,7 +160,7 @@ function SummaryStatsCardsContent({ period }: SummaryStatsCardsProps) {
 						Profit %
 						<Badge variant="outline">
 							{data.profitPercentage.change !== null &&
-							data.profitPercentage.change >= 0 ? (
+								data.profitPercentage.change >= 0 ? (
 								<TrendingUpIcon />
 							) : (
 								<TrendingDownIcon className="text-destructive" />
@@ -176,10 +180,10 @@ function SummaryStatsCardsContent({ period }: SummaryStatsCardsProps) {
 	);
 }
 
-export function SummaryStatsCards({ period }: SummaryStatsCardsProps) {
+export function SummaryStatsCards(props: SummaryStatsCardsProps) {
 	return (
 		<Suspense fallback={<SummaryStatsCardsSkeleton />}>
-			<SummaryStatsCardsContent period={period} />
+			<SummaryStatsCardsContent {...props} />
 		</Suspense>
 	);
 }

@@ -8,6 +8,7 @@ from fleet_backend.common import (
     VEHICLE_PERIODS,
     calculate_percentage_change,
     period_bounds,
+    period_date_bounds,
     period_start,
     require_auth,
     rpc_payload,
@@ -22,12 +23,14 @@ from fleet_backend.server import app
 @require_auth({"analyst"})
 def analytics_summary(user):
     period = request.args.get("period", "all_time")
+    start_date_str = request.args.get("startDate")
+    end_date_str = request.args.get("endDate")
     if period not in PERIODS:
         return jsonify({"error": "Invalid period"}), 400
-    current_start, previous_start, previous_end = period_bounds(period)
+    current_start, current_end, previous_start, previous_end = period_date_bounds(period, start_date_str, end_date_str)
     with connect() as conn:
-        current_revenue = sum_amount(conn, "credit", start=current_start)
-        current_expenses = sum_amount(conn, "debit", start=current_start)
+        current_revenue = sum_amount(conn, "credit", start=current_start, end=current_end)
+        current_expenses = sum_amount(conn, "debit", start=current_start, end=current_end)
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end)
 
@@ -61,13 +64,16 @@ def analytics_summary(user):
 @app.post("/analyst/analytics/summaryStats")
 @require_auth({"analyst"})
 def orpc_analytics_summary_stats(user):
-    period = rpc_payload().get("period", "all_time")
+    payload = rpc_payload()
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if period not in PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
-    current_start, previous_start, previous_end = period_bounds(period)
+    current_start, current_end, previous_start, previous_end = period_date_bounds(period, start_date_str, end_date_str)
     with connect() as conn:
-        current_revenue = sum_amount(conn, "credit", start=current_start)
-        current_expenses = sum_amount(conn, "debit", start=current_start)
+        current_revenue = sum_amount(conn, "credit", start=current_start, end=current_end)
+        current_expenses = sum_amount(conn, "debit", start=current_start, end=current_end)
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end)
 
@@ -95,32 +101,35 @@ def orpc_analytics_summary_stats(user):
         },
     })
 
-
 @app.post("/orpc/analyst/analytics/fleetStats")
 @app.post("/api/orpc/analyst/analytics/fleetStats")
 @app.post("/analyst/analytics/fleetStats")
 @require_auth({"analyst"})
 def orpc_analytics_fleet_stats(user):
-    period = rpc_payload().get("period", "all_time")
+    payload = rpc_payload()
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if period not in PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
-    start = period_start(period)
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     with connect() as conn:
         vehicles = rows_to_dicts(conn.execute("SELECT id, name, color FROM vehicles ORDER BY name ASC").fetchall())
         conditions = []
         params: list[Any] = []
-        if start is not None:
-            conditions.append("transaction_date >= ?")
-            params.append(start.isoformat())
+        if current_start is not None:
+            conditions.append("SUBSTR(transaction_date, 1, 10) >= ?")
+            params.append(current_start)
+        if current_end is not None:
+            conditions.append("SUBSTR(transaction_date, 1, 10) <= ?")
+            params.append(current_end)
         where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
         credits = rows_to_dicts(conn.execute(
-            f"SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items {where_clause} AND type = 'credit' GROUP BY vehicle_id"
-            if where_clause else "SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items WHERE type = 'credit' GROUP BY vehicle_id",
+            f"SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items {where_clause} {'AND' if where_clause else 'WHERE'} type = 'credit' GROUP BY vehicle_id",
             tuple(params),
         ).fetchall())
         debits = rows_to_dicts(conn.execute(
-            f"SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items {where_clause} AND type = 'debit' GROUP BY vehicle_id"
-            if where_clause else "SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items WHERE type = 'debit' GROUP BY vehicle_id",
+            f"SELECT vehicle_id, COALESCE(SUM(amount), 0) AS total FROM journal_entry_items {where_clause} {'AND' if where_clause else 'WHERE'} type = 'debit' GROUP BY vehicle_id",
             tuple(params),
         ).fetchall())
 
@@ -148,15 +157,21 @@ def orpc_analytics_fleet_stats(user):
 @app.post("/analyst/analytics/expensesStats")
 @require_auth({"analyst"})
 def orpc_analytics_expenses_stats(user):
-    period = rpc_payload().get("period", "all_time")
+    payload = rpc_payload()
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if period not in PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
-    start = period_start(period)
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     params: list[Any] = []
     where = ["jei.type = 'debit'"]
-    if start is not None:
-        where.append("jei.transaction_date >= ?")
-        params.append(start.isoformat())
+    if current_start is not None:
+        where.append("SUBSTR(jei.transaction_date, 1, 10) >= ?")
+        params.append(current_start)
+    if current_end is not None:
+        where.append("SUBSTR(jei.transaction_date, 1, 10) <= ?")
+        params.append(current_end)
 
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
