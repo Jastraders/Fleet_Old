@@ -1,0 +1,29 @@
+name: Deploy Backend Staging (App Engine)
+
+on:
+  push:
+    branches: [ develop ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure gcloud project
+        run: gcloud config set project ${{ secrets.GCP_PROJECT }}
+
+      - name: Inject Staging Database Secret
+        run: |
+          sed -i 's|STAGING_SUPABASE_DATABASE_URL_PLACEHOLDER|${{ secrets.STAGING_SUPABASE_DATABASE_URL }}|g' packages/fleet-back/app-staging.yaml
+
+      - name: Deploy Staging to App Engine
+        run: gcloud app deploy app-staging.yaml --quiet
+        working-directory: packages/fleet-back

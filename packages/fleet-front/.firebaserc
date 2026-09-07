@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "fleet-494408"
+  },
+  "targets": {
+    "fleet-494408": {
+      "hosting": {
+        "production": [
+          "fleet-494408"
+        ],
+        "staging": [
+          "fleet-staging"
+        ]
+      }
+    }
   }
 }

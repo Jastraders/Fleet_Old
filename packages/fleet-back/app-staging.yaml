@@ -1,0 +1,18 @@
+runtime: python310
+service: staging
+entrypoint: gunicorn -b :$PORT app:app
+
+instance_class: F1
+
+env_variables:
+  SUPABASE_DATABASE_URL: "STAGING_SUPABASE_DATABASE_URL_PLACEHOLDER"
+  ALLOWED_ORIGINS: "https://staging.jasfleet.cloud,https://fleet-staging.web.app,https://staging-dot-fleet-494408.uc.r.appspot.com,http://localhost:3000"
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1
+  target_cpu_utilization: 0.8
+
+handlers:
+- url: /.*
+  script: auto

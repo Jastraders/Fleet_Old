@@ -6,14 +6,21 @@ from flask_cors import CORS
 
 app = create_app()
 
-# Allowed origins: add your Firebase Hosting domains and keep existing origins if needed
-ALLOWED_ORIGINS = [
+# Default production origins (used if ALLOWED_ORIGINS env var is not set)
+DEFAULT_ALLOWED_ORIGINS = [
     "https://fleetold-production.up.railway.app",
     "https://fleet-494408.web.app",
     "https://fleet-494408.firebaseapp.com",
     "https://api.jasfleet.cloud",
-    "https://jasfleet.cloud"
+    "https://jasfleet.cloud",
 ]
+
+env_origins = os.getenv("ALLOWED_ORIGINS")
+if env_origins:
+    ALLOWED_ORIGINS = [origin.strip() for origin in env_origins.split(",") if origin.strip()]
+else:
+    ALLOWED_ORIGINS = DEFAULT_ALLOWED_ORIGINS
+
 
 CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
 
