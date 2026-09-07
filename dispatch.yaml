@@ -1,0 +1,3 @@
+dispatch:
+  - url: "staging-api.jasfleet.cloud/*"
+    service: staging

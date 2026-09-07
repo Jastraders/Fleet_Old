@@ -27,3 +27,6 @@ jobs:
       - name: Deploy Staging to App Engine
         run: gcloud app deploy app-staging.yaml --quiet
         working-directory: packages/fleet-back
+
+      - name: Deploy dispatch routing
+        run: gcloud app deploy dispatch.yaml --quiet
