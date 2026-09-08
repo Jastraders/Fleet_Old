@@ -15,7 +15,6 @@ import {
 import {
 	type ChartConfig,
 	ChartContainer,
-	ChartLegend,
 	ChartTooltip,
 } from "@/components/ui/chart";
 import {
@@ -69,41 +68,27 @@ function CustomTooltip({
 	payload?: Array<{
 		name: string;
 		value: number;
-		payload: { name: string };
+		payload: { name: string; fill?: string };
 	}>;
 }) {
 	if (active && payload && payload.length > 0) {
 		const data = payload[0];
 		return (
-			<div className="rounded-lg border border-border bg-background p-2 shadow-md">
-				<p className="text-sm font-semibold">{data.payload.name}</p>
-				<p className="text-sm text-foreground">{formatINR(data.value)}</p>
+			<div className="flex items-center gap-2 rounded-lg border border-border bg-background p-2 shadow-md">
+				{data.payload.fill && (
+					<div
+						className="h-3 w-3 shrink-0 rounded"
+						style={{ backgroundColor: data.payload.fill }}
+					/>
+				)}
+				<div>
+					<p className="text-sm font-semibold">{data.payload.name}</p>
+					<p className="text-sm text-foreground">{formatINR(data.value)}</p>
+				</div>
 			</div>
 		);
 	}
 	return null;
-}
-
-function CustomLegend({
-	payload,
-}: {
-	payload?: Array<{ color: string; value: string }>;
-}) {
-	if (!payload) return null;
-
-	return (
-		<div className="flex flex-wrap gap-2 justify-center py-4">
-			{payload.map((entry) => (
-				<div key={entry.value} className="flex items-center gap-2">
-					<div
-						className="h-3 w-3 rounded"
-						style={{ backgroundColor: entry.color }}
-					/>
-					<span className="text-sm text-foreground">{entry.value}</span>
-				</div>
-			))}
-		</div>
-	);
 }
 
 function ExpenseCategoryChartContent({
@@ -187,9 +172,11 @@ function ExpenseCategoryChartContent({
 	if (chartData.length === 0) {
 		return (
 			<Card className={cn("flex flex-col", className)} {...props}>
-				<CardHeader className="border-b flex-row items-start justify-between">
-					<CardTitle>Expenses by Category</CardTitle>
-					<CardDescription>No expense data for this period</CardDescription>
+				<CardHeader className="flex-row items-start justify-between border-b">
+					<div>
+						<CardTitle>Expenses by Category</CardTitle>
+						<CardDescription>No expense data for this period</CardDescription>
+					</div>
 					<CardAction>
 						<DropdownMenu>
 							<DropdownMenuTrigger
@@ -222,33 +209,72 @@ function ExpenseCategoryChartContent({
 
 	return (
 		<Card className={cn("flex flex-col", className)} {...props}>
-			<CardHeader className="flex-row items-start justify-between space-y-0 pb-0 border-b">
-				<CardTitle>Expenses by Category</CardTitle>
-				<CardDescription>
-					Breakdown of expenses for selected period
-				</CardDescription>
-			</CardHeader>
-			<CardContent
-				className="flex flex-1 justify-center pb-0"
-				ref={chartContainerRef}
-			>
-				<ChartContainer
-					id={id}
-					config={chartConfig}
-					className="mx-auto aspect-square w-full max-w-75"
-				>
-					<PieChart>
-						<ChartTooltip cursor={false} content={<CustomTooltip />} />
-						<Pie
-							data={chartData}
-							dataKey="amount"
-							nameKey="name"
-							innerRadius={60}
-							strokeWidth={5}
+			<CardHeader className="flex-row items-start justify-between space-y-0 border-b pb-4">
+				<div>
+					<CardTitle>Expenses by Category</CardTitle>
+					<CardDescription>
+						Breakdown of expenses for selected period
+					</CardDescription>
+				</div>
+				<CardAction>
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="outline" size="icon">
+									<DownloadIcon />
+								</Button>
+							}
 						/>
-						<ChartLegend content={<CustomLegend />} />
-					</PieChart>
-				</ChartContainer>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={handleDownloadPng}>
+								Download as PNG
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={handleDownloadJpeg}>
+								Download as JPEG
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={handleDownloadSvg}>
+								Download as SVG
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
+				</CardAction>
+			</CardHeader>
+			<CardContent className="flex flex-1 flex-col items-center justify-between p-4 gap-3">
+				<div
+					className="relative mx-auto aspect-square w-full max-w-52 flex items-center justify-center min-h-[180px]"
+					ref={chartContainerRef}
+				>
+					<ChartContainer
+						id={id}
+						config={chartConfig}
+						className="aspect-square w-full max-w-52"
+					>
+						<PieChart>
+							<ChartTooltip cursor={false} content={<CustomTooltip />} />
+							<Pie
+								data={chartData}
+								dataKey="amount"
+								nameKey="name"
+								innerRadius={55}
+								outerRadius={80}
+								strokeWidth={4}
+							/>
+						</PieChart>
+					</ChartContainer>
+				</div>
+				<div className="w-full max-h-36 overflow-y-auto pt-2.5 border-t border-border/40">
+					<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs">
+						{chartData.map((entry) => (
+							<div key={entry.category} className="flex items-center gap-1.5 shrink-0">
+								<div
+									className="h-2.5 w-2.5 rounded-xs shrink-0"
+									style={{ backgroundColor: entry.fill }}
+								/>
+								<span className="text-xs text-foreground font-medium">{entry.name}</span>
+							</div>
+						))}
+					</div>
+				</div>
 			</CardContent>
 		</Card>
 	);
