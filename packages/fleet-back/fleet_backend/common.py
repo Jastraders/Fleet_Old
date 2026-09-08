@@ -508,6 +508,8 @@ def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
         "value": item.get("value"),
         "bataPercentage": item.get("bata_percentage"),
         "bataValue": item.get("bata_value"),
+        "depo": item.get("depo"),
+        "deliveryLocation": item.get("delivery_location"),
         "createdAt": to_iso_datetime(item.get("created_at")),
     }
 

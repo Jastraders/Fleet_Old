@@ -40,6 +40,8 @@ const expenseItemSchema = v.object({
 	),
 	handler: v.pipe(v.string(), v.minLength(1, "Handler is required")),
 	nextRenewalDate: v.optional(v.string()),
+	depo: v.optional(v.string()),
+	deliveryLocation: v.optional(v.string()),
 });
 
 const editEntryFormSchema = v.object({
@@ -52,6 +54,8 @@ const editEntryFormSchema = v.object({
 	quantity: v.optional(v.string(), "0"),
 	perItemRate: v.optional(v.string(), "0"),
 	bataPercentage: v.optional(v.string(), "0"),
+	revenueDepo: v.optional(v.string()),
+	revenueDeliveryLocation: v.optional(v.string()),
 	notes: v.optional(v.string()),
 	expenses: v.array(expenseItemSchema),
 });
@@ -97,6 +101,8 @@ function RouteComponent() {
 		quantity: creditItem?.quantity?.toString() || "0",
 		perItemRate: creditItem?.perItemRate?.toString() || "0",
 		bataPercentage: creditItem?.bataPercentage?.toString() || "0",
+		revenueDepo: creditItem?.depo || "",
+		revenueDeliveryLocation: creditItem?.deliveryLocation || "",
 		notes: entry?.notes || "",
 		expenses:
 			entry?.items
@@ -106,6 +112,8 @@ function RouteComponent() {
 					amount: string;
 					handler?: string | null;
 					nextRenewalDate?: string | null;
+					depo?: string | null;
+					deliveryLocation?: string | null;
 				}) => ({
 					expenseCategoryId: item.expenseCategoryId || "",
 					amount: item.amount,
@@ -113,6 +121,8 @@ function RouteComponent() {
 					nextRenewalDate: item.nextRenewalDate
 						? item.nextRenewalDate.split("T")[0]
 						: "",
+					depo: item.depo || "",
+					deliveryLocation: item.deliveryLocation || "",
 				})) || [],
 	};
 
@@ -139,14 +149,18 @@ function RouteComponent() {
 					quantity: isCalc ? qty : undefined,
 					perItemRate: isCalc ? rate : undefined,
 					bataPercentage: isCalc ? bata : undefined,
+					depo: value.revenueDepo || undefined,
+					deliveryLocation: value.revenueDeliveryLocation || undefined,
 				},
 				...value.expenses.map((exp) => ({
 					transactionDate: value.transactionDate,
 					type: "debit" as const,
 					amount: exp.amount.toString(),
 					expenseCategoryId: exp.expenseCategoryId,
-					handler: exp.handler,
+					handler: exp.handler || "Driver",
 					nextRenewalDate: exp.nextRenewalDate || undefined,
+					depo: exp.depo || undefined,
+					deliveryLocation: exp.deliveryLocation || undefined,
 				})),
 			];
 
@@ -410,9 +424,47 @@ function RouteComponent() {
 										)}
 									</form.Subscribe>
 
+									{/* Revenue Depo & Delivery Location (Optional) */}
+									<div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t pt-4">
+										<form.Field name="revenueDepo">
+											{(field: any) => (
+												<Field>
+													<FieldLabel htmlFor="revenue-depo">Depo (Optional)</FieldLabel>
+													<Input
+														id="revenue-depo"
+														name={field.name}
+														value={field.state.value || ""}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Enter depo name"
+													/>
+												</Field>
+											)}
+										</form.Field>
+
+										<form.Field name="revenueDeliveryLocation">
+											{(field: any) => (
+												<Field>
+													<FieldLabel htmlFor="revenue-delivery-location">Delivery Location (Optional)</FieldLabel>
+													<Input
+														id="revenue-delivery-location"
+														name={field.name}
+														value={field.state.value || ""}
+														onBlur={field.handleBlur}
+														onChange={(e) => field.handleChange(e.target.value)}
+														placeholder="Enter delivery location"
+													/>
+												</Field>
+											)}
+										</form.Field>
+									</div>
+
 									{/* Notes */}
 									<form.Field name="notes">
-										{(field) => {
+										{(
+											// biome-ignore lint/suspicious/noExplicitAny: TanStack Form field type is complex
+											field: any,
+										) => {
 											const isInvalid =
 												field.state.meta.isTouched && !field.state.meta.isValid;
 											return (

@@ -196,6 +196,8 @@ def init_db() -> None:
         value REAL,
         bata_percentage REAL,
         bata_value REAL,
+        depo TEXT,
+        delivery_location TEXT,
         created_at TEXT DEFAULT now()::text
     );
 
@@ -273,6 +275,11 @@ def init_db() -> None:
 
     with connect() as conn:
         conn.execute(sql)
+        for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location"):
+            try:
+                conn.execute(f"ALTER TABLE journal_entry_items ADD COLUMN IF NOT EXISTS {col_name} TEXT;")
+            except Exception:
+                pass
 
 
 def rows_to_dicts(rows: Iterable[dict]) -> List[dict[str, Any]]:

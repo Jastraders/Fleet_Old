@@ -774,8 +774,9 @@ def orpc_create_entry(user):
                 INSERT INTO journal_entry_items (
                     id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
                     voucher_id, handler, next_renewal_date, expense_category_id,
-                    revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
+                    depo, delivery_location
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -794,6 +795,8 @@ def orpc_create_entry(user):
                     value,
                     bata_percentage,
                     bata_value,
+                    item.get("depo"),
+                    item.get("deliveryLocation") or item.get("delivery_location"),
                 ),
             )
 
@@ -942,8 +945,9 @@ def orpc_update_entry(user):
                     INSERT INTO journal_entry_items (
                         id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
                         voucher_id, handler, next_renewal_date, expense_category_id,
-                        revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
+                        depo, delivery_location
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         item_id,
@@ -962,6 +966,8 @@ def orpc_update_entry(user):
                         value,
                         bata_percentage,
                         bata_value,
+                        item.get("depo"),
+                        item.get("deliveryLocation") or item.get("delivery_location"),
                     ),
                 )
         updated_driver_id = payload.get("driverId", existing["driver_id"])
