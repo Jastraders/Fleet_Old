@@ -9,10 +9,22 @@ import {
 } from "./-index/expenses-data-table";
 import { ExpensesEmptyState } from "./-index/expenses-empty-state";
 
+const periodSchema = v.picklist([
+	"all_time",
+	"last_7d",
+	"last_30d",
+	"last_6m",
+	"last_12m",
+	"custom",
+]);
+
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
 	limit: v.optional(v.fallback(v.number(), 20), 20),
 	search: v.optional(v.string()),
+	period: v.optional(v.fallback(periodSchema, "all_time"), "all_time"),
+	startDate: v.optional(v.string()),
+	endDate: v.optional(v.string()),
 	sortBy: v.optional(
 		v.fallback(
 			v.picklist([
@@ -36,15 +48,18 @@ const querySchema = v.object({
 
 interface ExpensesListResponse {
 	data: ExpensesDataTableProps["data"];
-	meta: { total: number };
+	meta: { total: number; totalAmount?: number };
 }
 
 export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, sortBy, sortOrder } }) => ({
+	loaderDeps: ({ search: { offset, limit, search, period, startDate, endDate, sortBy, sortOrder } }) => ({
 		offset,
 		limit,
 		search,
+		period,
+		startDate,
+		endDate,
 		sortBy,
 		sortOrder,
 	}),
@@ -55,6 +70,9 @@ export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 					limit: query.limit,
 					offset: query.offset,
 					search: query.search,
+					period: query.period,
+					startDate: query.startDate,
+					endDate: query.endDate,
 					sortBy: query.sortBy,
 					sortOrder: query.sortOrder,
 				},
@@ -82,24 +100,32 @@ function ExpensesList() {
 				limit: query.limit,
 				offset: query.offset,
 				search: query.search,
+				period: query.period,
+				startDate: query.startDate,
+				endDate: query.endDate,
 				sortBy: query.sortBy,
 				sortOrder: query.sortOrder,
 			},
 		}),
 	});
 
-	if (!data || data.meta.total === 0) {
+	const isFiltered = (query.period && query.period !== "all_time") || Boolean(query.search);
+	if ((!data || data.meta.total === 0) && !isFiltered) {
 		return <ExpensesEmptyState />;
 	}
 
 	return (
 		<div className="min-w-0 overflow-x-hidden">
 			<ExpensesDataTable
-				data={data.data}
-				total={data.meta.total}
+				data={data?.data ?? []}
+				total={data?.meta.total ?? 0}
+				totalAmount={data?.meta.totalAmount ?? 0}
 				offset={query.offset}
 				limit={query.limit}
 				search={query.search}
+				period={query.period}
+				startDate={query.startDate}
+				endDate={query.endDate}
 				sortBy={query.sortBy}
 				sortOrder={query.sortOrder}
 			/>

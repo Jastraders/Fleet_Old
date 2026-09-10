@@ -8,6 +8,7 @@ from fleet_backend.common import (
     format_impacts,
     now_iso,
     parse_impacts,
+    period_date_bounds,
     random_color,
     require_auth,
     serialize_driver_row,
@@ -651,9 +652,21 @@ def orpc_list_expenses(user):
     search = payload.get("search")
     sort_by = payload.get("sortBy", "createdAt")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
 
     where_clauses = ["i.type = 'debit'"]
     where_params: list[Any] = []
+
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
+    if current_start:
+        where_clauses.append("SUBSTR(i.transaction_date, 1, 10) >= ?")
+        where_params.append(current_start)
+    if current_end:
+        where_clauses.append("SUBSTR(i.transaction_date, 1, 10) <= ?")
+        where_params.append(current_end)
+
     if search:
         search_term = f"%{search}%"
         where_clauses.append(
@@ -707,7 +720,7 @@ def orpc_list_expenses(user):
                 (*where_params, limit, offset),
             ).fetchall()
         )
-        total = conn.execute(
+        total_count = conn.execute(
             f"""
                 SELECT COUNT(*) AS c
                 FROM journal_entry_items i
@@ -720,7 +733,27 @@ def orpc_list_expenses(user):
             tuple(where_params),
         ).fetchone()["c"]
 
-    return rpc_response(with_meta(rows, offset, limit, total))
+        total_amount = conn.execute(
+            f"""
+                SELECT COALESCE(SUM(i.amount), 0) AS s
+                FROM journal_entry_items i
+                LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                LEFT JOIN expense_category c ON c.id = i.expense_category_id
+                LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()["s"]
+
+    meta = {
+        "offset": offset,
+        "limit": limit,
+        "total": total_count,
+        "totalAmount": float(total_amount or 0),
+    }
+
+    return rpc_response({"data": rows, "meta": meta})
 
 
 @app.post("/orpc/accountant/journalEntries/create")
