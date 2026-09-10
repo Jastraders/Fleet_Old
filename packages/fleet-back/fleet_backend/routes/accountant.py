@@ -579,6 +579,7 @@ def orpc_list_entries(user):
         "vehicleName": "LOWER(COALESCE(v.name, ''))",
         "revenue": "COALESCE(t.revenue, 0)",
         "expenses": "COALESCE(t.expenses, 0)",
+        "transactionDate": "COALESCE(t.transaction_date, j.created_at)",
         "amount": "COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0)",
         "createdBy": "LOWER(COALESCE(u.name, ''))",
         "createdAt": "j.created_at",
@@ -600,7 +601,8 @@ def orpc_list_entries(user):
                         u.image AS created_by_image,
                         COALESCE(t.revenue, 0) AS revenue,
                         COALESCE(t.expenses, 0) AS expenses,
-                        COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0) AS amount
+                        COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0) AS amount,
+                        t.transaction_date AS transaction_date
                     FROM journal_entries j
                     LEFT JOIN vehicles v ON v.id = j.vehicle_id
                     LEFT JOIN drivers d ON d.id = j.driver_id
@@ -609,7 +611,8 @@ def orpc_list_entries(user):
                         SELECT
                             journal_entry_id,
                             SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS revenue,
-                            SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses
+                            SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses,
+                            MAX(transaction_date) AS transaction_date
                         FROM journal_entry_items
                         GROUP BY journal_entry_id
                     ) t ON t.journal_entry_id = j.id

@@ -18,6 +18,7 @@ const querySchema = v.object({
 				"vehicleName",
 				"revenue",
 				"expenses",
+				"transactionDate",
 				"amount",
 				"createdBy",
 				"createdAt",

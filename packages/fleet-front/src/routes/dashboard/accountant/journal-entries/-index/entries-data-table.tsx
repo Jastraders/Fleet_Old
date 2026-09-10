@@ -40,6 +40,7 @@ interface JournalEntry {
 	createdBy: string | null;
 	notes: string | null;
 	createdAt: Date;
+	transactionDate?: Date | string | null;
 	vehicle?: {
 		id: string;
 		name: string;
@@ -87,6 +88,7 @@ const createSortHeader = (
 		| "vehicleName"
 		| "revenue"
 		| "expenses"
+		| "transactionDate"
 		| "amount"
 		| "createdBy"
 		| "createdAt",
@@ -183,6 +185,32 @@ const createColumns = (
 		},
 	},
 	{
+		accessorKey: "transactionDate",
+		header: () =>
+			createSortHeader(
+				"Date",
+				"transactionDate",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => {
+			const date = parseDateValue(
+				row.original.transactionDate ?? row.original.items?.[0]?.transactionDate,
+			);
+			if (!date) return <div className="text-muted-foreground text-sm">-</div>;
+			return (
+				<div className="font-medium text-sm">
+					{date.toLocaleDateString("en-GB", {
+						day: "2-digit",
+						month: "2-digit",
+						year: "numeric",
+					})}
+				</div>
+			);
+		},
+	},
+	{
 		accessorKey: "amount",
 		header: () =>
 			createSortHeader(
@@ -272,7 +300,14 @@ export interface EntriesDataTableProps {
 	offset: number;
 	limit: number;
 	search?: string;
-	sortBy: "vehicleName" | "revenue" | "expenses" | "amount" | "createdBy" | "createdAt";
+	sortBy:
+		| "vehicleName"
+		| "revenue"
+		| "expenses"
+		| "transactionDate"
+		| "amount"
+		| "createdBy"
+		| "createdAt";
 	sortOrder: "asc" | "desc";
 }
 
@@ -372,14 +407,26 @@ export function EntriesDataTable({
 						onDownload={() =>
 							downloadExcelCompatibleCsv(
 								"journal-entries",
-								data.map((entry) => ({
-									Vehicle: entry.vehicle?.name ?? "",
-									Revenue: getRevenue(entry.items),
-									Expenses: getExpenses(entry.items),
-									"Total Amount": getTotalAmount(entry.items),
-									"Created By": entry.createdByUser?.name ?? "",
-									"Created At": String(entry.createdAt),
-								})),
+								data.map((entry) => {
+									const txDate = parseDateValue(
+										entry.transactionDate ?? entry.items?.[0]?.transactionDate,
+									);
+									return {
+										Vehicle: entry.vehicle?.name ?? "",
+										Revenue: getRevenue(entry.items),
+										Expenses: getExpenses(entry.items),
+										Date: txDate
+											? txDate.toLocaleDateString("en-GB", {
+													day: "2-digit",
+													month: "2-digit",
+													year: "numeric",
+												})
+											: "",
+										"Total Amount": getTotalAmount(entry.items),
+										"Created By": entry.createdByUser?.name ?? "",
+										"Created At": String(entry.createdAt),
+									};
+								}),
 							)
 						}
 					/>

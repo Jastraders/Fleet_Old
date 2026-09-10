@@ -539,11 +539,16 @@ def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any
             "phoneNumber": entry.get("driver_phone_number"),
         }
 
+    tx_date = entry.get("transaction_date")
+    if not tx_date and items and len(items) > 0:
+        tx_date = items[0].get("transaction_date")
+
     payload = {
         "id": entry["id"],
         "vehicleId": entry["vehicle_id"],
         "driverId": entry.get("driver_id"),
         "notes": entry.get("notes"),
+        "transactionDate": to_iso_datetime(tx_date),
         "createdBy": entry.get("created_by"),
         "createdAt": to_iso_datetime(entry.get("created_at")),
         "updatedAt": to_iso_datetime(entry.get("updated_at")),
