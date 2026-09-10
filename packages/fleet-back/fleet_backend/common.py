@@ -255,15 +255,17 @@ def require_auth(roles: set[str] | None = None):
     return decorator
 
 
-def with_meta(data: list[dict[str, Any]], offset: int, limit: int, total: int):
+def with_meta(data: list[dict[str, Any]], offset: int, limit: int, total: int, **kwargs):
+    meta = {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "hasMore": offset + limit < total,
+    }
+    meta.update(kwargs)
     return {
         "data": data,
-        "meta": {
-            "total": total,
-            "offset": offset,
-            "limit": limit,
-            "hasMore": offset + limit < total,
-        },
+        "meta": meta,
     }
 
 

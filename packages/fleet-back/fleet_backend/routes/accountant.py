@@ -563,11 +563,23 @@ def orpc_list_entries(user):
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 20)), 100)
     search = payload.get("search")
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     sort_by = payload.get("sortBy", "createdAt")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
 
     where_clauses: list[str] = []
     where_params: list[Any] = []
+
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
+    if current_start:
+        where_clauses.append("SUBSTR(COALESCE(t.transaction_date, j.created_at), 1, 10) >= ?")
+        where_params.append(current_start)
+    if current_end:
+        where_clauses.append("SUBSTR(COALESCE(t.transaction_date, j.created_at), 1, 10) <= ?")
+        where_params.append(current_end)
+
     if search:
         search_term = f"%{search}%"
         where_clauses.append("(j.id::text = ? OR v.name ILIKE ? OR v.license_plate ILIKE ? OR COALESCE(u.name, '') ILIKE ?)") 
@@ -632,18 +644,31 @@ def orpc_list_entries(user):
                 ).fetchall()
             )
             serialized_entries.append(serialize_journal_entry_row(entry, items))
-        total = conn.execute(
+        total_row = conn.execute(
             f"""
-                SELECT COUNT(*) AS c
+                SELECT
+                    COUNT(*) AS c,
+                    COALESCE(SUM(COALESCE(t.revenue, 0) - COALESCE(t.expenses, 0)), 0) AS s
                 FROM journal_entries j
                 LEFT JOIN vehicles v ON v.id = j.vehicle_id
                 LEFT JOIN drivers d ON d.id = j.driver_id
                 LEFT JOIN users u ON u.id = j.created_by
+                LEFT JOIN (
+                    SELECT
+                        journal_entry_id,
+                        SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS revenue,
+                        SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses,
+                        MAX(transaction_date) AS transaction_date
+                    FROM journal_entry_items
+                    GROUP BY journal_entry_id
+                ) t ON t.journal_entry_id = j.id
                 {where_sql}
             """,
             tuple(where_params),
-        ).fetchone()["c"]
-    return rpc_response(with_meta(serialized_entries, offset, limit, total))
+        ).fetchone()
+        total_count = total_row["c"]
+        total_amount = float(total_row["s"] or 0)
+    return rpc_response(with_meta(serialized_entries, offset, limit, total_count, totalAmount=total_amount))
 
 
 @app.post("/orpc/accountant/expenses/list")

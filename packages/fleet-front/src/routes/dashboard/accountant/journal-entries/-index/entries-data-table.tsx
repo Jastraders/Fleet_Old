@@ -5,11 +5,19 @@ import {
 	getCoreRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon, ReceiptTextIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -53,6 +61,15 @@ interface JournalEntry {
 		image?: string | null;
 	} | null;
 }
+
+const periodOptions = [
+	{ value: "last_7d", label: "Last 7 days" },
+	{ value: "last_30d", label: "Last 30 days" },
+	{ value: "last_6m", label: "Last 6 months" },
+	{ value: "last_12m", label: "Last 12 months" },
+	{ value: "all_time", label: "All time" },
+	{ value: "custom", label: "Custom date range" },
+] as const;
 
 const getTotalAmount = (items?: JournalEntryItem[]): number => {
 	if (!items || items.length === 0) return 0;
@@ -297,9 +314,13 @@ const createColumns = (
 export interface EntriesDataTableProps {
 	data: JournalEntry[];
 	total: number;
+	totalAmount?: number;
 	offset: number;
 	limit: number;
 	search?: string;
+	period?: "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+	startDate?: string;
+	endDate?: string;
 	sortBy:
 		| "vehicleName"
 		| "revenue"
@@ -311,18 +332,33 @@ export interface EntriesDataTableProps {
 	sortOrder: "asc" | "desc";
 }
 
+type EntriesSearchState = {
+	offset: number;
+	limit: number;
+	search?: string;
+	period?: EntriesDataTableProps["period"];
+	startDate?: string;
+	endDate?: string;
+	sortBy: EntriesDataTableProps["sortBy"];
+	sortOrder: "asc" | "desc";
+};
+
 export function EntriesDataTable({
 	data,
 	total,
+	totalAmount,
 	offset,
 	limit,
 	search,
+	period,
+	startDate,
+	endDate,
 	sortBy,
 	sortOrder,
 }: EntriesDataTableProps) {
 	const router = useRouter();
 	const currentPage = Math.floor(offset / limit) + 1;
-	const totalPages = Math.ceil(total / limit);
+	const totalPages = Math.max(1, Math.ceil(total / limit));
 
 	const [searchValue, setSearchValue] = useState(search ?? "");
 
@@ -341,7 +377,7 @@ export function EntriesDataTable({
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
 		void router.navigate({
 			to: ".",
-			search: (prev) => ({
+			search: (prev: EntriesSearchState) => ({
 				...prev,
 				sortBy: newSortBy as EntriesDataTableProps["sortBy"],
 				sortOrder: newSortOrder as "asc" | "desc",
@@ -353,9 +389,52 @@ export function EntriesDataTable({
 	const handleSearch = (value: string) => {
 		void router.navigate({
 			to: ".",
-			search: (prev) => ({
+			search: (prev: EntriesSearchState) => ({
 				...prev,
 				search: value || undefined,
+				offset: 0,
+			}),
+		});
+	};
+
+	const handlePeriodChange = (value: typeof period | null) => {
+		if (!value) return;
+		if (value === "custom") {
+			const today = new Date().toISOString().split("T")[0];
+			const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+				.toISOString()
+				.split("T")[0];
+			void router.navigate({
+				to: ".",
+				search: (prev: EntriesSearchState) => ({
+					...prev,
+					period: "custom",
+					startDate: prev.startDate || thirtyDaysAgo,
+					endDate: prev.endDate || today,
+					offset: 0,
+				}),
+			});
+		} else {
+			void router.navigate({
+				to: ".",
+				search: (prev: EntriesSearchState) => ({
+					...prev,
+					period: value,
+					startDate: undefined,
+					endDate: undefined,
+					offset: 0,
+				}),
+			});
+		}
+	};
+
+	const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+		void router.navigate({
+			to: ".",
+			search: (prev: EntriesSearchState) => ({
+				...prev,
+				period: "custom",
+				[field]: value,
 				offset: 0,
 			}),
 		});
@@ -373,7 +452,7 @@ export function EntriesDataTable({
 		const newOffset = Math.max(0, offset - limit);
 		void router.navigate({
 			to: ".",
-			search: (prev) => ({ ...prev, offset: newOffset }),
+			search: (prev: EntriesSearchState) => ({ ...prev, offset: newOffset }),
 		});
 	};
 
@@ -382,7 +461,7 @@ export function EntriesDataTable({
 			const newOffset = offset + limit;
 			void router.navigate({
 				to: ".",
-				search: (prev) => ({ ...prev, offset: newOffset }),
+				search: (prev: EntriesSearchState) => ({ ...prev, offset: newOffset }),
 			});
 		}
 	};
@@ -441,6 +520,62 @@ export function EntriesDataTable({
 					</Button>
 				</div>
 			</div>
+
+			<div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-3 shadow-2xs">
+				<div className="flex items-center gap-3">
+					<div className="rounded-md bg-primary/10 p-2 text-primary">
+						<ReceiptTextIcon className="h-5 w-5" />
+					</div>
+					<div>
+						<p className="text-xs font-medium text-muted-foreground">
+							{!period || period === "all_time" ? "Total Amount (All Time)" : "Total Amount (Selected Period)"}
+						</p>
+						<p className="text-lg font-bold text-foreground">
+							{formatINR(totalAmount ?? 0)}
+						</p>
+					</div>
+				</div>
+
+				<div className="flex items-center gap-2 flex-wrap max-sm:w-full justify-end">
+					<Select
+						items={periodOptions}
+						value={period ?? "all_time"}
+						onValueChange={handlePeriodChange}
+					>
+						<SelectTrigger className="w-[180px]">
+							<SelectValue placeholder="Select period" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectGroup>
+								{periodOptions.map((option) => (
+									<SelectItem key={option.value} value={option.value}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
+						</SelectContent>
+					</Select>
+
+					{period === "custom" && (
+						<div className="flex items-center gap-2 max-sm:w-full">
+							<Input
+								type="date"
+								value={startDate || ""}
+								onChange={(e) => handleDateChange("startDate", e.target.value)}
+								className="w-[140px] h-9"
+							/>
+							<span className="text-xs text-muted-foreground">to</span>
+							<Input
+								type="date"
+								value={endDate || ""}
+								onChange={(e) => handleDateChange("endDate", e.target.value)}
+								className="w-[140px] h-9"
+							/>
+						</div>
+					)}
+				</div>
+			</div>
+
 			<div className="overflow-hidden rounded-lg border">
 				<Table>
 					<TableHeader className="bg-muted sticky top-0 z-10">
@@ -478,8 +613,8 @@ export function EntriesDataTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center">
-									No entries found.
+								<TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+									No entries found for the selected period or filter.
 								</TableCell>
 							</TableRow>
 						)}
