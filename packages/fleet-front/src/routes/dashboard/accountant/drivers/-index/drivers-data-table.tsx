@@ -1,4 +1,4 @@
-import { useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import {
 	type ColumnDef,
 	flexRender,
@@ -81,13 +81,17 @@ const createColumns = (
 		cell: ({ row }) => {
 			const driver = row.original;
 			return (
-				<div className="flex items-center gap-3">
+				<Link
+					to="/dashboard/accountant/drivers/$driverId"
+					params={{ driverId: driver.id }}
+					className="flex items-center gap-3 font-medium hover:underline text-foreground"
+				>
 					<div
-						className="h-8 w-8 rounded"
+						className="h-8 w-8 rounded shrink-0"
 						style={{ backgroundColor: `#${driver.color}` }}
 					/>
-					<div className="font-medium">{driver.name}</div>
-				</div>
+					<div>{driver.name}</div>
+				</Link>
 			);
 		},
 	},
@@ -158,7 +162,11 @@ const createColumns = (
 		id: "actions",
 		header: () => <span className="sr-only">Actions</span>,
 		cell: ({ row }) => {
-			return <DriversDataTableActionCell driver={row.original} />;
+			return (
+				<div data-no-navigate onClick={(e) => e.stopPropagation()}>
+					<DriversDataTableActionCell driver={row.original} />
+				</div>
+			);
 		},
 	},
 ];
@@ -261,6 +269,17 @@ export function DriversDataTable({
 								<TableRow
 									key={row.id}
 									data-state={row.getIsSelected() && "selected"}
+									className="cursor-pointer hover:bg-muted/60 transition-colors"
+									onClick={(e) => {
+										const target = e.target as HTMLElement;
+										if (target.closest("[data-no-navigate]")) {
+											return;
+										}
+										void router.navigate({
+											to: "/dashboard/accountant/drivers/$driverId",
+											params: { driverId: row.original.id },
+										});
+									}}
 								>
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id}>

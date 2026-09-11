@@ -18,6 +18,7 @@ from fleet_backend.common import (
     serialize_expense_category_row,
     serialize_journal_entry_row,
     serialize_vehicle_row,
+    to_iso_datetime,
     with_meta,
 )
 from fleet_backend.routes.notifications import sync_renewal_notifications
@@ -695,6 +696,11 @@ def orpc_list_expenses(user):
         where_clauses.append("SUBSTR(i.transaction_date, 1, 10) <= ?")
         where_params.append(current_end)
 
+    driver_id = payload.get("driverId")
+    if driver_id:
+        where_clauses.append("j.driver_id = ?")
+        where_params.append(driver_id)
+
     if search:
         search_term = f"%{search}%"
         where_clauses.append(
@@ -748,6 +754,15 @@ def orpc_list_expenses(user):
                 (*where_params, limit, offset),
             ).fetchall()
         )
+        for row in rows:
+            raw_tx = row.get("expense_date") or row.get("transaction_date") or row.get("created_at") or row.get("entry_created_at")
+            iso_tx = to_iso_datetime(raw_tx)
+            row["expense_date"] = iso_tx
+            row["expenseDate"] = iso_tx
+            row["transaction_date"] = iso_tx
+            row["transactionDate"] = iso_tx
+            row["created_at"] = to_iso_datetime(row.get("created_at") or row.get("entry_created_at"))
+            row["createdAt"] = row["created_at"]
         total_count = conn.execute(
             f"""
                 SELECT COUNT(*) AS c

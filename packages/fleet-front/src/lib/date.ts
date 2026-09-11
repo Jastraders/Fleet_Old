@@ -1,4 +1,4 @@
-export const parseDateValue = (value: Date | string | null | undefined): Date | null => {
+export const parseDateValue = (value: Date | string | number | null | undefined): Date | null => {
 	if (!value) {
 		return null;
 	}
@@ -7,8 +7,24 @@ export const parseDateValue = (value: Date | string | null | undefined): Date | 
 		return Number.isNaN(value.getTime()) ? null : value;
 	}
 
+	if (typeof value === "number") {
+		const d = new Date(value);
+		return Number.isNaN(d.getTime()) ? null : d;
+	}
+
+	const strVal = String(value).trim();
+	if (!strVal || strVal === "null" || strVal === "undefined") {
+		return null;
+	}
+
+	// Direct parse check
+	const directDate = new Date(strVal);
+	if (!Number.isNaN(directDate.getTime())) {
+		return directDate;
+	}
+
 	// Normalize common ISO variants:
-	let s = value;
+	let s = strVal;
 	// spaces -> T
 	s = s.includes(" ") ? s.replace(" ", "T") : s;
 	// trim microseconds to milliseconds (keep 3 digits)

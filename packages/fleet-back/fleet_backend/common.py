@@ -308,14 +308,27 @@ def rpc_error(message: str, status: int):
 
 
 
-def to_iso_datetime(value: str | None) -> str | None:
+def to_iso_datetime(value: Any) -> str | None:
     """Normalize various timestamp formats into RFC3339 with millisecond precision.
 
     Examples produced: '2026-04-28T10:15:42.218Z' or None
     """
     if not value:
-        return value
-    s = value.strip()
+        return None
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(timezone.utc)
+        else:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
+    if hasattr(value, "isoformat") and callable(getattr(value, "isoformat")):
+        return str(value.isoformat())
+
+    s = str(value).strip()
+    if not s or s.lower() in ("none", "null"):
+        return None
+
     # normalize spaces to T
     s = s.replace(" ", "T")
     # replace trailing Z with +00:00 for parsing
@@ -340,8 +353,8 @@ def to_iso_datetime(value: str | None) -> str | None:
         try:
             dt = datetime.fromisoformat(cleaned)
         except Exception:
-            # if still failing, return original (best-effort)
-            return value
+            # if still failing, return original string representation
+            return s
     # normalize to UTC and format with milliseconds + Z
     if dt.tzinfo is not None:
         dt = dt.astimezone(timezone.utc)
