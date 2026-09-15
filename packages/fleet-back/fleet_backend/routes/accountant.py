@@ -824,6 +824,9 @@ def orpc_create_entry(user):
             quantity = item.get("quantity")
             per_item_rate = item.get("perItemRate")
             bata_percentage = item.get("bataPercentage")
+            bata_type = item.get("bataType", "percentage")
+            fixed_bata_amount = item.get("fixedBataAmount")
+            product_name = item.get("productName")
             
             value = None
             bata_value = None
@@ -831,19 +834,28 @@ def orpc_create_entry(user):
             
             # Recalculate on the backend if mode is calculated
             if item["type"] == "credit" and revenue_mode == "calculated":
-                if quantity is None or per_item_rate is None or bata_percentage is None:
-                    return rpc_error("Quantity, Per Item Rate, and Bata Percentage are required for Calculated Mode.", 400)
+                qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
+                rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
                 
-                qty_val = float(quantity)
-                rate_val = float(per_item_rate)
-                bata_val = float(bata_percentage)
-                
-                if qty_val < 0 or rate_val < 0 or bata_val < 0:
-                    return rpc_error("Calculation fields cannot be negative.", 400)
+                if qty_val < 0 or rate_val < 0:
+                    return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
                 
                 value = qty_val * rate_val
-                bata_value = (value * bata_val) / 100.0
-                amount = bata_value  # Use the backend calculated Bata Value as the revenue amount
+                
+                if bata_type == "fixed":
+                    fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                    if fixed_val < 0:
+                        return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                    if fixed_val > value:
+                        return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
+                    bata_value = fixed_val
+                else:
+                    bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                    if bata_val < 0:
+                        return rpc_error("Bata Percentage cannot be negative.", 400)
+                    bata_value = (value * bata_val) / 100.0
+                
+                amount = value - bata_value  # Revenue = Calculated Value - Bata Expense
                 
             conn.execute(
                 """
@@ -851,8 +863,8 @@ def orpc_create_entry(user):
                     id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
                     voucher_id, handler, next_renewal_date, expense_category_id,
                     revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
-                    depo, delivery_location
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    depo, delivery_location, product_name, bata_type, fixed_bata_amount
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     item_id,
@@ -873,6 +885,9 @@ def orpc_create_entry(user):
                     bata_value,
                     item.get("depo"),
                     item.get("deliveryLocation") or item.get("delivery_location"),
+                    product_name,
+                    bata_type,
+                    fixed_bata_amount,
                 ),
             )
 
@@ -995,6 +1010,9 @@ def orpc_update_entry(user):
                 quantity = item.get("quantity")
                 per_item_rate = item.get("perItemRate")
                 bata_percentage = item.get("bataPercentage")
+                bata_type = item.get("bataType", "percentage")
+                fixed_bata_amount = item.get("fixedBataAmount")
+                product_name = item.get("productName")
                 
                 value = None
                 bata_value = None
@@ -1002,19 +1020,28 @@ def orpc_update_entry(user):
                 
                 # Recalculate on the backend if mode is calculated
                 if item["type"] == "credit" and revenue_mode == "calculated":
-                    if quantity is None or per_item_rate is None or bata_percentage is None:
-                        return rpc_error("Quantity, Per Item Rate, and Bata Percentage are required for Calculated Mode.", 400)
+                    qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
+                    rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
                     
-                    qty_val = float(quantity)
-                    rate_val = float(per_item_rate)
-                    bata_val = float(bata_percentage)
-                    
-                    if qty_val < 0 or rate_val < 0 or bata_val < 0:
-                        return rpc_error("Calculation fields cannot be negative.", 400)
+                    if qty_val < 0 or rate_val < 0:
+                        return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
                     
                     value = qty_val * rate_val
-                    bata_value = (value * bata_val) / 100.0
-                    amount = bata_value  # Use the backend calculated Bata Value as the revenue amount
+                    
+                    if bata_type == "fixed":
+                        fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                        if fixed_val < 0:
+                            return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                        if fixed_val > value:
+                            return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
+                        bata_value = fixed_val
+                    else:
+                        bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                        if bata_val < 0:
+                            return rpc_error("Bata Percentage cannot be negative.", 400)
+                        bata_value = (value * bata_val) / 100.0
+                    
+                    amount = value - bata_value  # Revenue = Calculated Value - Bata Expense
                     
                 conn.execute(
                     """
@@ -1022,8 +1049,8 @@ def orpc_update_entry(user):
                         id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
                         voucher_id, handler, next_renewal_date, expense_category_id,
                         revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
-                        depo, delivery_location
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        depo, delivery_location, product_name, bata_type, fixed_bata_amount
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         item_id,
@@ -1044,6 +1071,9 @@ def orpc_update_entry(user):
                         bata_value,
                         item.get("depo"),
                         item.get("deliveryLocation") or item.get("delivery_location"),
+                        product_name,
+                        bata_type,
+                        fixed_bata_amount,
                     ),
                 )
         updated_driver_id = payload.get("driverId", existing["driver_id"])

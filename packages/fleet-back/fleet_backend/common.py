@@ -525,6 +525,9 @@ def serialize_journal_item_row(item: dict[str, Any]) -> dict[str, Any]:
         "bataValue": item.get("bata_value"),
         "depo": item.get("depo"),
         "deliveryLocation": item.get("delivery_location"),
+        "productName": item.get("product_name"),
+        "bataType": item.get("bata_type") or "percentage",
+        "fixedBataAmount": item.get("fixed_bata_amount"),
         "createdAt": to_iso_datetime(item.get("created_at")),
     }
 

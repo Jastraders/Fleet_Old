@@ -198,6 +198,9 @@ def init_db() -> None:
         bata_value REAL,
         depo TEXT,
         delivery_location TEXT,
+        product_name TEXT,
+        bata_type TEXT DEFAULT 'percentage',
+        fixed_bata_amount REAL,
         created_at TEXT DEFAULT now()::text
     );
 
@@ -275,7 +278,7 @@ def init_db() -> None:
 
     with connect() as conn:
         conn.execute(sql)
-        for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location"):
+        for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location", "product_name", "bata_type", "fixed_bata_amount"):
             try:
                 conn.execute(f"ALTER TABLE journal_entry_items ADD COLUMN IF NOT EXISTS {col_name} TEXT;")
             except Exception:

@@ -46,14 +46,14 @@ const expenseItemSchema = v.object({
 
 const editEntryFormSchema = v.object({
 	transactionDate: v.pipe(v.string(), v.minLength(1, "Date is required")),
+	productName: v.optional(v.string()),
 	revenueMode: v.optional(v.picklist(["direct", "calculated"]), "direct"),
-	revenue: v.pipe(
-		v.optional(v.string(), "0"),
-		v.transform((val) => parseFloat(val || "0") || 0),
-	),
-	quantity: v.optional(v.string(), "0"),
-	perItemRate: v.optional(v.string(), "0"),
-	bataPercentage: v.optional(v.string(), "0"),
+	revenue: v.optional(v.string()),
+	quantity: v.optional(v.string()),
+	perItemRate: v.optional(v.string()),
+	bataType: v.optional(v.picklist(["percentage", "fixed"]), "percentage"),
+	bataPercentage: v.optional(v.string()),
+	fixedBataAmount: v.optional(v.string()),
 	revenueDepo: v.optional(v.string()),
 	revenueDeliveryLocation: v.optional(v.string()),
 	notes: v.optional(v.string()),
@@ -90,17 +90,21 @@ function RouteComponent() {
 	});
 
 	// Transform entry data to form values
-	const creditItem = entry?.items?.find((item: { type: string }) => item.type === "credit");
+	// biome-ignore lint/suspicious/noExplicitAny: type definition
+	const creditItem = entry?.items?.find((item: any) => item.type === "credit");
 
 	const defaultValues: FormValues = {
 		transactionDate: entry?.items?.[0]?.transactionDate
 			? new Date(entry.items[0].transactionDate).toISOString().split("T")[0]
 			: new Date().toISOString().split("T")[0],
+		productName: creditItem?.productName || "",
 		revenueMode: creditItem?.revenueMode || "direct",
-		revenue: creditItem?.amount?.toString() || "0",
-		quantity: creditItem?.quantity?.toString() || "0",
-		perItemRate: creditItem?.perItemRate?.toString() || "0",
-		bataPercentage: creditItem?.bataPercentage?.toString() || "0",
+		revenue: creditItem?.amount !== undefined && creditItem?.amount !== null ? creditItem.amount.toString() : "",
+		quantity: creditItem?.quantity !== undefined && creditItem?.quantity !== null ? creditItem.quantity.toString() : "",
+		perItemRate: creditItem?.perItemRate !== undefined && creditItem?.perItemRate !== null ? creditItem.perItemRate.toString() : "",
+		bataType: (creditItem?.bataType as "percentage" | "fixed") || "percentage",
+		bataPercentage: creditItem?.bataPercentage !== undefined && creditItem?.bataPercentage !== null ? creditItem.bataPercentage.toString() : "",
+		fixedBataAmount: creditItem?.fixedBataAmount !== undefined && creditItem?.fixedBataAmount !== null ? creditItem.fixedBataAmount.toString() : "",
 		revenueDepo: creditItem?.depo || "",
 		revenueDeliveryLocation: creditItem?.deliveryLocation || "",
 		notes: entry?.notes || "",
@@ -133,11 +137,23 @@ function RouteComponent() {
 		},
 		onSubmit: async ({ value }) => {
 			const isCalc = value.revenueMode === "calculated";
-			const qty = isCalc ? parseFloat(value.quantity || "0") : 0;
-			const rate = isCalc ? parseFloat(value.perItemRate || "0") : 0;
-			const bata = isCalc ? parseFloat(value.bataPercentage || "0") : 0;
+			const qty = isCalc ? (parseFloat(value.quantity || "0") || 0) : 0;
+			const rate = isCalc ? (parseFloat(value.perItemRate || "0") || 0) : 0;
+			const val = qty * rate;
+			const bataType = value.bataType || "percentage";
+			const bataPct = isCalc && bataType === "percentage" ? (parseFloat(value.bataPercentage || "0") || 0) : 0;
+			const fixedBata = isCalc && bataType === "fixed" ? (parseFloat(value.fixedBataAmount || "0") || 0) : 0;
 
-			const calculatedAmount = isCalc ? ((qty * rate * bata) / 100) : (value.revenue || 0);
+			let bataExpense = 0;
+			if (isCalc) {
+				if (bataType === "fixed") {
+					bataExpense = fixedBata;
+				} else {
+					bataExpense = (val * bataPct) / 100;
+				}
+			}
+
+			const calculatedAmount = isCalc ? Math.max(0, val - bataExpense) : (parseFloat(value.revenue || "0") || 0);
 
 			const items = [
 				{
@@ -148,7 +164,10 @@ function RouteComponent() {
 					revenueMode: value.revenueMode,
 					quantity: isCalc ? qty : undefined,
 					perItemRate: isCalc ? rate : undefined,
-					bataPercentage: isCalc ? bata : undefined,
+					productName: value.productName || undefined,
+					bataType: isCalc ? bataType : undefined,
+					bataPercentage: isCalc && bataType === "percentage" ? bataPct : undefined,
+					fixedBataAmount: isCalc && bataType === "fixed" ? fixedBata : undefined,
 					depo: value.revenueDepo || undefined,
 					deliveryLocation: value.revenueDeliveryLocation || undefined,
 				},
@@ -279,6 +298,23 @@ function RouteComponent() {
 										}}
 									</form.Field>
 
+									{/* Product Name Field (Immediately after Date, before Revenue Entry Mode) */}
+									<form.Field name="productName">
+										{(field: any) => (
+											<Field>
+												<FieldLabel htmlFor="product-name">Product Name (Optional)</FieldLabel>
+												<Input
+													id="product-name"
+													name={field.name}
+													value={field.state.value || ""}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													placeholder="Enter product name"
+												/>
+											</Field>
+										)}
+									</form.Field>
+
 									{/* Revenue */}
 									{/* Revenue Mode Selector */}
 									<form.Field name="revenueMode">
@@ -339,7 +375,7 @@ function RouteComponent() {
 																	name={field.name}
 																	value={field.state.value}
 																	onChange={(e) => field.handleChange(e.target.value)}
-																	placeholder="0"
+																	placeholder="Enter quantity"
 																/>
 															</Field>
 														)}
@@ -355,52 +391,116 @@ function RouteComponent() {
 																	name={field.name}
 																	value={field.state.value}
 																	onChange={(e) => field.handleChange(e.target.value)}
-																	placeholder="0.00"
+																	placeholder="Enter rate"
 																/>
 															</Field>
 														)}
 													</form.Field>
 												</div>
 
-												<form.Field name="bataPercentage">
+												{/* Bata Type Selector */}
+												<form.Field name="bataType">
 													{(field: any) => (
 														<Field>
-															<FieldLabel>Bata Percentage (%)</FieldLabel>
-															<Input
-																type="number"
-																name={field.name}
-																value={field.state.value}
-																onChange={(e) => field.handleChange(e.target.value)}
-																placeholder="0"
-															/>
+															<FieldLabel>Bata Type</FieldLabel>
+															<select
+																value={field.state.value || "percentage"}
+																onChange={(e) => field.handleChange(e.target.value as "percentage" | "fixed")}
+																className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+															>
+																<option value="percentage">Percentage (%)</option>
+																<option value="fixed">Fixed Amount (₹)</option>
+															</select>
 														</Field>
 													)}
 												</form.Field>
 
-												{/* Computed Live Display */}
+												{/* Conditional Bata Input based on bataType */}
+												<form.Subscribe selector={(state) => state.values.bataType}>
+													{(bType) => bType === "fixed" ? (
+														<form.Field name="fixedBataAmount">
+															{(field: any) => (
+																<Field>
+																	<FieldLabel htmlFor="fixed-bata-amount">Fixed Bata Amount (₹)</FieldLabel>
+																	<InputGroup>
+																		<InputGroupAddon>₹</InputGroupAddon>
+																		<InputGroupInput
+																			id="fixed-bata-amount"
+																			type="number"
+																			step="0.01"
+																			min="0"
+																			name={field.name}
+																			value={field.state.value}
+																			onBlur={field.handleBlur}
+																			onChange={(e) => field.handleChange(e.target.value)}
+																			placeholder="Enter fixed Bata amount"
+																		/>
+																	</InputGroup>
+																</Field>
+															)}
+														</form.Field>
+													) : (
+														<form.Field name="bataPercentage">
+															{(field: any) => (
+																<Field>
+																	<FieldLabel htmlFor="bata-percentage">Bata Percentage (%)</FieldLabel>
+																	<Input
+																		id="bata-percentage"
+																		type="number"
+																		step="0.01"
+																		name={field.name}
+																		value={field.state.value}
+																		onBlur={field.handleBlur}
+																		onChange={(e) => field.handleChange(e.target.value)}
+																		placeholder="Enter percentage"
+																	/>
+																</Field>
+															)}
+														</form.Field>
+													)}
+												</form.Subscribe>
 
-												<form.Subscribe selector={(state) => ({ qty: state.values.quantity, rate: state.values.perItemRate, bata: state.values.bataPercentage })}>
-													{({ qty, rate, bata }) => {
+												{/* Computed Live Display */}
+												<form.Subscribe
+													selector={(state) => ({
+														qty: state.values.quantity,
+														rate: state.values.perItemRate,
+														bType: state.values.bataType,
+														pct: state.values.bataPercentage,
+														fixed: state.values.fixedBataAmount,
+													})}
+												>
+													{({ qty, rate, bType, pct, fixed }) => {
 														const q = parseFloat(qty || "0") || 0;
 														const r = parseFloat(rate || "0") || 0;
-														const b = parseFloat(bata || "0") || 0;
 														const val = q * r;
-														const bataVal = (val * b) / 100;
+
+														let bataExpense = 0;
+														let isFixedExceeded = false;
+
+														if (bType === "fixed") {
+															bataExpense = parseFloat(fixed || "0") || 0;
+															if (val > 0 && bataExpense > val) {
+																isFixedExceeded = true;
+															}
+														} else {
+															const p = parseFloat(pct || "0") || 0;
+															bataExpense = (val * p) / 100;
+														}
+
+														const revenue = Math.max(0, val - bataExpense);
+
 														return (
-															<div className="space-y-4">
-																<div className="text-xs space-y-1 text-muted-foreground border-t pt-2 mt-2">
+															<div className="space-y-4 border-t pt-3 mt-2">
+																<div className="text-xs space-y-1 text-muted-foreground">
 																	<div className="flex justify-between">
 																		<span>Calculated Value (Qty × Rate):</span>
-																		<span className="font-medium text-foreground">₹{val.toFixed(2)}</span>
-																	</div>
-																	<div className="flex justify-between">
-																		<span>Bata Value (Value × Bata %):</span>
-																		<span className="font-semibold text-green-600">₹{bataVal.toFixed(2)}</span>
+																		<span className="font-medium text-foreground">₹{val.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 																	</div>
 																</div>
 
 																{/* Highlighted Auto-filled Revenue Field */}
-																<Field className="border-t pt-4">
+																<Field className="pt-2">
 																	<FieldLabel htmlFor="calculated-revenue-display" className="text-green-600 dark:text-green-400 font-semibold">
 																		Revenue Amount (Calculated)
 																	</FieldLabel>
@@ -409,13 +509,26 @@ function RouteComponent() {
 																		<InputGroupInput
 																			id="calculated-revenue-display"
 																			type="text"
-																			value={bataVal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																			value={revenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
 																			disabled
 																			readOnly
 																			className="bg-transparent border-none text-green-700 dark:text-green-400 font-bold select-all disabled:opacity-100"
 																		/>
 																	</InputGroup>
+																	{/* Supporting Text directly BELOW Revenue Amount */}
+																	<p className="text-xs text-muted-foreground mt-1.5 font-medium">
+																		Bata Expense = ₹{bataExpense.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																	</p>
 																</Field>
+
+																{/* Validation Error for Fixed Bata > Calculated Value */}
+																{isFixedExceeded && (
+																	<Alert variant="destructive" className="py-2 px-3 text-xs mt-2">
+																		<AlertDescription>
+																			Fixed Bata Amount (₹{bataExpense.toFixed(2)}) cannot be greater than Calculated Value (₹{val.toFixed(2)}).
+																		</AlertDescription>
+																	</Alert>
+																)}
 															</div>
 														);
 													}}
