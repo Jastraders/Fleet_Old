@@ -896,17 +896,30 @@ function RouteComponent() {
 								revenue: state.values.revenue,
 								quantity: state.values.quantity,
 								perItemRate: state.values.perItemRate,
+								bataType: state.values.bataType,
 								bataPercentage: state.values.bataPercentage,
+								fixedBataAmount: state.values.fixedBataAmount,
 								expenses: state.values.expenses,
 							})}
 						>
 							{(values) => {
 								const isCalc = values.revenueMode === "calculated";
-								const qty = isCalc ? parseFloat(values.quantity || "0") : 0;
-								const rate = isCalc ? parseFloat(values.perItemRate || "0") : 0;
-								const bata = isCalc ? parseFloat(values.bataPercentage || "0") : 0;
+								const qty = isCalc ? (parseFloat(values.quantity || "0") || 0) : 0;
+								const rate = isCalc ? (parseFloat(values.perItemRate || "0") || 0) : 0;
+								const val = qty * rate;
+								const bType = values.bataType || "percentage";
+								
+								let bataExpense = 0;
+								if (isCalc) {
+									if (bType === "fixed") {
+										bataExpense = parseFloat(values.fixedBataAmount || "0") || 0;
+									} else {
+										const pct = parseFloat(values.bataPercentage || "0") || 0;
+										bataExpense = (val * pct) / 100;
+									}
+								}
 
-								const revenue = isCalc ? ((qty * rate * bata) / 100) : (parseFloat(values.revenue || "0") || 0);
+								const revenue = isCalc ? Math.max(0, val - bataExpense) : (parseFloat(values.revenue || "0") || 0);
 								const totalExpenses = values.expenses.reduce(
 									(sum: number, exp: { amount: string }) =>
 										sum + (parseFloat(exp.amount) || 0),
