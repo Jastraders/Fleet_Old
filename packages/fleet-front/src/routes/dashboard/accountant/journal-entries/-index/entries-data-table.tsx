@@ -5,7 +5,7 @@ import {
 	getCoreRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon, ReceiptTextIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -521,21 +521,7 @@ export function EntriesDataTable({
 				</div>
 			</div>
 
-			<div className="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-card p-3 shadow-2xs">
-				<div className="flex items-center gap-3">
-					<div className="rounded-md bg-primary/10 p-2 text-primary">
-						<ReceiptTextIcon className="h-5 w-5" />
-					</div>
-					<div>
-						<p className="text-xs font-medium text-muted-foreground">
-							{!period || period === "all_time" ? "Total Amount (All Time)" : "Total Amount (Selected Period)"}
-						</p>
-						<p className="text-lg font-bold text-foreground">
-							{formatINR(totalAmount ?? 0)}
-						</p>
-					</div>
-				</div>
-
+			<div className="flex flex-wrap items-center justify-end gap-4 rounded-lg border bg-card p-3 shadow-2xs">
 				<div className="flex items-center gap-2 flex-wrap max-sm:w-full justify-end">
 					<Select
 						items={periodOptions}
