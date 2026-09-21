@@ -4,6 +4,7 @@ import {
 	BanknoteArrowDownIcon,
 	ChartPieIcon,
 	CircleUserRoundIcon,
+	CoinsIcon,
 	FileBarChart2Icon,
 	LifeBuoyIcon,
 	BellIcon,
@@ -108,6 +109,20 @@ export function AppSidebarMainNav() {
 							>
 								<BanknoteArrowDownIcon />
 								Journal
+							</SidebarMenuButton>
+						</SidebarMenuItem>
+						<SidebarMenuItem>
+							<SidebarMenuButton
+								render={
+									<Link
+										to="/dashboard/accountant/bata"
+										activeProps={{ "data-active": true }}
+										activeOptions={{ exact: true, includeSearch: false }}
+									/>
+								}
+							>
+								<CoinsIcon />
+								Bata
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 						<SidebarMenuItem>

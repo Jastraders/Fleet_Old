@@ -274,10 +274,36 @@ def init_db() -> None:
     );
     CREATE INDEX IF NOT EXISTS idx_warehouse_records_date ON warehouse_records(record_date);
     CREATE INDEX IF NOT EXISTS idx_warehouse_records_status ON warehouse_records(status);
+
+    CREATE TABLE IF NOT EXISTS bata (
+        id TEXT PRIMARY KEY,
+        journal_entry_id TEXT NOT NULL UNIQUE REFERENCES journal_entries(id) ON DELETE CASCADE,
+        driver_id TEXT NOT NULL,
+        vehicle_id TEXT NOT NULL,
+        bata_date TEXT,
+        product_name TEXT,
+        bata_amount REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'unpaid' CHECK(status IN ('unpaid', 'paid')),
+        paid_by TEXT,
+        paid_at TEXT,
+        linked_expense_item_id TEXT REFERENCES journal_entry_items(id) ON DELETE SET NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT DEFAULT now()::text,
+        updated_at TEXT DEFAULT now()::text
+    );
+    CREATE INDEX IF NOT EXISTS idx_bata_journal_entry_id ON bata(journal_entry_id);
+    CREATE INDEX IF NOT EXISTS idx_bata_driver_id ON bata(driver_id);
+    CREATE INDEX IF NOT EXISTS idx_bata_vehicle_id ON bata(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_bata_status ON bata(status);
+    CREATE INDEX IF NOT EXISTS idx_bata_date ON bata(bata_date);
     """
 
     with connect() as conn:
         conn.execute(sql)
+        try:
+            conn.execute("ALTER TABLE bata ADD COLUMN IF NOT EXISTS bata_date TEXT;")
+        except Exception:
+            pass
         for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location", "product_name", "bata_type", "fixed_bata_amount"):
             try:
                 conn.execute(f"ALTER TABLE journal_entry_items ADD COLUMN IF NOT EXISTS {col_name} TEXT;")

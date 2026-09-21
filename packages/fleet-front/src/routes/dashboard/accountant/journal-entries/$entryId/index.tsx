@@ -153,7 +153,7 @@ function RouteComponent() {
 				}
 			}
 
-			const calculatedAmount = isCalc ? Math.max(0, val - bataExpense) : (parseFloat(value.revenue || "0") || 0);
+			const calculatedAmount = isCalc ? val : (parseFloat(value.revenue || "0") || 0);
 
 			const items = [
 				{
@@ -488,7 +488,7 @@ function RouteComponent() {
 															bataExpense = (val * p) / 100;
 														}
 
-														const revenue = Math.max(0, val - bataExpense);
+														const revenue = val;
 
 														return (
 															<div className="space-y-4 border-t pt-3 mt-2">
@@ -869,7 +869,7 @@ function RouteComponent() {
 									}
 								}
 
-								const revenue = isCalc ? Math.max(0, val - bataExpense) : (parseFloat(values.revenue || "0") || 0);
+								const revenue = isCalc ? val : (parseFloat(values.revenue || "0") || 0);
 								const totalExpenses = values.expenses.reduce(
 									(sum: number, exp: { amount: string }) =>
 										sum + (parseFloat(exp.amount) || 0),

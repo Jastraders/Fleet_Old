@@ -625,7 +625,7 @@ def orpc_list_entries(user):
                             journal_entry_id,
                             SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS revenue,
                             SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses,
-                            MAX(transaction_date) AS transaction_date
+                            MAX(CASE WHEN type = 'credit' THEN transaction_date ELSE NULL END) AS transaction_date
                         FROM journal_entry_items
                         GROUP BY journal_entry_id
                     ) t ON t.journal_entry_id = j.id
@@ -659,7 +659,7 @@ def orpc_list_entries(user):
                         journal_entry_id,
                         SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS revenue,
                         SUM(CASE WHEN type = 'debit' THEN amount ELSE 0 END) AS expenses,
-                        MAX(transaction_date) AS transaction_date
+                        MAX(CASE WHEN type = 'credit' THEN transaction_date ELSE NULL END) AS transaction_date
                     FROM journal_entry_items
                     GROUP BY journal_entry_id
                 ) t ON t.journal_entry_id = j.id
@@ -799,125 +799,236 @@ def orpc_list_expenses(user):
     return rpc_response({"data": rows, "meta": meta})
 
 
-@app.post("/orpc/accountant/journalEntries/create")
-@require_auth({"accountant"})
-def orpc_create_entry(user):
-    payload = rpc_payload()
-    source_notification_id = payload.get("sourceNotificationId")
-    with connect() as conn:
-        eid = str(uuid.uuid4())
-        conn.execute(
-            "INSERT INTO journal_entries (id,vehicle_id,driver_id,notes,created_by) VALUES (?,?,?,?,?)",
-            (
-                eid,
-                payload["vehicleId"],
-                payload.get("driverId"),
-                payload.get("notes"),
-                user["id"],
-            ),
-        )
-        for item in payload.get("items", []):
-            item_id = str(uuid.uuid4())
-            
-            # Read calculation values from the payload item
+def get_or_create_bata_expense_category(conn, user_id: str | None = None) -> str:
+    row = conn.execute("SELECT id FROM expense_category WHERE LOWER(name) = 'driver bata' LIMIT 1").fetchone()
+    if row:
+        return row["id"]
+    cat_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO expense_category (id, name, color, impact, created_by) VALUES (?, ?, ?, ?, ?)",
+        (cat_id, "Driver Bata", "f59e0b", "driver,vehicle,company", user_id),
+    )
+    return cat_id
+
+
+def _validate_journal_entry_items(items: list) -> str | None:
+    credit_items = [i for i in items if isinstance(i, dict) and i.get("type") == "credit"]
+    if len(credit_items) != 1:
+        return "Journal entry must contain exactly one revenue/credit item."
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") == "credit":
             revenue_mode = item.get("revenueMode", "direct")
             quantity = item.get("quantity")
             per_item_rate = item.get("perItemRate")
             bata_percentage = item.get("bataPercentage")
             bata_type = item.get("bataType", "percentage")
             fixed_bata_amount = item.get("fixedBataAmount")
-            product_name = item.get("productName")
-            
-            value = None
-            bata_value = None
-            amount = float(item["amount"])
-            
-            # Recalculate on the backend if mode is calculated
-            if item["type"] == "credit" and revenue_mode == "calculated":
-                qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
-                rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
-                
-                if qty_val < 0 or rate_val < 0:
-                    return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
-                
-                value = qty_val * rate_val
-                
+            amount_val = float(item.get("amount") or 0.0)
+
+            try:
+                if revenue_mode == "calculated":
+                    qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
+                    rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
+
+                    if qty_val < 0 or rate_val < 0:
+                        return "Quantity and Per Item Rate cannot be negative."
+
+                    gross_revenue = qty_val * rate_val
+                else:
+                    if amount_val < 0:
+                        return "Revenue amount cannot be negative."
+                    gross_revenue = amount_val
+
                 if bata_type == "fixed":
                     fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
                     if fixed_val < 0:
-                        return rpc_error("Fixed Bata Amount cannot be negative.", 400)
-                    if fixed_val > value:
-                        return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
-                    bata_value = fixed_val
+                        return "Fixed Bata Amount cannot be negative."
+                    if fixed_val > gross_revenue:
+                        return "Fixed Bata Amount cannot be greater than Gross Revenue."
                 else:
                     bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
                     if bata_val < 0:
-                        return rpc_error("Bata Percentage cannot be negative.", 400)
-                    bata_value = (value * bata_val) / 100.0
-                
-                amount = value - bata_value  # Revenue = Calculated Value - Bata Expense
-                
+                        return "Bata Percentage cannot be negative."
+            except (ValueError, TypeError):
+                return "Invalid numeric value provided in journal entry item."
+    return None
+
+
+@app.post("/orpc/accountant/journalEntries/create")
+@require_auth({"accountant"})
+def orpc_create_entry(user):
+    payload = rpc_payload()
+    source_notification_id = payload.get("sourceNotificationId")
+    items = payload.get("items", [])
+
+    validation_err = _validate_journal_entry_items(items)
+    if validation_err:
+        return rpc_error(validation_err, 400)
+
+    with connect() as conn:
+        try:
+            eid = str(uuid.uuid4())
             conn.execute(
-                """
-                INSERT INTO journal_entry_items (
-                    id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
-                    voucher_id, handler, next_renewal_date, expense_category_id,
-                    revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
-                    depo, delivery_location, product_name, bata_type, fixed_bata_amount
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                "INSERT INTO journal_entries (id,vehicle_id,driver_id,notes,created_by) VALUES (?,?,?,?,?)",
                 (
-                    item_id,
                     eid,
                     payload["vehicleId"],
-                    item["transactionDate"],
-                    item["type"],
-                    amount,
-                    next_voucher_id(conn) if item["type"] == "debit" else None,
-                    item.get("handler") or "Driver",
-                    item.get("nextRenewalDate"),
-                    item.get("expenseCategoryId"),
-                    revenue_mode,
-                    quantity,
-                    per_item_rate,
-                    value,
-                    bata_percentage,
-                    bata_value,
-                    item.get("depo"),
-                    item.get("deliveryLocation") or item.get("delivery_location"),
-                    product_name,
-                    bata_type,
-                    fixed_bata_amount,
+                    payload.get("driverId"),
+                    payload.get("notes"),
+                    user["id"],
+                ),
+            )
+            credit_bata_val = 0.0
+            credit_product_name = None
+            credit_tx_date = None
+            for item in items:
+                item_id = str(uuid.uuid4())
+                
+                # Read calculation values from the payload item
+                revenue_mode = item.get("revenueMode", "direct")
+                quantity = item.get("quantity")
+                per_item_rate = item.get("perItemRate")
+                bata_percentage = item.get("bataPercentage")
+                bata_type = item.get("bataType", "percentage")
+                fixed_bata_amount = item.get("fixedBataAmount")
+                product_name = item.get("productName")
+                
+                value = None
+                bata_value = None
+                amount = float(item["amount"])
+                
+                # Recalculate on the backend if mode is calculated
+                if item["type"] == "credit":
+                    credit_tx_date = item.get("transactionDate")
+                    if product_name:
+                        credit_product_name = product_name
+                    if revenue_mode == "calculated":
+                        qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
+                        rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
+                        
+                        if qty_val < 0 or rate_val < 0:
+                            conn.rollback()
+                            return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
+                        
+                        value = qty_val * rate_val
+                        
+                        if bata_type == "fixed":
+                            fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                            if fixed_val < 0:
+                                conn.rollback()
+                                return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                            if fixed_val > value:
+                                conn.rollback()
+                                return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
+                            bata_value = fixed_val
+                        else:
+                            bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                            if bata_val < 0:
+                                conn.rollback()
+                                return rpc_error("Bata Percentage cannot be negative.", 400)
+                            bata_value = (value * bata_val) / 100.0
+                        
+                        amount = value  # Gross Revenue = Calculated Value (Quantity * Rate)
+                        credit_bata_val = float(bata_value or 0.0)
+                    else:
+                        if bata_type == "fixed":
+                            fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                            bata_value = fixed_val
+                        elif bata_percentage:
+                            bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                            bata_value = (amount * bata_val) / 100.0
+                        if bata_value:
+                            credit_bata_val = float(bata_value)
+
+                conn.execute(
+                    """
+                    INSERT INTO journal_entry_items (
+                        id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
+                        voucher_id, handler, next_renewal_date, expense_category_id,
+                        revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
+                        depo, delivery_location, product_name, bata_type, fixed_bata_amount
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item_id,
+                        eid,
+                        payload["vehicleId"],
+                        item["transactionDate"],
+                        item["type"],
+                        amount,
+                        next_voucher_id(conn) if item["type"] == "debit" else None,
+                        item.get("handler") or "Driver",
+                        item.get("nextRenewalDate"),
+                        item.get("expenseCategoryId"),
+                        revenue_mode,
+                        quantity,
+                        per_item_rate,
+                        value,
+                        bata_percentage,
+                        bata_value,
+                        item.get("depo"),
+                        item.get("deliveryLocation") or item.get("delivery_location"),
+                        product_name,
+                        bata_type,
+                        fixed_bata_amount,
+                    ),
+                )
+
+                
+                if item["type"] == "debit" and item.get("expenseCategoryId"):
+                    stale_rows = rows_to_dicts(
+                        conn.execute(
+                            """
+                            SELECT n.id
+                            FROM notifications n
+                            JOIN journal_entry_items ji ON ji.id = n.resource_id
+                            WHERE n.type = 'renewal_reminder'
+                              AND ji.vehicle_id = ?
+                              AND ji.expense_category_id = ?
+                              AND ji.id != ?
+                            """,
+                            (payload["vehicleId"], item.get("expenseCategoryId"), item_id),
+                        ).fetchall()
+                    )
+                    for stale in stale_rows:
+                        conn.execute("DELETE FROM notifications WHERE id = ?", (stale["id"],))
+
+            # Create corresponding 1:1 Bata record for this journal entry
+            bata_id = str(uuid.uuid4())
+            conn.execute(
+                """
+                INSERT INTO bata (
+                    id, journal_entry_id, driver_id, vehicle_id, product_name,
+                    bata_amount, status, created_by, bata_date
+                ) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
+                """,
+                (
+                    bata_id,
+                    eid,
+                    payload.get("driverId") or "",
+                    payload["vehicleId"],
+                    credit_product_name,
+                    credit_bata_val,
+                    user["id"],
+                    credit_tx_date,
                 ),
             )
 
-            
-            if item["type"] == "debit" and item.get("expenseCategoryId"):
-                stale_rows = rows_to_dicts(
-                    conn.execute(
-                        """
-                        SELECT n.id
-                        FROM notifications n
-                        JOIN journal_entry_items ji ON ji.id = n.resource_id
-                        WHERE n.type = 'renewal_reminder'
-                          AND ji.vehicle_id = ?
-                          AND ji.expense_category_id = ?
-                          AND ji.id != ?
-                        """,
-                        (payload["vehicleId"], item.get("expenseCategoryId"), item_id),
-                    ).fetchall()
-                )
-                for stale in stale_rows:
-                    conn.execute("DELETE FROM notifications WHERE id = ?", (stale["id"],))
-        refresh_driver_total_expense(conn, payload.get("driverId"))
-        refresh_vehicle_total_expense(conn, payload["vehicleId"])
-        if source_notification_id:
-            conn.execute("DELETE FROM notifications WHERE id = ?", (source_notification_id,))
-        sync_renewal_notifications(conn)
-        conn.commit()
-        entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
-        items = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
-    return rpc_response(serialize_journal_entry_row(entry, items))
+            refresh_driver_total_expense(conn, payload.get("driverId"))
+            refresh_vehicle_total_expense(conn, payload["vehicleId"])
+            if source_notification_id:
+                conn.execute("DELETE FROM notifications WHERE id = ?", (source_notification_id,))
+            sync_renewal_notifications(conn)
+            conn.commit()
+            entry = dict(conn.execute("SELECT * FROM journal_entries WHERE id = ?", (eid,)).fetchone())
+            items_res = rows_to_dicts(conn.execute("SELECT * FROM journal_entry_items WHERE journal_entry_id = ?", (eid,)).fetchall())
+        except Exception:
+            conn.rollback()
+            raise
+    return rpc_response(serialize_journal_entry_row(entry, items_res))
 
 
 
@@ -981,132 +1092,209 @@ def orpc_get_entry(user):
 def orpc_update_entry(user):
     payload = rpc_payload()
     entry_id = payload.get("id")
+    items = payload.get("items")
+    if isinstance(items, list) and items:
+        validation_err = _validate_journal_entry_items(items)
+        if validation_err:
+            return rpc_error(validation_err, 400)
+
     with connect() as conn:
-        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
-        if not existing:
-            return rpc_error("Journal entry not found", 404)
-        if not _has_entry_access(conn, user, existing, "edit"):
-            return rpc_error("Forbidden", 403)
-        update_parts = []
-        update_params: list[Any] = []
-        if "notes" in payload:
-            update_parts.append("notes = ?")
-            update_params.append(payload.get("notes"))
-        if "driverId" in payload:
-            update_parts.append("driver_id = ?")
-            update_params.append(payload.get("driverId"))
-        if update_parts:
-            conn.execute(
-                f"UPDATE journal_entries SET {', '.join(update_parts)}, updated_at = ? WHERE id = ?",
-                (*update_params, now_iso(), entry_id),
-            )
-        if isinstance(payload.get("items"), list) and payload["items"]:
-            conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
-            for item in payload["items"]:
-                item_id = str(uuid.uuid4())
-                
-                # Read calculation values from the payload item
-                revenue_mode = item.get("revenueMode", "direct")
-                quantity = item.get("quantity")
-                per_item_rate = item.get("perItemRate")
-                bata_percentage = item.get("bataPercentage")
-                bata_type = item.get("bataType", "percentage")
-                fixed_bata_amount = item.get("fixedBataAmount")
-                product_name = item.get("productName")
-                
-                value = None
-                bata_value = None
-                amount = float(item["amount"])
-                
-                # Recalculate on the backend if mode is calculated
-                if item["type"] == "credit" and revenue_mode == "calculated":
-                    qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
-                    rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
-                    
-                    if qty_val < 0 or rate_val < 0:
-                        return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
-                    
-                    value = qty_val * rate_val
-                    
-                    if bata_type == "fixed":
-                        fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
-                        if fixed_val < 0:
-                            return rpc_error("Fixed Bata Amount cannot be negative.", 400)
-                        if fixed_val > value:
-                            return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
-                        bata_value = fixed_val
-                    else:
-                        bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
-                        if bata_val < 0:
-                            return rpc_error("Bata Percentage cannot be negative.", 400)
-                        bata_value = (value * bata_val) / 100.0
-                    
-                    amount = value - bata_value  # Revenue = Calculated Value - Bata Expense
-                    
+        try:
+            existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+            if not existing:
+                conn.rollback()
+                return rpc_error("Journal entry not found", 404)
+            if not _has_entry_access(conn, user, existing, "edit"):
+                conn.rollback()
+                return rpc_error("Forbidden", 403)
+            update_parts = []
+            update_params: list[Any] = []
+            if "notes" in payload:
+                update_parts.append("notes = ?")
+                update_params.append(payload.get("notes"))
+            if "driverId" in payload:
+                update_parts.append("driver_id = ?")
+                update_params.append(payload.get("driverId"))
+            if update_parts:
                 conn.execute(
-                    """
-                    INSERT INTO journal_entry_items (
-                        id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
-                        voucher_id, handler, next_renewal_date, expense_category_id,
-                        revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
-                        depo, delivery_location, product_name, bata_type, fixed_bata_amount
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        item_id,
-                        entry_id,
-                        existing["vehicle_id"],
-                        item["transactionDate"],
-                        item["type"],
-                        amount,
-                        next_voucher_id(conn) if item["type"] == "debit" else None,
-                        item.get("handler") or "Driver",
-                        item.get("nextRenewalDate"),
-                        item.get("expenseCategoryId"),
-                        revenue_mode,
-                        quantity,
-                        per_item_rate,
-                        value,
-                        bata_percentage,
-                        bata_value,
-                        item.get("depo"),
-                        item.get("deliveryLocation") or item.get("delivery_location"),
-                        product_name,
-                        bata_type,
-                        fixed_bata_amount,
-                    ),
+                    f"UPDATE journal_entries SET {', '.join(update_parts)}, updated_at = ? WHERE id = ?",
+                    (*update_params, now_iso(), entry_id),
                 )
-        updated_driver_id = payload.get("driverId", existing["driver_id"])
-        refresh_driver_total_expense(conn, existing["driver_id"])
-        refresh_driver_total_expense(conn, updated_driver_id)
-        refresh_vehicle_total_expense(conn, existing["vehicle_id"])
-        conn.commit()
-        row = conn.execute(
-            """
-                SELECT
-                    j.*,
-                    v.name AS vehicle_name,
-                    v.license_plate AS vehicle_license_plate,
-                    d.name AS driver_name,
-                    d.phone_number AS driver_phone_number,
-                    u.name AS created_by_name,
-                    u.image AS created_by_image
-                FROM journal_entries j
-                LEFT JOIN vehicles v ON v.id = j.vehicle_id
-                LEFT JOIN drivers d ON d.id = j.driver_id
-                LEFT JOIN users u ON u.id = j.created_by
-                WHERE j.id = ?
-            """,
-            (entry_id,),
-        ).fetchone()
-        entry = dict(row)
-        items = rows_to_dicts(
-            conn.execute(
-                "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+
+            bata_row = conn.execute("SELECT * FROM bata WHERE journal_entry_id = ?", (entry_id,)).fetchone()
+            linked_expense_item_id = bata_row["linked_expense_item_id"] if bata_row else None
+
+            if isinstance(items, list) and items:
+                if linked_expense_item_id:
+                    conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ? AND id != ?", (entry_id, linked_expense_item_id))
+                else:
+                    conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
+
+                credit_bata_val = 0.0
+                credit_product_name = None
+                credit_tx_date = None
+                for item in items:
+                    item_id = str(uuid.uuid4())
+                    
+                    # Read calculation values from the payload item
+                    revenue_mode = item.get("revenueMode", "direct")
+                    quantity = item.get("quantity")
+                    per_item_rate = item.get("perItemRate")
+                    bata_percentage = item.get("bataPercentage")
+                    bata_type = item.get("bataType", "percentage")
+                    fixed_bata_amount = item.get("fixedBataAmount")
+                    product_name = item.get("productName")
+                    
+                    value = None
+                    bata_value = None
+                    amount = float(item["amount"])
+                    
+                    # Recalculate on the backend if mode is calculated
+                    if item["type"] == "credit":
+                        credit_tx_date = item.get("transactionDate")
+                        if product_name:
+                            credit_product_name = product_name
+                        if revenue_mode == "calculated":
+                            qty_val = float(quantity) if quantity is not None and quantity != "" else 0.0
+                            rate_val = float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else 0.0
+                            
+                            if qty_val < 0 or rate_val < 0:
+                                conn.rollback()
+                                return rpc_error("Quantity and Per Item Rate cannot be negative.", 400)
+                            
+                            value = qty_val * rate_val
+                            
+                            if bata_type == "fixed":
+                                fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                                if fixed_val < 0:
+                                    conn.rollback()
+                                    return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                                if fixed_val > value:
+                                    conn.rollback()
+                                    return rpc_error("Fixed Bata Amount cannot be greater than Calculated Value.", 400)
+                                bata_value = fixed_val
+                            else:
+                                bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                                if bata_val < 0:
+                                    conn.rollback()
+                                    return rpc_error("Bata Percentage cannot be negative.", 400)
+                                bata_value = (value * bata_val) / 100.0
+                            
+                            amount = value  # Gross Revenue = Calculated Value
+                            credit_bata_val = float(bata_value or 0.0)
+                        else:
+                            if bata_type == "fixed":
+                                fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                                bata_value = fixed_val
+                            elif bata_percentage:
+                                bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                                bata_value = (amount * bata_val) / 100.0
+                            if bata_value:
+                                credit_bata_val = float(bata_value)
+                        
+                    conn.execute(
+                        """
+                        INSERT INTO journal_entry_items (
+                            id, journal_entry_id, vehicle_id, transaction_date, type, amount, 
+                            voucher_id, handler, next_renewal_date, expense_category_id,
+                            revenue_mode, quantity, per_item_rate, value, bata_percentage, bata_value,
+                            depo, delivery_location, product_name, bata_type, fixed_bata_amount
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            item_id,
+                            entry_id,
+                            existing["vehicle_id"],
+                            item["transactionDate"],
+                            item["type"],
+                            amount,
+                            next_voucher_id(conn) if item["type"] == "debit" else None,
+                            item.get("handler") or "Driver",
+                            item.get("nextRenewalDate"),
+                            item.get("expenseCategoryId"),
+                            revenue_mode,
+                            quantity,
+                            per_item_rate,
+                            value,
+                            bata_percentage,
+                            bata_value,
+                            item.get("depo"),
+                            item.get("deliveryLocation") or item.get("delivery_location"),
+                            product_name,
+                            bata_type,
+                            fixed_bata_amount,
+                        ),
+                    )
+
+                updated_driver_id = payload.get("driverId", existing["driver_id"]) or ""
+                if bata_row:
+                    conn.execute(
+                        """
+                        UPDATE bata
+                        SET driver_id = ?, vehicle_id = ?, product_name = ?, bata_amount = ?, bata_date = ?, updated_at = ?
+                        WHERE journal_entry_id = ?
+                        """,
+                        (updated_driver_id, existing["vehicle_id"], credit_product_name, credit_bata_val, credit_tx_date, now_iso(), entry_id),
+                    )
+                    if bata_row["status"] == "paid" and linked_expense_item_id:
+                        conn.execute(
+                            "UPDATE journal_entry_items SET amount = ?, product_name = ?, transaction_date = ? WHERE id = ?",
+                            (credit_bata_val, credit_product_name, credit_tx_date, linked_expense_item_id),
+                        )
+                else:
+                    conn.execute(
+                        """
+                        INSERT INTO bata (
+                            id, journal_entry_id, driver_id, vehicle_id, product_name,
+                            bata_amount, status, created_by, bata_date
+                        ) VALUES (?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
+                        """,
+                        (
+                            str(uuid.uuid4()),
+                            entry_id,
+                            updated_driver_id,
+                            existing["vehicle_id"],
+                            credit_product_name,
+                            credit_bata_val,
+                            user["id"],
+                            credit_tx_date,
+                        ),
+                    )
+
+            updated_driver_id = payload.get("driverId", existing["driver_id"])
+            refresh_driver_total_expense(conn, existing["driver_id"])
+            refresh_driver_total_expense(conn, updated_driver_id)
+            refresh_vehicle_total_expense(conn, existing["vehicle_id"])
+            conn.commit()
+            row = conn.execute(
+                """
+                    SELECT
+                        j.*,
+                        v.name AS vehicle_name,
+                        v.license_plate AS vehicle_license_plate,
+                        d.name AS driver_name,
+                        d.phone_number AS driver_phone_number,
+                        u.name AS created_by_name,
+                        u.image AS created_by_image
+                    FROM journal_entries j
+                    LEFT JOIN vehicles v ON v.id = j.vehicle_id
+                    LEFT JOIN drivers d ON d.id = j.driver_id
+                    LEFT JOIN users u ON u.id = j.created_by
+                    WHERE j.id = ?
+                """,
                 (entry_id,),
-            ).fetchall()
-        )
-    return rpc_response(serialize_journal_entry_row(entry, items))
+            ).fetchone()
+            entry = dict(row)
+            items_res = rows_to_dicts(
+                conn.execute(
+                    "SELECT * FROM journal_entry_items WHERE journal_entry_id = ? ORDER BY transaction_date DESC",
+                    (entry_id,),
+                ).fetchall()
+            )
+        except Exception:
+            conn.rollback()
+            raise
+    return rpc_response(serialize_journal_entry_row(entry, items_res))
 
 
 @app.post("/orpc/accountant/journalEntries/delete")
@@ -1115,16 +1303,336 @@ def orpc_delete_entry(user):
     payload = rpc_payload()
     entry_id = payload.get("id")
     with connect() as conn:
-        existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
-        if not existing:
-            return rpc_error("Journal entry not found", 404)
-        if not _has_entry_access(conn, user, existing, "delete"):
-            return rpc_error("Forbidden", 403)
-        conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
-        refresh_driver_total_expense(conn, existing["driver_id"])
-        refresh_vehicle_total_expense(conn, existing["vehicle_id"])
-        conn.commit()
+        try:
+            existing = conn.execute("SELECT * FROM journal_entries WHERE id = ?", (entry_id,)).fetchone()
+            if not existing:
+                conn.rollback()
+                return rpc_error("Journal entry not found", 404)
+            if not _has_entry_access(conn, user, existing, "delete"):
+                conn.rollback()
+                return rpc_error("Forbidden", 403)
+            bata_row = conn.execute("SELECT linked_expense_item_id FROM bata WHERE journal_entry_id = ?", (entry_id,)).fetchone()
+            if bata_row and bata_row.get("linked_expense_item_id"):
+                conn.execute("DELETE FROM journal_entry_items WHERE id = ?", (bata_row["linked_expense_item_id"],))
+            conn.execute("DELETE FROM bata WHERE journal_entry_id = ?", (entry_id,))
+            conn.execute("DELETE FROM journal_entry_items WHERE journal_entry_id = ?", (entry_id,))
+            conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
+            refresh_driver_total_expense(conn, existing["driver_id"])
+            refresh_vehicle_total_expense(conn, existing["vehicle_id"])
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
     return rpc_response({"success": True})
+
+
+@app.post("/orpc/accountant/bata/list")
+@require_auth({"accountant"})
+def orpc_list_bata(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    status_filter = payload.get("status", "all")
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
+    driver_id = payload.get("driverId")
+    vehicle_id = payload.get("vehicleId")
+    sort_by = payload.get("sortBy", "transactionDate")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+
+    where_clauses: list[str] = []
+    where_params: list[Any] = []
+
+    if status_filter in ("paid", "unpaid"):
+        where_clauses.append("b.status = ?")
+        where_params.append(status_filter)
+
+    if driver_id:
+        where_clauses.append("b.driver_id = ?")
+        where_params.append(driver_id)
+
+    if vehicle_id:
+        where_clauses.append("b.vehicle_id = ?")
+        where_params.append(vehicle_id)
+
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
+    if current_start:
+        where_clauses.append("SUBSTR(COALESCE(b.bata_date, t.transaction_date), 1, 10) >= ?")
+        where_params.append(current_start)
+    if current_end:
+        where_clauses.append("SUBSTR(COALESCE(b.bata_date, t.transaction_date), 1, 10) <= ?")
+        where_params.append(current_end)
+
+    if search:
+        search_term = f"%{search}%"
+        where_clauses.append("(COALESCE(d.name, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(b.product_name, '') ILIKE ?)")
+        where_params.extend([search_term, search_term, search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
+
+    sort_map = {
+        "driverName": "LOWER(COALESCE(d.name, ''))",
+        "vehicleName": "LOWER(COALESCE(v.name, ''))",
+        "bataAmount": "b.bata_amount",
+        "transactionDate": "COALESCE(b.bata_date, t.transaction_date)",
+        "createdAt": "b.created_at",
+        "status": "b.status",
+    }
+    order_column = sort_map.get(sort_by, "COALESCE(b.bata_date, t.transaction_date)")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
+    with connect() as conn:
+        query = f"""
+            SELECT
+                b.*,
+                j.notes AS journal_notes,
+                COALESCE(b.bata_date, t.transaction_date) AS transaction_date,
+                COALESCE(t.gross_revenue, 0) AS gross_revenue,
+                COALESCE(t.quantity, 0) AS quantity,
+                COALESCE(t.per_item_rate, 0) AS per_item_rate,
+                v.name AS vehicle_name,
+                v.license_plate AS vehicle_license_plate,
+                d.name AS driver_name,
+                d.phone_number AS driver_phone_number,
+                u_creator.name AS created_by_name,
+                u_creator.image AS created_by_image,
+                u_payer.name AS paid_by_name
+            FROM bata b
+            JOIN journal_entries j ON j.id = b.journal_entry_id
+            LEFT JOIN vehicles v ON v.id = b.vehicle_id
+            LEFT JOIN drivers d ON d.id = b.driver_id
+            LEFT JOIN users u_creator ON u_creator.id = b.created_by
+            LEFT JOIN users u_payer ON u_payer.id = b.paid_by
+            LEFT JOIN (
+                SELECT
+                    journal_entry_id,
+                    MAX(CASE WHEN type = 'credit' THEN transaction_date ELSE NULL END) AS transaction_date,
+                    SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS gross_revenue,
+                    MAX(CASE WHEN type = 'credit' THEN quantity ELSE NULL END) AS quantity,
+                    MAX(CASE WHEN type = 'credit' THEN per_item_rate ELSE NULL END) AS per_item_rate
+                FROM journal_entry_items
+                GROUP BY journal_entry_id
+            ) t ON t.journal_entry_id = b.journal_entry_id
+            {where_sql}
+            ORDER BY {order_column} {order_direction}
+            LIMIT ? OFFSET ?
+        """
+        rows = rows_to_dicts(conn.execute(query, (*where_params, limit, offset)).fetchall())
+
+        kpi_row = conn.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total_count,
+                COALESCE(SUM(b.bata_amount), 0) AS total_bata,
+                COALESCE(SUM(CASE WHEN b.status = 'paid' THEN b.bata_amount ELSE 0 END), 0) AS paid_bata,
+                COALESCE(SUM(CASE WHEN b.status = 'unpaid' THEN b.bata_amount ELSE 0 END), 0) AS unpaid_bata
+            FROM bata b
+            JOIN journal_entries j ON j.id = b.journal_entry_id
+            LEFT JOIN vehicles v ON v.id = b.vehicle_id
+            LEFT JOIN drivers d ON d.id = b.driver_id
+            LEFT JOIN (
+                SELECT journal_entry_id, MAX(CASE WHEN type = 'credit' THEN transaction_date ELSE NULL END) AS transaction_date
+                FROM journal_entry_items
+                GROUP BY journal_entry_id
+            ) t ON t.journal_entry_id = b.journal_entry_id
+            {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()
+
+    total_count = kpi_row["total_count"] if kpi_row else 0
+    total_bata = float(kpi_row["total_bata"] or 0) if kpi_row else 0.0
+    paid_bata = float(kpi_row["paid_bata"] or 0) if kpi_row else 0.0
+    unpaid_bata = float(kpi_row["unpaid_bata"] or 0) if kpi_row else 0.0
+
+    return rpc_response(with_meta(rows, offset, limit, total_count, totalBata=total_bata, paidBata=paid_bata, unpaidBata=unpaid_bata))
+
+
+@app.post("/orpc/accountant/bata/get")
+@require_auth({"accountant"})
+def orpc_get_bata(user):
+    payload = rpc_payload()
+    bata_id = payload.get("id")
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                b.*,
+                j.notes AS journal_notes,
+                COALESCE(b.bata_date, t.transaction_date) AS transaction_date,
+                COALESCE(t.gross_revenue, 0) AS gross_revenue,
+                COALESCE(t.quantity, 0) AS quantity,
+                COALESCE(t.per_item_rate, 0) AS per_item_rate,
+                COALESCE(t.revenue_mode, 'direct') AS revenue_mode,
+                v.name AS vehicle_name,
+                v.license_plate AS vehicle_license_plate,
+                d.name AS driver_name,
+                d.phone_number AS driver_phone_number,
+                u_creator.name AS created_by_name,
+                u_creator.image AS created_by_image,
+                u_payer.name AS paid_by_name
+            FROM bata b
+            JOIN journal_entries j ON j.id = b.journal_entry_id
+            LEFT JOIN vehicles v ON v.id = b.vehicle_id
+            LEFT JOIN drivers d ON d.id = b.driver_id
+            LEFT JOIN users u_creator ON u_creator.id = b.created_by
+            LEFT JOIN users u_payer ON u_payer.id = b.paid_by
+            LEFT JOIN (
+                SELECT
+                    journal_entry_id,
+                    MAX(CASE WHEN type = 'credit' THEN transaction_date ELSE NULL END) AS transaction_date,
+                    SUM(CASE WHEN type = 'credit' THEN amount ELSE 0 END) AS gross_revenue,
+                    MAX(CASE WHEN type = 'credit' THEN quantity ELSE NULL END) AS quantity,
+                    MAX(CASE WHEN type = 'credit' THEN per_item_rate ELSE NULL END) AS per_item_rate,
+                    MAX(CASE WHEN type = 'credit' THEN revenue_mode ELSE NULL END) AS revenue_mode
+                FROM journal_entry_items
+                GROUP BY journal_entry_id
+            ) t ON t.journal_entry_id = b.journal_entry_id
+            WHERE b.id = ? OR b.journal_entry_id = ?
+            """,
+            (bata_id, bata_id),
+        ).fetchone()
+
+        if not row:
+            return rpc_error("Bata record not found", 404)
+
+    return rpc_response(dict(row))
+
+
+@app.post("/orpc/accountant/bata/markPaid")
+@require_auth({"accountant"})
+def orpc_mark_bata_paid(user):
+    payload = rpc_payload()
+    bata_id = payload.get("id")
+    paid_at = payload.get("paidAt") or now_iso()
+    with connect() as conn:
+        try:
+            bata = conn.execute("SELECT * FROM bata WHERE id = ?", (bata_id,)).fetchone()
+            if not bata:
+                conn.rollback()
+                return rpc_error("Bata record not found", 404)
+            if bata["status"] == "paid":
+                return rpc_response(dict(bata))
+            
+            tx_date = bata.get("bata_date")
+            if not tx_date:
+                tx_row = conn.execute(
+                    "SELECT transaction_date FROM journal_entry_items WHERE journal_entry_id = ? AND type = 'credit' LIMIT 1",
+                    (bata["journal_entry_id"],),
+                ).fetchone()
+                if not tx_row or not tx_row["transaction_date"]:
+                    tx_row = conn.execute(
+                        "SELECT transaction_date FROM journal_entry_items WHERE journal_entry_id = ? LIMIT 1",
+                        (bata["journal_entry_id"],),
+                    ).fetchone()
+                tx_date = tx_row["transaction_date"] if tx_row and tx_row["transaction_date"] else None
+
+            if not tx_date:
+                conn.rollback()
+                return rpc_error("Associated Journal Entry transaction date not found", 400)
+
+            cat_id = get_or_create_bata_expense_category(conn, user["id"])
+            item_id = str(uuid.uuid4())
+
+            conn.execute(
+                """
+                INSERT INTO journal_entry_items (
+                    id, journal_entry_id, vehicle_id, transaction_date, type, amount,
+                    voucher_id, handler, expense_category_id, product_name
+                ) VALUES (?, ?, ?, ?, 'debit', ?, ?, 'Driver', ?, ?)
+                """,
+                (
+                    item_id,
+                    bata["journal_entry_id"],
+                    bata["vehicle_id"],
+                    tx_date,
+                    float(bata["bata_amount"] or 0.0),
+                    next_voucher_id(conn),
+                    cat_id,
+                    bata["product_name"],
+                ),
+            )
+
+            conn.execute(
+                """
+                UPDATE bata
+                SET status = 'paid', paid_by = ?, paid_at = ?, linked_expense_item_id = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (user["id"], paid_at, item_id, now_iso(), bata_id),
+            )
+
+            refresh_driver_total_expense(conn, bata["driver_id"])
+            refresh_vehicle_total_expense(conn, bata["vehicle_id"])
+            conn.commit()
+
+            updated = conn.execute("SELECT * FROM bata WHERE id = ?", (bata_id,)).fetchone()
+        except Exception:
+            conn.rollback()
+            raise
+    return rpc_response(dict(updated))
+
+
+@app.post("/orpc/accountant/bata/unmarkPaid")
+@require_auth({"accountant"})
+def orpc_unmark_bata_paid(user):
+    payload = rpc_payload()
+    bata_id = payload.get("id")
+    with connect() as conn:
+        try:
+            bata = conn.execute("SELECT * FROM bata WHERE id = ?", (bata_id,)).fetchone()
+            if not bata:
+                conn.rollback()
+                return rpc_error("Bata record not found", 404)
+            if bata["status"] == "unpaid":
+                return rpc_response(dict(bata))
+            
+            is_admin = False
+            role_row = conn.execute(
+                "SELECT 1 FROM user_roles WHERE user_id = ? AND role IN ('admin','owner') LIMIT 1",
+                (user["id"],),
+            ).fetchone()
+            if role_row:
+                is_admin = True
+            else:
+                grant_row = conn.execute(
+                    """
+                    SELECT 1 FROM access_grants
+                    WHERE user_id = ? AND page_name = 'Bata' AND resource_type = 'bata' AND resource_id = ? AND action = 'edit'
+                    LIMIT 1
+                    """,
+                    (user["id"], bata_id),
+                ).fetchone()
+                if grant_row:
+                    is_admin = True
+            
+            if not is_admin:
+                conn.rollback()
+                return rpc_error("Non-admin users cannot directly unmark paid Bata. Please request access from an admin.", 403)
+
+            if bata["linked_expense_item_id"]:
+                conn.execute("DELETE FROM journal_entry_items WHERE id = ?", (bata["linked_expense_item_id"],))
+
+            conn.execute(
+                """
+                UPDATE bata
+                SET status = 'unpaid', paid_by = NULL, paid_at = NULL, linked_expense_item_id = NULL, updated_at = ?
+                WHERE id = ?
+                """,
+                (now_iso(), bata_id),
+            )
+
+            refresh_driver_total_expense(conn, bata["driver_id"])
+            refresh_vehicle_total_expense(conn, bata["vehicle_id"])
+            conn.commit()
+
+            updated = conn.execute("SELECT * FROM bata WHERE id = ?", (bata_id,)).fetchone()
+        except Exception:
+            conn.rollback()
+            raise
+    return rpc_response(dict(updated))
 
 
 

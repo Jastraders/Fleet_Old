@@ -559,7 +559,8 @@ def serialize_journal_entry_row(entry: dict[str, Any], items: list[dict[str, Any
 
     tx_date = entry.get("transaction_date")
     if not tx_date and items and len(items) > 0:
-        tx_date = items[0].get("transaction_date")
+        credit_item = next((it for it in items if it.get("type") == "credit"), None)
+        tx_date = credit_item.get("transaction_date") if credit_item else items[0].get("transaction_date")
 
     payload = {
         "id": entry["id"],
