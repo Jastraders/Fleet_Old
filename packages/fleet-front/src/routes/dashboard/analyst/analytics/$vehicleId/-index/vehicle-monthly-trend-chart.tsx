@@ -44,11 +44,14 @@ type Period =
 	| "last_3m"
 	| "last_6m"
 	| "last_9m"
-	| "last_12m";
+	| "last_12m"
+	| "custom";
 
 interface VehicleMonthlyTrendChartProps extends ComponentProps<typeof Card> {
 	vehicleId: string;
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 type VehicleMonthlyStatsItem = {
@@ -93,13 +96,15 @@ function VehicleMonthlyTrendChartSkeleton({
 function VehicleMonthlyTrendChartContent({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleMonthlyTrendChartProps) {
 	const chartContainerRef = useRef<HTMLDivElement>(null);
 	const { data } = useSuspenseQuery({
 		...orpc.analyst.analytics.vehicle.vehicleStats.queryOptions({
-			input: { vehicleId, period },
+			input: { vehicleId, period, startDate, endDate },
 		}),
 	});
 	const vehicleStats = data as VehicleMonthlyStatsItem[];
@@ -262,6 +267,8 @@ function VehicleMonthlyTrendChartContent({
 export function VehicleMonthlyTrendChart({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleMonthlyTrendChartProps) {
@@ -274,6 +281,8 @@ export function VehicleMonthlyTrendChart({
 			<VehicleMonthlyTrendChartContent
 				vehicleId={vehicleId}
 				period={period}
+				startDate={startDate}
+				endDate={endDate}
 				className={className}
 				{...props}
 			/>

@@ -20,11 +20,14 @@ type Period =
 	| "last_3m"
 	| "last_6m"
 	| "last_9m"
-	| "last_12m";
+	| "last_12m"
+	| "custom";
 
 interface VehicleSummaryStatsCardsProps {
 	vehicleId: string;
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 interface VehicleSummaryStatValue {
@@ -53,6 +56,8 @@ function getPeriodDescription(period: Period): string {
 			return "Compared to previous 9 months";
 		case "last_12m":
 			return "Compared to previous 12 months";
+		case "custom":
+			return "Compared to previous period";
 	}
 }
 
@@ -88,10 +93,12 @@ function VehicleSummaryStatsCardsSkeleton() {
 function VehicleSummaryStatsCardsContent({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 }: VehicleSummaryStatsCardsProps) {
 	const { data } = useSuspenseQuery<VehicleSummaryStatsData>({
 		...orpc.analyst.analytics.vehicle.summaryStats.queryOptions({
-			input: { vehicleId, period },
+			input: { vehicleId, period, startDate, endDate },
 		}),
 	});
 
@@ -191,10 +198,17 @@ function VehicleSummaryStatsCardsContent({
 export function VehicleSummaryStatsCards({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 }: VehicleSummaryStatsCardsProps) {
 	return (
 		<Suspense fallback={<VehicleSummaryStatsCardsSkeleton />}>
-			<VehicleSummaryStatsCardsContent vehicleId={vehicleId} period={period} />
+			<VehicleSummaryStatsCardsContent
+				vehicleId={vehicleId}
+				period={period}
+				startDate={startDate}
+				endDate={endDate}
+			/>
 		</Suspense>
 	);
 }

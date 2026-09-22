@@ -24,12 +24,15 @@ type Period =
 	| "last_3m"
 	| "last_6m"
 	| "last_9m"
-	| "last_12m";
+	| "last_12m"
+	| "custom";
 
 interface VehicleExpenseCategoriesStatsCardProps
 	extends ComponentProps<typeof Card> {
 	vehicleId: string;
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 type VehicleExpenseCategoryStatsItem = {
@@ -90,6 +93,8 @@ function CustomTooltip({
 function VehicleExpensesCategoryChartContent({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleExpenseCategoriesStatsCardProps) {
@@ -97,7 +102,7 @@ function VehicleExpensesCategoryChartContent({
 
 	const { data } = useSuspenseQuery({
 		...orpc.analyst.analytics.vehicle.expensesStats.queryOptions({
-			input: { vehicleId, period },
+			input: { vehicleId, period, startDate, endDate },
 		}),
 	});
 	const expenseStats = data as VehicleExpenseCategoryStatsItem[];
@@ -197,6 +202,8 @@ function VehicleExpensesCategoryChartContent({
 export function VehicleExpenseCategoriesStatsCard({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleExpenseCategoriesStatsCardProps) {
@@ -212,6 +219,8 @@ export function VehicleExpenseCategoriesStatsCard({
 			<VehicleExpensesCategoryChartContent
 				vehicleId={vehicleId}
 				period={period}
+				startDate={startDate}
+				endDate={endDate}
 				className={className}
 				{...props}
 			/>

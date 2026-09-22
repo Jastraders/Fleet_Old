@@ -295,13 +295,13 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_bata_driver_id ON bata(driver_id);
     CREATE INDEX IF NOT EXISTS idx_bata_vehicle_id ON bata(vehicle_id);
     CREATE INDEX IF NOT EXISTS idx_bata_status ON bata(status);
-    CREATE INDEX IF NOT EXISTS idx_bata_date ON bata(bata_date);
     """
 
     with connect() as conn:
         conn.execute(sql)
         try:
             conn.execute("ALTER TABLE bata ADD COLUMN IF NOT EXISTS bata_date TEXT;")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_bata_date ON bata(bata_date);")
         except Exception:
             pass
         for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location", "product_name", "bata_type", "fixed_bata_amount"):

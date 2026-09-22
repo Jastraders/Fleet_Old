@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 SESSION_TTL_DAYS = 30
 PERIODS = {"all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"}
-VEHICLE_PERIODS = {"all_time", "last_30d", "last_3m", "last_6m", "last_9m", "last_12m"}
+VEHICLE_PERIODS = {"all_time", "last_30d", "last_3m", "last_6m", "last_9m", "last_12m", "custom"}
 
 def now_iso() -> str:
     # return RFC3339 with millisecond precision and Z timezone
@@ -105,8 +105,12 @@ def period_date_bounds(
         num_days = 7
     elif period == "last_30d":
         num_days = 30
+    elif period == "last_3m":
+        num_days = 91
     elif period == "last_6m":
         num_days = 183
+    elif period == "last_9m":
+        num_days = 274
     elif period == "last_12m":
         num_days = 365
     else:

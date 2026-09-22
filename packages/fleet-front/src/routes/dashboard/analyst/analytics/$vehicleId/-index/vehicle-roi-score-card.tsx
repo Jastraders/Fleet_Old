@@ -20,11 +20,14 @@ type Period =
 	| "last_3m"
 	| "last_6m"
 	| "last_9m"
-	| "last_12m";
+	| "last_12m"
+	| "custom";
 
 interface VehicleRoiScoreCardProps extends ComponentProps<typeof Card> {
 	vehicleId: string;
 	period: Period;
+	startDate?: string;
+	endDate?: string;
 }
 
 interface VehicleRoiStats {
@@ -60,12 +63,14 @@ function VehicleRoiScoreCardSkeleton({
 function VehicleRoiScoreCardContent({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleRoiScoreCardProps) {
 	const { data } = useSuspenseQuery<VehicleRoiStats>({
 		...orpc.analyst.analytics.vehicle.roiStats.queryOptions({
-			input: { vehicleId, period },
+			input: { vehicleId, period, startDate, endDate },
 		}),
 	});
 
@@ -140,6 +145,8 @@ function VehicleRoiScoreCardContent({
 export function VehicleRoiScoreCard({
 	vehicleId,
 	period,
+	startDate,
+	endDate,
 	className,
 	...props
 }: VehicleRoiScoreCardProps) {
@@ -148,6 +155,8 @@ export function VehicleRoiScoreCard({
 			<VehicleRoiScoreCardContent
 				vehicleId={vehicleId}
 				period={period}
+				startDate={startDate}
+				endDate={endDate}
 				className={className}
 				{...props}
 			/>

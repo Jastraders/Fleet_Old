@@ -201,15 +201,17 @@ def orpc_vehicle_summary_stats(user):
     payload = rpc_payload()
     vehicle_id = payload.get("vehicleId")
     period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if not vehicle_id:
         return rpc_response({"message": "vehicleId is required"}, 400)
     if period not in VEHICLE_PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
 
-    current_start, previous_start, previous_end = vehicle_period_bounds(period)
+    current_start, current_end, previous_start, previous_end = period_date_bounds(period, start_date_str, end_date_str)
     with connect() as conn:
-        current_revenue = sum_amount(conn, "credit", start=current_start, vehicle_id=vehicle_id)
-        current_expenses = sum_amount(conn, "debit", start=current_start, vehicle_id=vehicle_id)
+        current_revenue = sum_amount(conn, "credit", start=current_start, end=current_end, vehicle_id=vehicle_id)
+        current_expenses = sum_amount(conn, "debit", start=current_start, end=current_end, vehicle_id=vehicle_id)
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end, vehicle_id=vehicle_id)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end, vehicle_id=vehicle_id)
 
@@ -244,17 +246,22 @@ def orpc_vehicle_vehicle_stats(user):
     payload = rpc_payload()
     vehicle_id = payload.get("vehicleId")
     period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if not vehicle_id:
         return rpc_response({"message": "vehicleId is required"}, 400)
     if period not in VEHICLE_PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
 
-    start = vehicle_period_start(period)
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     params: list[Any] = [vehicle_id]
     where = ["vehicle_id = ?"]
-    if start is not None:
-        where.append("transaction_date >= ?")
-        params.append(start.isoformat())
+    if current_start is not None:
+        where.append("SUBSTR(transaction_date, 1, 10) >= ?")
+        params.append(current_start)
+    if current_end is not None:
+        where.append("SUBSTR(transaction_date, 1, 10) <= ?")
+        params.append(current_end)
 
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
@@ -288,17 +295,22 @@ def orpc_vehicle_expenses_stats(user):
     payload = rpc_payload()
     vehicle_id = payload.get("vehicleId")
     period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if not vehicle_id:
         return rpc_response({"message": "vehicleId is required"}, 400)
     if period not in VEHICLE_PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
 
-    start = vehicle_period_start(period)
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     params: list[Any] = [vehicle_id]
     where = ["jei.type = 'debit'", "jei.vehicle_id = ?"]
-    if start is not None:
-        where.append("jei.transaction_date >= ?")
-        params.append(start.isoformat())
+    if current_start is not None:
+        where.append("SUBSTR(jei.transaction_date, 1, 10) >= ?")
+        params.append(current_start)
+    if current_end is not None:
+        where.append("SUBSTR(jei.transaction_date, 1, 10) <= ?")
+        params.append(current_end)
 
     with connect() as conn:
         rows = rows_to_dicts(conn.execute(
@@ -328,27 +340,35 @@ def orpc_vehicle_roi_stats(user):
     payload = rpc_payload()
     vehicle_id = payload.get("vehicleId")
     period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     if not vehicle_id:
         return rpc_response({"message": "vehicleId is required"}, 400)
     if period not in VEHICLE_PERIODS:
         return rpc_response({"message": "Invalid period"}, 400)
 
-    start = vehicle_period_start(period)
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     revenue_params: list[Any] = [vehicle_id]
     revenue_where = ["vehicle_id = ?", "type = 'credit'"]
-    if start is not None:
-        revenue_where.append("transaction_date >= ?")
-        revenue_params.append(start.isoformat())
+    if current_start is not None:
+        revenue_where.append("SUBSTR(transaction_date, 1, 10) >= ?")
+        revenue_params.append(current_start)
+    if current_end is not None:
+        revenue_where.append("SUBSTR(transaction_date, 1, 10) <= ?")
+        revenue_params.append(current_end)
 
     impact_params: list[Any] = [vehicle_id]
     impact_where = [
         "i.vehicle_id = ?",
         "i.type = 'debit'",
-            "( ',' || c.impact || ',' ) LIKE '%,vehicle,%'",
+        "( ',' || c.impact || ',' ) LIKE '%,vehicle,%'",
     ]
-    if start is not None:
-        impact_where.append("i.transaction_date >= ?")
-        impact_params.append(start.isoformat())
+    if current_start is not None:
+        impact_where.append("SUBSTR(i.transaction_date, 1, 10) >= ?")
+        impact_params.append(current_start)
+    if current_end is not None:
+        impact_where.append("SUBSTR(i.transaction_date, 1, 10) <= ?")
+        impact_params.append(current_end)
 
     with connect() as conn:
         revenue_row = conn.execute(
