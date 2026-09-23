@@ -442,6 +442,15 @@ def serialize_vehicle_row(vehicle: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def get_total_vehicle_investment(conn) -> float:
+    rows = rows_to_dicts(conn.execute("SELECT * FROM vehicles").fetchall())
+    total = 0.0
+    for row in rows:
+        serialized = serialize_vehicle_row(row)
+        total += float(serialized.get("investmentCharge") or 0.0)
+    return total
+
+
 def serialize_expense_category_row(category: dict[str, Any]) -> dict[str, Any]:
     created_by_user = None
     if category.get("created_by"):

@@ -7,6 +7,7 @@ from fleet_backend.common import (
     PERIODS,
     VEHICLE_PERIODS,
     calculate_percentage_change,
+    get_total_vehicle_investment,
     period_bounds,
     period_date_bounds,
     period_start,
@@ -33,11 +34,15 @@ def analytics_summary(user):
         current_expenses = sum_amount(conn, "debit", start=current_start, end=current_end)
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end)
+        total_vehicle_investment = get_total_vehicle_investment(conn)
 
     current_profit = current_revenue - current_expenses
     current_profit_percentage = (current_profit / current_revenue * 100) if current_revenue else 0
     previous_profit = previous_revenue - previous_expenses
     previous_profit_percentage = (previous_profit / previous_revenue * 100) if previous_revenue else 0
+
+    current_roi = current_expenses + total_vehicle_investment
+    previous_roi = previous_expenses + total_vehicle_investment
 
     return jsonify({
         "revenue": {
@@ -55,6 +60,10 @@ def analytics_summary(user):
         "profitPercentage": {
             "value": current_profit_percentage,
             "change": calculate_percentage_change(current_profit_percentage, previous_profit_percentage),
+        },
+        "roi": {
+            "value": current_roi,
+            "change": calculate_percentage_change(current_roi, previous_roi),
         },
     })
 
@@ -76,11 +85,15 @@ def orpc_analytics_summary_stats(user):
         current_expenses = sum_amount(conn, "debit", start=current_start, end=current_end)
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end)
+        total_vehicle_investment = get_total_vehicle_investment(conn)
 
     current_profit = current_revenue - current_expenses
     current_profit_percentage = (current_profit / current_revenue * 100) if current_revenue else 0
     previous_profit = previous_revenue - previous_expenses
     previous_profit_percentage = (previous_profit / previous_revenue * 100) if previous_revenue else 0
+
+    current_roi = current_expenses + total_vehicle_investment
+    previous_roi = previous_expenses + total_vehicle_investment
 
     return rpc_response({
         "revenue": {
@@ -98,6 +111,10 @@ def orpc_analytics_summary_stats(user):
         "profitPercentage": {
             "value": current_profit_percentage,
             "change": calculate_percentage_change(current_profit_percentage, previous_profit_percentage),
+        },
+        "roi": {
+            "value": current_roi,
+            "change": calculate_percentage_change(current_roi, previous_roi),
         },
     })
 
