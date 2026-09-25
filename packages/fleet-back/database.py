@@ -261,12 +261,20 @@ def init_db() -> None:
     
      CREATE TABLE IF NOT EXISTS warehouse_records (
         id TEXT PRIMARY KEY,
+        section TEXT NOT NULL DEFAULT 'JAS',
         record_date TEXT NOT NULL,
-        workers_count INTEGER NOT NULL CHECK(workers_count >= 0),
-        union_count INTEGER NOT NULL CHECK(union_count >= 0),
-        rate_per_unload REAL NOT NULL CHECK(rate_per_unload >= 0),
-        total_unloads INTEGER NOT NULL CHECK(total_unloads >= 0),
+        workers_count REAL NOT NULL DEFAULT 0 CHECK(workers_count >= 0),
+        union_count REAL NOT NULL DEFAULT 0 CHECK(union_count >= 0),
+        rate_per_unload REAL NOT NULL DEFAULT 0 CHECK(rate_per_unload >= 0),
+        total_unloads REAL NOT NULL DEFAULT 0 CHECK(total_unloads >= 0),
+        firm_name TEXT,
+        product_name TEXT,
+        union_sum REAL NOT NULL DEFAULT 0,
+        own_staff_amount REAL NOT NULL DEFAULT 0,
         status TEXT NOT NULL DEFAULT 'unpaid' CHECK(status IN ('paid', 'unpaid')),
+        paid_by TEXT,
+        paid_at TEXT,
+        reason TEXT,
         created_by TEXT NOT NULL,
         created_at TEXT DEFAULT now()::text,
         updated_at TEXT DEFAULT now()::text,
@@ -302,6 +310,19 @@ def init_db() -> None:
         try:
             conn.execute("ALTER TABLE bata ADD COLUMN IF NOT EXISTS bata_date TEXT;")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_bata_date ON bata(bata_date);")
+        except Exception:
+            pass
+        for col_name in ("section", "firm_name", "product_name", "union_sum", "own_staff_amount", "paid_by", "paid_at", "reason"):
+            try:
+                conn.execute(f"ALTER TABLE warehouse_records ADD COLUMN IF NOT EXISTS {col_name} TEXT;")
+            except Exception:
+                pass
+        try:
+            conn.execute("UPDATE warehouse_records SET section = 'JAS' WHERE section IS NULL OR section = '';")
+        except Exception:
+            pass
+        try:
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_warehouse_records_section ON warehouse_records(section);")
         except Exception:
             pass
         for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location", "product_name", "bata_type", "fixed_bata_amount"):

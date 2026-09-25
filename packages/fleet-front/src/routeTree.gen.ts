@@ -34,6 +34,7 @@ import { Route as DashboardAccountantExpenseCategoriesIndexRouteImport } from '.
 import { Route as DashboardAccountantDriversIndexRouteImport } from './routes/dashboard/accountant/drivers/index'
 import { Route as DashboardAccountantBataIndexRouteImport } from './routes/dashboard/accountant/bata/index'
 import { Route as DashboardAnalystAnalyticsVehicleIdIndexRouteImport } from './routes/dashboard/analyst/analytics/$vehicleId/index'
+import { Route as DashboardAdminWarehouseRecordIdIndexRouteImport } from './routes/dashboard/admin/warehouse/$recordId/index'
 import { Route as DashboardAccountantJournalEntriesNewIndexRouteImport } from './routes/dashboard/accountant/journal-entries/new/index'
 import { Route as DashboardAccountantJournalEntriesEntryIdIndexRouteImport } from './routes/dashboard/accountant/journal-entries/$entryId/index'
 import { Route as DashboardAccountantDriversDriverIdIndexRouteImport } from './routes/dashboard/accountant/drivers/$driverId/index'
@@ -186,6 +187,12 @@ const DashboardAnalystAnalyticsVehicleIdIndexRoute =
     path: '/analyst/analytics/$vehicleId/',
     getParentRoute: () => DashboardRouteRoute,
   } as any)
+const DashboardAdminWarehouseRecordIdIndexRoute =
+  DashboardAdminWarehouseRecordIdIndexRouteImport.update({
+    id: '/$recordId/',
+    path: '/$recordId/',
+    getParentRoute: () => DashboardAdminWarehouseRouteRoute,
+  } as any)
 const DashboardAccountantJournalEntriesNewIndexRoute =
   DashboardAccountantJournalEntriesNewIndexRouteImport.update({
     id: '/new/',
@@ -240,6 +247,7 @@ export interface FileRoutesByFullPath {
   '/dashboard/accountant/drivers/$driverId/': typeof DashboardAccountantDriversDriverIdIndexRoute
   '/dashboard/accountant/journal-entries/$entryId/': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
   '/dashboard/accountant/journal-entries/new/': typeof DashboardAccountantJournalEntriesNewIndexRoute
+  '/dashboard/admin/warehouse/$recordId/': typeof DashboardAdminWarehouseRecordIdIndexRoute
   '/dashboard/analyst/analytics/$vehicleId/': typeof DashboardAnalystAnalyticsVehicleIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -260,6 +268,7 @@ export interface FileRoutesByTo {
   '/dashboard/accountant/drivers/$driverId': typeof DashboardAccountantDriversDriverIdIndexRoute
   '/dashboard/accountant/journal-entries/$entryId': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
   '/dashboard/accountant/journal-entries/new': typeof DashboardAccountantJournalEntriesNewIndexRoute
+  '/dashboard/admin/warehouse/$recordId': typeof DashboardAdminWarehouseRecordIdIndexRoute
   '/dashboard/analyst/analytics/$vehicleId': typeof DashboardAnalystAnalyticsVehicleIdIndexRoute
 }
 export interface FileRoutesById {
@@ -292,6 +301,7 @@ export interface FileRoutesById {
   '/dashboard/accountant/drivers/$driverId/': typeof DashboardAccountantDriversDriverIdIndexRoute
   '/dashboard/accountant/journal-entries/$entryId/': typeof DashboardAccountantJournalEntriesEntryIdIndexRoute
   '/dashboard/accountant/journal-entries/new/': typeof DashboardAccountantJournalEntriesNewIndexRoute
+  '/dashboard/admin/warehouse/$recordId/': typeof DashboardAdminWarehouseRecordIdIndexRoute
   '/dashboard/analyst/analytics/$vehicleId/': typeof DashboardAnalystAnalyticsVehicleIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -325,6 +335,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/drivers/$driverId/'
     | '/dashboard/accountant/journal-entries/$entryId/'
     | '/dashboard/accountant/journal-entries/new/'
+    | '/dashboard/admin/warehouse/$recordId/'
     | '/dashboard/analyst/analytics/$vehicleId/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/drivers/$driverId'
     | '/dashboard/accountant/journal-entries/$entryId'
     | '/dashboard/accountant/journal-entries/new'
+    | '/dashboard/admin/warehouse/$recordId'
     | '/dashboard/analyst/analytics/$vehicleId'
   id:
     | '__root__'
@@ -376,6 +388,7 @@ export interface FileRouteTypes {
     | '/dashboard/accountant/drivers/$driverId/'
     | '/dashboard/accountant/journal-entries/$entryId/'
     | '/dashboard/accountant/journal-entries/new/'
+    | '/dashboard/admin/warehouse/$recordId/'
     | '/dashboard/analyst/analytics/$vehicleId/'
   fileRoutesById: FileRoutesById
 }
@@ -561,6 +574,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAnalystAnalyticsVehicleIdIndexRouteImport
       parentRoute: typeof DashboardRouteRoute
     }
+    '/dashboard/admin/warehouse/$recordId/': {
+      id: '/dashboard/admin/warehouse/$recordId/'
+      path: '/$recordId'
+      fullPath: '/dashboard/admin/warehouse/$recordId/'
+      preLoaderRoute: typeof DashboardAdminWarehouseRecordIdIndexRouteImport
+      parentRoute: typeof DashboardAdminWarehouseRouteRoute
+    }
     '/dashboard/accountant/journal-entries/new/': {
       id: '/dashboard/accountant/journal-entries/new/'
       path: '/new'
@@ -722,11 +742,14 @@ const DashboardAdminReportsRouteRouteWithChildren =
 
 interface DashboardAdminWarehouseRouteRouteChildren {
   DashboardAdminWarehouseIndexRoute: typeof DashboardAdminWarehouseIndexRoute
+  DashboardAdminWarehouseRecordIdIndexRoute: typeof DashboardAdminWarehouseRecordIdIndexRoute
 }
 
 const DashboardAdminWarehouseRouteRouteChildren: DashboardAdminWarehouseRouteRouteChildren =
   {
     DashboardAdminWarehouseIndexRoute: DashboardAdminWarehouseIndexRoute,
+    DashboardAdminWarehouseRecordIdIndexRoute:
+      DashboardAdminWarehouseRecordIdIndexRoute,
   }
 
 const DashboardAdminWarehouseRouteRouteWithChildren =
