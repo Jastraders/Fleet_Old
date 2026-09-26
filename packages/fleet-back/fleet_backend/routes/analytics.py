@@ -14,6 +14,7 @@ from fleet_backend.common import (
     require_auth,
     rpc_payload,
     rpc_response,
+    serialize_vehicle_row,
     sum_amount,
     vehicle_period_bounds,
     vehicle_period_start,
@@ -232,10 +233,20 @@ def orpc_vehicle_summary_stats(user):
         previous_revenue = sum_amount(conn, "credit", start=previous_start, end=previous_end, vehicle_id=vehicle_id)
         previous_expenses = sum_amount(conn, "debit", start=previous_start, end=previous_end, vehicle_id=vehicle_id)
 
+        v_row = conn.execute("SELECT * FROM vehicles WHERE id = ?", (vehicle_id,)).fetchone()
+        if v_row:
+            v_serialized = serialize_vehicle_row(dict(v_row))
+            vehicle_investment = float(v_serialized.get("investmentCharge") or 0.0)
+        else:
+            vehicle_investment = 0.0
+
     current_profit = current_revenue - current_expenses
     current_profit_percentage = (current_profit / current_revenue * 100) if current_revenue else 0
     previous_profit = previous_revenue - previous_expenses
     previous_profit_percentage = (previous_profit / previous_revenue * 100) if previous_revenue else 0
+
+    current_roi = current_expenses + vehicle_investment
+    previous_roi = previous_expenses + vehicle_investment
 
     return rpc_response({
         "revenue": {
@@ -253,6 +264,10 @@ def orpc_vehicle_summary_stats(user):
         "profitPercentage": {
             "value": current_profit_percentage,
             "change": calculate_percentage_change(current_profit_percentage, previous_profit_percentage),
+        },
+        "roi": {
+            "value": current_roi,
+            "change": calculate_percentage_change(current_roi, previous_roi),
         },
     })
 

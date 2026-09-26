@@ -39,7 +39,7 @@ interface VehicleSummaryStatsData {
 	revenue: VehicleSummaryStatValue;
 	expenses: VehicleSummaryStatValue;
 	profit: VehicleSummaryStatValue;
-	profitPercentage: VehicleSummaryStatValue;
+	roi: VehicleSummaryStatValue;
 }
 
 function getPeriodDescription(period: Period): string {
@@ -67,7 +67,7 @@ function formatChange(change: number | null): string {
 	return `${sign}${change.toFixed(1)}%`;
 }
 
-const skeletonCards = ["revenue", "expenses", "profit", "profitPercentage"];
+const skeletonCards = ["revenue", "expenses", "profit", "roi"];
 
 function VehicleSummaryStatsCardsSkeleton() {
 	return (
@@ -172,23 +172,16 @@ function VehicleSummaryStatsCardsContent({
 			<Card className="@container/card">
 				<CardHeader>
 					<CardDescription className="flex items-center justify-between">
-						Profit %
-						<Badge variant="outline">
-							{data.profitPercentage.change !== null &&
-							data.profitPercentage.change >= 0 ? (
-								<TrendingUpIcon />
-							) : (
-								<TrendingDownIcon className="text-destructive" />
-							)}
-							{formatChange(data.profitPercentage.change)}
-						</Badge>
+						ROI
 					</CardDescription>
 					<CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-						{data.profitPercentage.value.toFixed(1)}%
+						{formatINR(data.roi.value)}
 					</CardTitle>
 				</CardHeader>
 				<CardFooter className="flex-col items-start gap-1.5 text-sm">
-					<div className="text-muted-foreground">{periodDescription}</div>
+					<div className="text-xs text-muted-foreground opacity-80">
+						expenses + investment
+					</div>
 				</CardFooter>
 			</Card>
 		</div>
