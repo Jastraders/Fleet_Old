@@ -221,7 +221,7 @@ function WarehouseDetailView() {
 
 				<Card>
 					<CardHeader className="pb-2">
-						<CardDescription>Total Workers Salary</CardDescription>
+						<CardDescription>Own Staff Salary</CardDescription>
 						<CardTitle className="text-2xl font-bold text-primary">
 							{formatWarehouseCurrency(record.totalWorkersSalary)}
 						</CardTitle>
@@ -233,7 +233,7 @@ function WarehouseDetailView() {
 
 				<Card>
 					<CardHeader className="pb-2">
-						<CardDescription>Total Union Salary</CardDescription>
+						<CardDescription>Union Salary</CardDescription>
 						<CardTitle className="text-2xl font-bold text-purple-600 dark:text-purple-400">
 							{formatWarehouseCurrency(record.totalUnionSalary)}
 						</CardTitle>
@@ -322,19 +322,11 @@ function WarehouseDetailView() {
 							<span className="font-bold text-foreground">{formatWarehouseCurrency(record.totalValue)}</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Union Sum (Input):</span>
-							<span className="font-semibold">{formatWarehouseCurrency(record.unionSum)}</span>
-						</div>
-						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Own Staff Amount (Input):</span>
-							<span className="font-semibold">{formatWarehouseCurrency(record.ownStaffAmount)}</span>
-						</div>
-						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Total Workers Salary:</span>
+							<span className="text-muted-foreground">Own Staff Salary:</span>
 							<span className="font-bold text-primary">{formatWarehouseCurrency(record.totalWorkersSalary)}</span>
 						</div>
 						<div className="flex justify-between pb-1">
-							<span className="text-muted-foreground">Total Union Salary:</span>
+							<span className="text-muted-foreground">Union Salary:</span>
 							<span className="font-bold text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(record.totalUnionSalary)}</span>
 						</div>
 					</CardContent>

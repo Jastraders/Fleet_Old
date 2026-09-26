@@ -423,8 +423,8 @@ function WarehouseList() {
 						<div className="text-xs text-muted-foreground flex flex-wrap gap-x-4">
 							<span>Total Quantity: <strong className="text-foreground">{selectedStats.totalUnloads}</strong></span>
 							<span>Total Value: <strong className="text-foreground">{formatWarehouseCurrency(selectedStats.totalValue)}</strong></span>
-							<span>Workers Wage: <strong className="text-primary">{formatWarehouseCurrency(selectedStats.totalWorkersSalary)}</strong></span>
-							<span>Union Wage: <strong className="text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(selectedStats.totalUnionSalary)}</strong></span>
+							<span>Own Staff Salary: <strong className="text-primary">{formatWarehouseCurrency(selectedStats.totalWorkersSalary)}</strong></span>
+							<span>Union Salary: <strong className="text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(selectedStats.totalUnionSalary)}</strong></span>
 						</div>
 					</div>
 					<div className="flex gap-2">
@@ -466,8 +466,8 @@ function WarehouseList() {
 								<TableHead className="text-right">Per Bag Price</TableHead>
 								<TableHead className="text-right">Quantity</TableHead>
 								<TableHead className="text-right">Total Value</TableHead>
-								<TableHead className="text-right">Union Sum</TableHead>
-								<TableHead className="text-right">Own Staff Amount</TableHead>
+								<TableHead className="text-right">Union Salary</TableHead>
+								<TableHead className="text-right">Own Staff Salary</TableHead>
 								<TableHead className="text-center">Status</TableHead>
 								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>

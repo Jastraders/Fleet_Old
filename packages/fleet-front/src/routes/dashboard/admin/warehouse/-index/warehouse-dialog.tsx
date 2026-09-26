@@ -33,8 +33,6 @@ const warehouseFormSchema = v.object({
 	unionCount: v.union([v.number(), v.string()]),
 	ratePerUnload: v.union([v.number(), v.string()]),
 	totalUnloads: v.union([v.number(), v.string()]),
-	unionSum: v.union([v.number(), v.string()]),
-	ownStaffAmount: v.union([v.number(), v.string()]),
 	status: v.picklist(["paid", "unpaid"]),
 	reason: v.optional(v.string()),
 });
@@ -63,7 +61,7 @@ export interface WarehouseDialogProps {
 }
 
 export function formatWarehouseCurrency(amount: number): string {
-	if (isNaN(amount)) return "₹0";
+	if (isNaN(amount) || !isFinite(amount)) return "₹0";
 	return new Intl.NumberFormat("en-IN", {
 		style: "currency",
 		currency: "INR",
@@ -106,12 +104,10 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			recordDate: initialValues?.recordDate ?? new Date().toISOString().split("T")[0],
 			firmName: initialValues?.firmName ?? "",
 			productName: initialValues?.productName ?? "",
-			workersCount: mode === "edit" ? initialValues?.workersCount ?? "" : "",
-			unionCount: mode === "edit" ? initialValues?.unionCount ?? "" : "",
-			ratePerUnload: mode === "edit" ? initialValues?.ratePerUnload ?? "" : "",
-			totalUnloads: mode === "edit" ? initialValues?.totalUnloads ?? "" : "",
-			unionSum: mode === "edit" ? initialValues?.unionSum ?? "" : "",
-			ownStaffAmount: mode === "edit" ? initialValues?.ownStaffAmount ?? "" : "",
+			workersCount: mode === "edit" ? (initialValues?.workersCount ?? "") : "",
+			unionCount: mode === "edit" ? (initialValues?.unionCount ?? "") : "",
+			ratePerUnload: mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "",
+			totalUnloads: mode === "edit" ? (initialValues?.totalUnloads ?? "") : "",
 			status: initialValues?.status ?? "unpaid",
 			reason: "",
 		},
@@ -124,10 +120,8 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			const uc = value.unionCount === "" ? 0 : Number(value.unionCount);
 			const rate = value.ratePerUnload === "" ? 0 : Number(value.ratePerUnload);
 			const unloads = value.totalUnloads === "" ? 0 : Number(value.totalUnloads);
-			const uSum = value.unionSum === "" ? 0 : Number(value.unionSum);
-			const oStaff = value.ownStaffAmount === "" ? 0 : Number(value.ownStaffAmount);
 
-			if (wc < 0 || uc < 0 || rate < 0 || unloads < 0 || uSum < 0 || oStaff < 0) {
+			if (wc < 0 || uc < 0 || rate < 0 || unloads < 0) {
 				setValidationError("Numeric values cannot be negative");
 				return;
 			}
@@ -136,6 +130,12 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 				setValidationError("A reason is required to edit this record");
 				return;
 			}
+
+			const totalLabours = wc + uc;
+			const totalValue = rate * unloads;
+			const perPersonSalary = totalLabours > 0 ? totalValue / totalLabours : 0;
+			const ownStaffSalary = perPersonSalary * wc;
+			const unionSalary = perPersonSalary * uc;
 
 			const payload = {
 				section: value.section as WarehouseSection,
@@ -146,8 +146,8 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 				unionCount: uc,
 				ratePerUnload: rate,
 				totalUnloads: unloads,
-				unionSum: uSum,
-				ownStaffAmount: oStaff,
+				unionSum: unionSalary,
+				ownStaffAmount: ownStaffSalary,
 				status: value.status as "paid" | "unpaid",
 				reason: value.reason,
 			};
@@ -343,42 +343,6 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 								</form.Field>
 							</div>
 
-							<div className="grid grid-cols-2 gap-4">
-								<form.Field name="unionSum">
-									{(field) => (
-										<Field>
-											<FieldLabel>Union Sum (Total Union Amount)</FieldLabel>
-											<Input
-												type="number"
-												step="any"
-												placeholder="0.00"
-												value={field.state.value}
-												onWheel={handleWheel}
-												onChange={(e) => field.handleChange(e.target.value)}
-											/>
-											<FieldError errors={field.state.meta.errors} />
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="ownStaffAmount">
-									{(field) => (
-										<Field>
-											<FieldLabel>Own Staff Amount</FieldLabel>
-											<Input
-												type="number"
-												step="any"
-												placeholder="0.00"
-												value={field.state.value}
-												onWheel={handleWheel}
-												onChange={(e) => field.handleChange(e.target.value)}
-											/>
-											<FieldError errors={field.state.meta.errors} />
-										</Field>
-									)}
-								</form.Field>
-							</div>
-
 							{mode === "edit" && (
 								<form.Field name="reason">
 									{(field) => (
@@ -398,29 +362,16 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 							{/* Calculations Preview */}
 							<form.Subscribe selector={(state) => state.values}>
 								{(values) => {
-									const wc = values.workersCount === "" ? 0 : Number(values.workersCount) || 0;
-									const uc = values.unionCount === "" ? 0 : Number(values.unionCount) || 0;
-									const rate = values.ratePerUnload === "" ? 0 : Number(values.ratePerUnload) || 0;
-									const unloads = values.totalUnloads === "" ? 0 : Number(values.totalUnloads) || 0;
-									const uSum = values.unionSum === "" ? 0 : Number(values.unionSum) || 0;
-									const oStaff = values.ownStaffAmount === "" ? 0 : Number(values.ownStaffAmount) || 0;
+									const wc = values.workersCount === "" || values.workersCount === undefined ? 0 : Number(values.workersCount) || 0;
+									const uc = values.unionCount === "" || values.unionCount === undefined ? 0 : Number(values.unionCount) || 0;
+									const rate = values.ratePerUnload === "" || values.ratePerUnload === undefined ? 0 : Number(values.ratePerUnload) || 0;
+									const unloads = values.totalUnloads === "" || values.totalUnloads === undefined ? 0 : Number(values.totalUnloads) || 0;
 
 									const totalLabours = wc + uc;
 									const totalValue = rate * unloads;
-
-									let workersSalary = 0;
-									if (oStaff > 0) {
-										workersSalary = oStaff;
-									} else if (totalLabours > 0) {
-										workersSalary = (totalValue / totalLabours) * wc;
-									}
-
-									let unionSalary = 0;
-									if (uSum > 0) {
-										unionSalary = uSum;
-									} else if (totalLabours > 0) {
-										unionSalary = (totalValue / totalLabours) * uc;
-									}
+									const perPersonSalary = totalLabours > 0 ? totalValue / totalLabours : 0;
+									const ownStaffSalary = perPersonSalary * wc;
+									const unionSalary = perPersonSalary * uc;
 
 									return (
 										<div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
@@ -430,9 +381,9 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 												<div className="font-medium text-right">{totalLabours}</div>
 												<div>Total Sum of Unloads:</div>
 												<div className="font-medium text-right">{formatWarehouseCurrency(totalValue)}</div>
-												<div className="font-semibold text-primary">Total Workers Salary:</div>
-												<div className="font-bold text-right text-primary">{formatWarehouseCurrency(workersSalary)}</div>
-												<div className="font-semibold text-purple-600 dark:text-purple-400">Total Union Salary:</div>
+												<div className="font-semibold text-primary">Own Staff Salary:</div>
+												<div className="font-bold text-right text-primary">{formatWarehouseCurrency(ownStaffSalary)}</div>
+												<div className="font-semibold text-purple-600 dark:text-purple-400">Union Salary:</div>
 												<div className="font-bold text-right text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(unionSalary)}</div>
 											</div>
 										</div>

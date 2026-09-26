@@ -38,22 +38,13 @@ def serialize_warehouse_row(row: dict) -> dict:
     total_labours = workers + union
     total_value = rate * unloads
 
-    # Calculate Total Workers Salary (Regular workers only)
-    if own_staff_amount > 0:
-        total_workers_salary = own_staff_amount
-    elif total_labours > 0:
+    # Calculate One Person Salary, Own Staff Salary, and Union Salary strictly from formulas
+    if total_labours > 0:
         per_person_salary = total_value / total_labours
         total_workers_salary = per_person_salary * workers
-    else:
-        total_workers_salary = 0.0
-
-    # Calculate Total Union Salary (Union workers only)
-    if union_sum > 0:
-        total_union_salary = union_sum
-    elif total_labours > 0:
-        per_person_salary = total_value / total_labours
         total_union_salary = per_person_salary * union
     else:
+        total_workers_salary = 0.0
         total_union_salary = 0.0
 
     created_by_user = None
@@ -194,14 +185,18 @@ def orpc_create_warehouse(user):
         union = float(payload.get("unionCount", 0) or 0)
         rate = float(payload.get("ratePerUnload", 0.0) or 0.0)
         unloads = float(payload.get("totalUnloads", 0) or 0)
-        union_sum = float(payload.get("unionSum", 0.0) or 0.0)
-        own_staff_amount = float(payload.get("ownStaffAmount", 0.0) or 0.0)
         record_date = payload.get("recordDate")
         firm_name = (payload.get("firmName") or "").strip()
         product_name = (payload.get("productName") or "").strip()
         status = payload.get("status", "unpaid")
     except (ValueError, TypeError):
         return rpc_error("Invalid numerical input values.", 400)
+
+    total_labours = workers + union
+    total_value = rate * unloads
+    per_person_salary = total_value / total_labours if total_labours > 0 else 0.0
+    union_sum = per_person_salary * union
+    own_staff_amount = per_person_salary * workers
 
     if not record_date:
         return rpc_error("Record date is required.", 400)
@@ -288,14 +283,18 @@ def orpc_update_warehouse(user):
             union = float(payload.get("unionCount", existing["union_count"]) or 0)
             rate = float(payload.get("ratePerUnload", existing["rate_per_unload"]) or 0.0)
             unloads = float(payload.get("totalUnloads", existing["total_unloads"]) or 0)
-            union_sum = float(payload.get("unionSum", existing.get("union_sum") or 0) or 0.0)
-            own_staff_amount = float(payload.get("ownStaffAmount", existing.get("own_staff_amount") or 0) or 0.0)
             record_date = payload.get("recordDate") or existing["record_date"]
             firm_name = payload.get("firmName") if payload.get("firmName") is not None else existing.get("firm_name")
             product_name = payload.get("productName") if payload.get("productName") is not None else existing.get("product_name")
             status = payload.get("status") or existing["status"]
         except (ValueError, TypeError):
             return rpc_error("Invalid numerical input values.", 400)
+
+        total_labours = workers + union
+        total_value = rate * unloads
+        per_person_salary = total_value / total_labours if total_labours > 0 else 0.0
+        union_sum = per_person_salary * union
+        own_staff_amount = per_person_salary * workers
 
         if status not in ("paid", "unpaid"):
             return rpc_error("Invalid status value.", 400)
