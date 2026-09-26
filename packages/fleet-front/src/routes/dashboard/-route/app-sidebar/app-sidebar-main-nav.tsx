@@ -11,6 +11,7 @@ import {
 	ReceiptTextIcon,
 	SettingsIcon,
 	TagIcon,
+	TrendingUpIcon,
 	TruckIcon,
 	UsersIcon,
 	WarehouseIcon,
@@ -189,7 +190,23 @@ export function AppSidebarMainNav() {
 						/>
 					</SidebarMenuItem>
 
-					{/* Add this new Warehouse item: */}
+					{/* Revenue item: */}
+					<SidebarMenuItem>
+						<SidebarMenuButton
+							render={
+								<Link
+									to="/dashboard/admin/revenue"
+									activeProps={{ "data-active": true }}
+									activeOptions={{ exact: true, includeSearch: false }}
+								/>
+							}
+						>
+							<TrendingUpIcon />
+							Revenue
+						</SidebarMenuButton>
+					</SidebarMenuItem>
+
+					{/* Warehouse item: */}
 					<SidebarMenuItem>
 						<SidebarMenuButton
 							render={

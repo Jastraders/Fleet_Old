@@ -1943,3 +1943,205 @@ def delete_entry(user, entry_id):
         conn.execute("DELETE FROM journal_entries WHERE id = ?", (entry_id,))
         conn.commit()
     return jsonify({"success": True})
+
+
+def serialize_revenue_item_row(row: dict) -> dict:
+    created_by_user = None
+    if row.get("created_by") or row.get("entry_created_by"):
+        created_by_user = {
+            "id": row.get("entry_created_by") or row.get("created_by"),
+            "name": row.get("created_by_name") or "",
+            "image": row.get("created_by_image"),
+        }
+
+    vehicle = None
+    if row.get("vehicle_id"):
+        vehicle = {
+            "id": row["vehicle_id"],
+            "name": row.get("vehicle_name") or "",
+            "licensePlate": row.get("vehicle_license_plate"),
+        }
+
+    driver = None
+    if row.get("driver_id"):
+        driver = {
+            "id": row["driver_id"],
+            "name": row.get("driver_name") or "",
+        }
+
+    raw_tx = row.get("revenue_date") or row.get("transaction_date") or row.get("created_at")
+    iso_tx = to_iso_datetime(raw_tx)
+
+    v_id = row.get("voucher_id")
+    if v_id is not None and str(v_id).isdigit():
+        voucher_number = f"JV-{int(v_id):03d}"
+    elif v_id:
+        voucher_number = str(v_id)
+    else:
+        voucher_number = "-"
+
+    return {
+        "id": row["id"],
+        "journalEntryId": row["journal_entry_id"],
+        "voucherId": v_id,
+        "voucherNumber": voucher_number,
+        "vehicleId": row.get("vehicle_id"),
+        "vehicleName": row.get("vehicle_name") or "",
+        "vehicleLicensePlate": row.get("vehicle_license_plate") or "",
+        "vehicle": vehicle,
+        "driverId": row.get("driver_id"),
+        "driverName": row.get("driver_name") or "",
+        "driver": driver,
+        "revenueDate": iso_tx,
+        "transactionDate": iso_tx,
+        "amount": float(row.get("amount") or 0.0),
+        "productName": row.get("product_name") or "",
+        "depo": row.get("depo") or "",
+        "deliveryLocation": row.get("delivery_location") or "",
+        "revenueMode": row.get("revenue_mode") or "direct",
+        "quantity": float(row.get("quantity") or 0) if row.get("quantity") is not None else None,
+        "perItemRate": float(row.get("per_item_rate") or 0) if row.get("per_item_rate") is not None else None,
+        "value": float(row.get("value") or 0) if row.get("value") is not None else None,
+        "createdBy": row.get("entry_created_by") or row.get("created_by"),
+        "createdByName": row.get("created_by_name") or "",
+        "createdByUser": created_by_user,
+        "createdAt": to_iso_datetime(row.get("created_at")),
+    }
+
+
+@app.post("/orpc/admin/revenue/list")
+@app.post("/api/orpc/admin/revenue/list")
+@require_auth({"admin"})
+def orpc_list_admin_revenue(user):
+    payload = rpc_payload()
+    offset = int(payload.get("offset", 0))
+    limit = min(int(payload.get("limit", 20)), 100)
+    search = payload.get("search")
+    sort_by = payload.get("sortBy", "createdAt")
+    sort_order = str(payload.get("sortOrder", "desc")).lower()
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
+
+    where_clauses = ["i.type = 'credit'"]
+    where_params: list[Any] = []
+
+    current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
+    if current_start:
+        where_clauses.append("SUBSTR(i.transaction_date, 1, 10) >= ?")
+        where_params.append(current_start)
+    if current_end:
+        where_clauses.append("SUBSTR(i.transaction_date, 1, 10) <= ?")
+        where_params.append(current_end)
+
+    if search:
+        search_term = f"%{search}%"
+        where_clauses.append(
+            "(COALESCE(i.product_name, '') LIKE ? OR COALESCE(i.depo, '') LIKE ? OR COALESCE(i.delivery_location, '') LIKE ? OR COALESCE(v.name, '') LIKE ? OR COALESCE(d.name, '') LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+        )
+        where_params.extend([search_term, search_term, search_term, search_term, search_term, search_term])
+
+    where_sql = f"WHERE {' AND '.join(where_clauses)}"
+
+    sort_map = {
+        "voucherId": "COALESCE(i.voucher_id, 0)",
+        "amount": "i.amount",
+        "productName": "LOWER(COALESCE(i.product_name, ''))",
+        "depo": "LOWER(COALESCE(i.depo, ''))",
+        "deliveryLocation": "LOWER(COALESCE(i.delivery_location, ''))",
+        "vehicle": "LOWER(COALESCE(v.name, ''))",
+        "driver": "LOWER(COALESCE(d.name, ''))",
+        "createdBy": "LOWER(COALESCE(u.name, ''))",
+        "createdAt": "i.created_at",
+        "revenueDate": "i.transaction_date",
+    }
+    order_column = sort_map.get(sort_by, "i.created_at")
+    order_direction = "ASC" if sort_order == "asc" else "DESC"
+
+    with connect() as conn:
+        rows = rows_to_dicts(
+            conn.execute(
+                f"""
+                    SELECT
+                        i.*,
+                        i.transaction_date AS revenue_date,
+                        j.driver_id,
+                        j.created_by AS entry_created_by,
+                        j.created_at AS entry_created_at,
+                        v.name AS vehicle_name,
+                        v.license_plate AS vehicle_license_plate,
+                        d.name AS driver_name,
+                        u.name AS created_by_name,
+                        u.image AS created_by_image
+                    FROM journal_entry_items i
+                    LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                    LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                    LEFT JOIN drivers d ON d.id = j.driver_id
+                    LEFT JOIN users u ON u.id = j.created_by
+                    {where_sql}
+                    ORDER BY {order_column} {order_direction}
+                    LIMIT ? OFFSET ?
+                """,
+                (*where_params, limit, offset),
+            ).fetchall()
+        )
+        total_row = conn.execute(
+            f"""
+                SELECT
+                    COUNT(*) AS c,
+                    COALESCE(SUM(i.amount), 0) AS s
+                FROM journal_entry_items i
+                LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                LEFT JOIN users u ON u.id = j.created_by
+                {where_sql}
+            """,
+            tuple(where_params),
+        ).fetchone()
+
+        total_count = total_row["c"]
+        total_amount = float(total_row["s"] or 0)
+
+    records = [serialize_revenue_item_row(row) for row in rows]
+    return rpc_response(with_meta(records, offset, limit, total_count, totalAmount=total_amount))
+
+
+@app.post("/orpc/admin/revenue/get")
+@app.post("/api/orpc/admin/revenue/get")
+@require_auth({"admin"})
+def orpc_get_admin_revenue(user):
+    payload = rpc_payload()
+    revenue_id = payload.get("id")
+    if not revenue_id:
+        return rpc_error("Revenue ID is required", 400)
+
+    with connect() as conn:
+        row = conn.execute(
+            """
+                SELECT
+                    i.*,
+                    i.transaction_date AS revenue_date,
+                    j.driver_id,
+                    j.created_by AS entry_created_by,
+                    j.created_at AS entry_created_at,
+                    v.name AS vehicle_name,
+                    v.license_plate AS vehicle_license_plate,
+                    d.name AS driver_name,
+                    u.name AS created_by_name,
+                    u.image AS created_by_image
+                FROM journal_entry_items i
+                LEFT JOIN journal_entries j ON j.id = i.journal_entry_id
+                LEFT JOIN vehicles v ON v.id = i.vehicle_id
+                LEFT JOIN drivers d ON d.id = j.driver_id
+                LEFT JOIN users u ON u.id = j.created_by
+                WHERE i.id = ? AND i.type = 'credit'
+            """,
+            (revenue_id,),
+        ).fetchone()
+
+    if not row:
+        return rpc_error("Revenue record not found", 404)
+
+    return rpc_response(serialize_revenue_item_row(dict(row)))
+
