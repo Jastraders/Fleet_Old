@@ -327,7 +327,7 @@ function WarehouseList() {
 					</p>
 				</div>
 				<div className="flex gap-4">
-					<WarehouseDialog mode="create" defaultSection={activeSection} />
+					<WarehouseDialog key={activeSection} mode="create" defaultSection={activeSection} />
 				</div>
 			</div>
 
@@ -603,6 +603,7 @@ function WarehouseList() {
 										<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
 											<div className="flex items-center justify-end gap-1">
 												<WarehouseDialog
+													key={`${record.id}-${record.updatedAt || ""}`}
 													mode="edit"
 													defaultSection={activeSection}
 													initialValues={{

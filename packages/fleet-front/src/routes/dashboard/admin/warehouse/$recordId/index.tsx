@@ -177,6 +177,7 @@ function WarehouseDetailView() {
 					</Button>
 
 					<WarehouseDialog
+						key={`${record.id}-${record.updatedAt || ""}`}
 						mode="edit"
 						initialValues={{
 							id: record.id,

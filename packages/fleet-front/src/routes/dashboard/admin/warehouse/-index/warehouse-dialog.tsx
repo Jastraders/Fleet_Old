@@ -274,6 +274,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 		onSuccess: () => {
 			queryClient.invalidateQueries();
 			setIsOpen(false);
+			form.reset();
 			if (onSuccess) onSuccess();
 		},
 	});
@@ -297,7 +298,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			productName: initialValues?.productName ?? "",
 			workersCount: mode === "edit" ? (initialValues?.workersCount ?? "") : "",
 			unionCount: mode === "edit" ? (initialValues?.unionCount ?? "") : "",
-			ratePerUnload: mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "",
+			ratePerUnload: mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "3.50",
 			totalUnloads: mode === "edit" ? (initialValues?.totalUnloads ?? "") : "",
 			status: initialValues?.status ?? "unpaid",
 			reason: "",
@@ -312,8 +313,8 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			const rate = value.ratePerUnload === "" ? 0 : Number(value.ratePerUnload);
 			const unloads = value.totalUnloads === "" ? 0 : Number(value.totalUnloads);
 
-			if (wc < 0 || uc < 0 || rate < 0 || unloads < 0) {
-				setValidationError("Numeric values cannot be negative");
+			if (isNaN(wc) || isNaN(uc) || isNaN(rate) || isNaN(unloads) || wc < 0 || uc < 0 || rate < 0 || unloads < 0) {
+				setValidationError("Numeric values cannot be negative or invalid");
 				return;
 			}
 
@@ -489,7 +490,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 											<Input
 												type="number"
 												step="any"
-												placeholder="0.00"
+												placeholder="3.50"
 												value={field.state.value}
 												onWheel={handleWheel}
 												onChange={(e) => field.handleChange(e.target.value)}
