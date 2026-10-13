@@ -1,4 +1,4 @@
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Suspense, useDeferredValue, useState, useMemo } from "react";
 import * as v from "valibot";
@@ -11,6 +11,7 @@ import {
 	CalendarIcon,
 	SearchIcon,
 	XIcon,
+	PackageIcon,
 } from "lucide-react";
 import { orpc } from "@/orpc";
 import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
@@ -25,12 +26,14 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useIsAdmin, useRowAccess, AccessDeniedDialog } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	section: v.optional(v.fallback(v.picklist(["JAS", "JKM", "General"]), "JAS"), "JAS"),
 	status: v.optional(v.fallback(v.picklist(["all", "paid", "unpaid"]), "all"), "all"),
+	product: v.optional(v.string()),
 	startDate: v.optional(v.string()),
 	endDate: v.optional(v.string()),
 	search: v.optional(v.string()),
@@ -40,9 +43,10 @@ const querySchema = v.object({
 
 export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { section, status, startDate, endDate, search, offset, limit } }) => ({
+	loaderDeps: ({ search: { section, status, product, startDate, endDate, search, offset, limit } }) => ({
 		section,
 		status,
+		product,
 		startDate,
 		endDate,
 		search,
@@ -55,6 +59,7 @@ export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 				input: {
 					section: query.section,
 					status: query.status,
+					product: query.product,
 					startDate: query.startDate,
 					endDate: query.endDate,
 					search: query.search,
@@ -85,6 +90,7 @@ function WarehouseList() {
 
 	const activeSection: WarehouseSection = (query.section as WarehouseSection) || "JAS";
 	const activeStatus = query.status || "all";
+	const activeProduct = query.product || "all";
 	const startDate = query.startDate || "";
 	const endDate = query.endDate || "";
 	const search = query.search || "";
@@ -96,11 +102,19 @@ function WarehouseList() {
 		label: "",
 	});
 
+	const { data: productsData } = useQuery({
+		...orpc.admin.warehouse.products.list.queryOptions({
+			input: { section: activeSection, includeArchived: true },
+		}),
+	});
+	const productList: string[] = productsData?.products || [];
+
 	const { data } = useSuspenseQuery({
 		...orpc.admin.warehouse.list.queryOptions({
 			input: {
 				section: activeSection,
 				status: activeStatus,
+				product: deferredQuery.product,
 				startDate: deferredQuery.startDate,
 				endDate: deferredQuery.endDate,
 				search: deferredQuery.search,
@@ -159,6 +173,7 @@ function WarehouseList() {
 			search: (prev) => ({
 				...prev,
 				section,
+				product: undefined,
 				offset: 0,
 			}),
 		});
@@ -170,6 +185,17 @@ function WarehouseList() {
 			search: (prev) => ({
 				...prev,
 				status,
+				offset: 0,
+			}),
+		});
+	};
+
+	const handleProductChange = (product: string) => {
+		setSelectedIds([]);
+		navigate({
+			search: (prev) => ({
+				...prev,
+				product: product === "all" ? undefined : product,
 				offset: 0,
 			}),
 		});
@@ -339,6 +365,37 @@ function WarehouseList() {
 				})}
 			</div>
 
+			{/* Summary Salary Totals Following Active Filters */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+				<Card className="border bg-card shadow-2xs">
+					<CardHeader className="pb-2">
+						<CardDescription className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Total Own Staff Salary
+						</CardDescription>
+						<CardTitle className="text-2xl sm:text-3xl font-extrabold text-primary">
+							{formatWarehouseCurrency(data.meta.totalOwnStaffSalary ?? 0)}
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="pt-0 text-xs text-muted-foreground">
+						{activeTheme.label} • Regular staff labour wages (filtered)
+					</CardContent>
+				</Card>
+
+				<Card className="border bg-card shadow-2xs">
+					<CardHeader className="pb-2">
+						<CardDescription className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+							Total Union Salary
+						</CardDescription>
+						<CardTitle className="text-2xl sm:text-3xl font-extrabold text-purple-600 dark:text-purple-400">
+							{formatWarehouseCurrency(data.meta.totalUnionSalary ?? 0)}
+						</CardTitle>
+					</CardHeader>
+					<CardContent className="pt-0 text-xs text-muted-foreground">
+						{activeTheme.label} • Union labour wages (filtered)
+					</CardContent>
+				</Card>
+			</div>
+
 			{/* Filters & Search Bar */}
 			<div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border bg-card">
 				{/* Status Tabs */}
@@ -359,13 +416,40 @@ function WarehouseList() {
 					))}
 				</div>
 
-				{/* Search & Custom Date Filter */}
+				{/* Search, Product Filter & Custom Date Filter */}
 				<div className="flex flex-wrap items-center gap-3 text-sm">
+					{/* Product Filter */}
+					<div className="flex items-center gap-1.5">
+						<PackageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+						<select
+							value={activeProduct}
+							onChange={(e) => handleProductChange(e.target.value)}
+							className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring w-36 sm:w-44"
+						>
+							<option value="all">All Products</option>
+							{productList.map((p) => (
+								<option key={p} value={p}>
+									{p}
+								</option>
+							))}
+						</select>
+						{activeProduct !== "all" && (
+							<Button
+								variant="ghost"
+								size="sm"
+								className="h-9 px-2 text-xs text-muted-foreground"
+								onClick={() => handleProductChange("all")}
+							>
+								Clear
+							</Button>
+						)}
+					</div>
+
 					{/* Search */}
-					<div className="relative w-48 sm:w-64">
+					<div className="relative w-44 sm:w-56">
 						<SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
 						<Input
-							placeholder="Search Firm / Product..."
+							placeholder="Search Product..."
 							value={search}
 							onChange={(e) => handleSearchChange(e.target.value)}
 							className="pl-8 h-9 text-xs"
@@ -459,7 +543,6 @@ function WarehouseList() {
 									/>
 								</TableHead>
 								<TableHead>Date</TableHead>
-								<TableHead>Firm Name</TableHead>
 								<TableHead>Product Name</TableHead>
 								<TableHead className="text-right">Regular Worker</TableHead>
 								<TableHead className="text-right">Union Worker</TableHead>
@@ -496,8 +579,7 @@ function WarehouseList() {
 												{record.recordDate}
 											</div>
 										</TableCell>
-										<TableCell className="font-medium">{record.firmName || "—"}</TableCell>
-										<TableCell>{record.productName || "—"}</TableCell>
+										<TableCell className="font-medium">{record.productName || "—"}</TableCell>
 										<TableCell className="text-right font-medium">{record.workersCount}</TableCell>
 										<TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">{record.unionCount}</TableCell>
 										<TableCell className="text-right">{formatWarehouseCurrency(record.ratePerUnload)}</TableCell>

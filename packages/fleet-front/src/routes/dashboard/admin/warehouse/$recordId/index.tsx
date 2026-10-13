@@ -282,10 +282,6 @@ function WarehouseDetailView() {
 							<span className="font-semibold">{record.recordDate}</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Firm Name:</span>
-							<span className="font-semibold">{record.firmName || "N/A"}</span>
-						</div>
-						<div className="flex justify-between border-b pb-2">
 							<span className="text-muted-foreground">Product Name:</span>
 							<span className="font-semibold">{record.productName || "N/A"}</span>
 						</div>

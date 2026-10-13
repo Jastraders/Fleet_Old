@@ -283,6 +283,15 @@ def init_db() -> None:
     CREATE INDEX IF NOT EXISTS idx_warehouse_records_date ON warehouse_records(record_date);
     CREATE INDEX IF NOT EXISTS idx_warehouse_records_status ON warehouse_records(status);
 
+    CREATE TABLE IF NOT EXISTS warehouse_products (
+        id TEXT PRIMARY KEY,
+        section TEXT NOT NULL DEFAULT 'JAS',
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TEXT DEFAULT now()::text
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_warehouse_products_section_name ON warehouse_products(section, LOWER(name));
+
     CREATE TABLE IF NOT EXISTS bata (
         id TEXT PRIMARY KEY,
         journal_entry_id TEXT NOT NULL UNIQUE REFERENCES journal_entries(id) ON DELETE CASCADE,
@@ -323,6 +332,28 @@ def init_db() -> None:
             pass
         try:
             conn.execute("CREATE INDEX IF NOT EXISTS idx_warehouse_records_section ON warehouse_records(section);")
+        except Exception:
+            pass
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS warehouse_products (
+                    id TEXT PRIMARY KEY,
+                    section TEXT NOT NULL DEFAULT 'JAS',
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    created_at TEXT DEFAULT now()::text
+                );
+            """)
+            conn.execute("ALTER TABLE warehouse_products ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_warehouse_products_section_name ON warehouse_products(section, LOWER(name));")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_warehouse_products_status ON warehouse_products(status);")
+            conn.execute("""
+                INSERT INTO warehouse_products (id, section, name, status, created_at)
+                SELECT gen_random_uuid()::text, COALESCE(section, 'JAS'), TRIM(product_name), 'active', now()::text
+                FROM warehouse_records
+                WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                ON CONFLICT (section, LOWER(name)) DO NOTHING;
+            """)
         except Exception:
             pass
         for col_name in ("revenue_mode", "quantity", "per_item_rate", "value", "bata_percentage", "bata_value", "depo", "delivery_location", "product_name", "bata_type", "fixed_bata_amount"):
