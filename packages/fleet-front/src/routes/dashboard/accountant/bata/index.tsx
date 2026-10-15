@@ -16,13 +16,13 @@ import {
 	SearchIcon,
 	UserIcon,
 } from "lucide-react";
-import { Suspense, useDeferredValue, useState } from "react";
+import { Suspense, useDeferredValue } from "react";
 import * as v from "valibot";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { BataSearchAutocomplete } from "./-index/bata-search-autocomplete";
 import {
 	Select,
 	SelectContent,
@@ -57,6 +57,7 @@ const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
 	limit: v.optional(v.fallback(v.number(), 20), 20),
 	search: v.optional(v.string()),
+	driverId: v.optional(v.string()),
 	status: v.optional(statusSchema, "all"),
 	period: v.optional(periodSchema, "all_time"),
 	startDate: v.optional(v.string()),
@@ -113,10 +114,11 @@ interface BataListResponse {
 
 export const Route = createFileRoute("/dashboard/accountant/bata/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, status, period, startDate, endDate, sortBy, sortOrder } }) => ({
+	loaderDeps: ({ search: { offset, limit, search, driverId, status, period, startDate, endDate, sortBy, sortOrder } }) => ({
 		offset,
 		limit,
 		search,
+		driverId,
 		status,
 		period,
 		startDate,
@@ -127,7 +129,10 @@ export const Route = createFileRoute("/dashboard/accountant/bata/")({
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
 		queryClient.prefetchQuery(
 			(orpc as any).accountant.bata.list.queryOptions({
-				input: query,
+				input: {
+					...query,
+					search: query.driverId ? undefined : query.search,
+				},
 			}),
 		);
 	},
@@ -168,7 +173,8 @@ function BataList() {
 			input: {
 				limit: query.limit,
 				offset: query.offset,
-				search: query.search,
+				search: query.driverId ? undefined : query.search,
+				driverId: query.driverId,
 				status: query.status,
 				period: query.period,
 				startDate: query.startDate,
@@ -179,34 +185,44 @@ function BataList() {
 		}),
 	});
 
-	const [searchInput, setSearchInput] = useState(query.search || "");
-
 	const handleStatusChange = (newStatus: string) => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: { ...query, status: newStatus as "all" | "paid" | "unpaid", offset: 0 },
+			search: (prev) => ({ ...prev, status: newStatus as "all" | "paid" | "unpaid", offset: 0 }),
 		});
 	};
 
 	const handlePeriodChange = (newPeriod: string) => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: { ...query, period: newPeriod as any, offset: 0 },
+			search: (prev) => ({ ...prev, period: newPeriod as any, offset: 0 }),
 		});
 	};
 
-	const handleSearchSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
+	const handleSearchChange = (newSearch: string | undefined, newDriverId: string | undefined) => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: { ...query, search: searchInput || undefined, offset: 0 },
+			search: (prev) => {
+				const next = { ...prev, offset: 0 };
+				if (newSearch) {
+					next.search = newSearch;
+				} else {
+					delete next.search;
+				}
+				if (newDriverId) {
+					next.driverId = newDriverId;
+				} else {
+					delete next.driverId;
+				}
+				return next;
+			},
 		});
 	};
 
 	const handleSort = (sortBy: string, sortOrder: string) => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: { ...query, sortBy: sortBy as any, sortOrder: sortOrder as any },
+			search: (prev) => ({ ...prev, sortBy: sortBy as any, sortOrder: sortOrder as any }),
 		});
 	};
 
@@ -345,6 +361,12 @@ function BataList() {
 	];
 
 	const items = data?.data ?? [];
+	const total = data?.meta.total ?? 0;
+	const offset = query.offset ?? 0;
+	const limit = query.limit ?? 20;
+	const totalPages = Math.max(1, Math.ceil(total / limit));
+	const currentPage = Math.floor(offset / limit) + 1;
+
 	const table = useReactTable({
 		data: items,
 		columns,
@@ -419,16 +441,12 @@ function BataList() {
 				</Tabs>
 
 				<div className="flex flex-wrap items-center gap-3">
-					<form onSubmit={handleSearchSubmit} className="relative flex-1 md:w-64">
-						<SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-						<Input
-							type="search"
-							placeholder="Search driver, vehicle, product..."
-							className="pl-8"
-							value={searchInput}
-							onChange={(e) => setSearchInput(e.target.value)}
-						/>
-					</form>
+					<BataSearchAutocomplete
+						initialSearch={query.search}
+						initialDriverId={query.driverId}
+						onSearchChange={handleSearchChange}
+						className="flex-1 md:w-72"
+					/>
 
 					<Select value={query.period || "all_time"} onValueChange={handlePeriodChange}>
 						<SelectTrigger className="w-[160px]">
@@ -490,6 +508,46 @@ function BataList() {
 					</TableBody>
 				</Table>
 			</div>
+
+			{/* Pagination Controls */}
+			{total > 0 && (
+				<div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground px-1">
+					<div>
+						Showing {offset + 1} to {Math.min(offset + limit, total)} of {total} records
+					</div>
+					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() =>
+								navigate({
+									to: "/dashboard/accountant/bata",
+									search: (prev) => ({ ...prev, offset: Math.max(0, offset - limit) }),
+								})
+							}
+							disabled={offset === 0}
+						>
+							Previous
+						</Button>
+						<span className="text-xs font-medium px-2">
+							Page {currentPage} of {totalPages}
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() =>
+								navigate({
+									to: "/dashboard/accountant/bata",
+									search: (prev) => ({ ...prev, offset: offset + limit }),
+								})
+							}
+							disabled={offset + limit >= total}
+						>
+							Next
+						</Button>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

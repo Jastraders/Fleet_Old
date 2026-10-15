@@ -278,7 +278,7 @@ def orpc_delete_vehicle(user):
 def orpc_list_drivers(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
-    limit = min(int(payload.get("limit", 20)), 100)
+    limit = min(int(payload.get("limit", 20)), 500)
     search = payload.get("search")
     sort_by = payload.get("sortBy", "createdAt")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
@@ -286,7 +286,7 @@ def orpc_list_drivers(user):
     where_clauses: list[str] = []
     where_params: list[Any] = []
     if search:
-        where_clauses.append("(d.name LIKE ? OR d.phone_number LIKE ?)")
+        where_clauses.append("(d.name ILIKE ? OR d.phone_number ILIKE ?)")
         search_term = f"%{search}%"
         where_params.extend([search_term, search_term])
 
@@ -1365,7 +1365,7 @@ def orpc_list_bata(user):
         where_clauses.append("SUBSTR(COALESCE(b.bata_date, t.transaction_date), 1, 10) <= ?")
         where_params.append(current_end)
 
-    if search:
+    if search and not driver_id:
         search_term = f"%{search}%"
         where_clauses.append("(COALESCE(d.name, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(b.product_name, '') ILIKE ?)")
         where_params.extend([search_term, search_term, search_term, search_term])
