@@ -9,6 +9,8 @@ import {
 	XIcon,
 	ExternalLinkIcon,
 	EyeIcon,
+	RotateCcwIcon,
+	AlertCircleIcon,
 } from "lucide-react";
 import { orpc } from "@/orpc";
 import { Button } from "@/components/ui/button";
@@ -34,6 +36,7 @@ import { cn, formatINR } from "@/lib/utils";
 
 const periodSchema = v.picklist([
 	"all_time",
+	"last_7d",
 	"last_30d",
 	"last_3m",
 	"last_6m",
@@ -63,12 +66,18 @@ export const Route = createFileRoute("/dashboard/admin/revenue/")({
 		limit,
 	}),
 	loader: ({ context: { orpc: orpcClient, queryClient }, deps: query }) => {
+		const isDateRangeInvalid = !!(
+			query.period === "custom" &&
+			query.startDate &&
+			query.endDate &&
+			query.startDate > query.endDate
+		);
 		queryClient.prefetchQuery(
 			orpcClient.admin.revenue.list.queryOptions({
 				input: {
 					period: query.period,
-					startDate: query.startDate,
-					endDate: query.endDate,
+					startDate: isDateRangeInvalid ? undefined : query.startDate,
+					endDate: isDateRangeInvalid ? undefined : query.endDate,
 					search: query.search,
 					limit: query.limit,
 					offset: query.offset,
@@ -81,6 +90,7 @@ export const Route = createFileRoute("/dashboard/admin/revenue/")({
 
 const periodOptions = [
 	{ value: "all_time", label: "All time" },
+	{ value: "last_7d", label: "Last 7 days" },
 	{ value: "last_30d", label: "Last 30 days" },
 	{ value: "last_3m", label: "Last 3 months" },
 	{ value: "last_6m", label: "Last 6 months" },
@@ -106,12 +116,19 @@ function RevenueTableContent() {
 	const endDate = query.endDate || "";
 	const search = query.search || "";
 
+	const isDateRangeInvalid = !!(
+		query.period === "custom" &&
+		query.startDate &&
+		query.endDate &&
+		query.startDate > query.endDate
+	);
+
 	const { data } = useSuspenseQuery({
 		...orpc.admin.revenue.list.queryOptions({
 			input: {
 				period: deferredQuery.period,
-				startDate: deferredQuery.startDate,
-				endDate: deferredQuery.endDate,
+				startDate: isDateRangeInvalid ? undefined : deferredQuery.startDate,
+				endDate: isDateRangeInvalid ? undefined : deferredQuery.endDate,
 				search: deferredQuery.search,
 				limit: deferredQuery.limit,
 				offset: deferredQuery.offset,
@@ -242,21 +259,48 @@ function RevenueTableContent() {
 					</Select>
 
 					{period === "custom" && (
-						<div className="flex items-center gap-1.5">
-							<CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-							<Input
-								type="date"
-								value={startDate}
-								onChange={(e) => handleDateChange("startDate", e.target.value)}
-								className="h-9 w-32 text-xs"
-							/>
-							<span className="text-muted-foreground text-xs">to</span>
-							<Input
-								type="date"
-								value={endDate}
-								onChange={(e) => handleDateChange("endDate", e.target.value)}
-								className="h-9 w-32 text-xs"
-							/>
+						<div className="flex flex-wrap items-center gap-1.5">
+							<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
+								<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
+								<Input
+									type="date"
+									aria-label="Start date"
+									value={startDate}
+									max={endDate || undefined}
+									onChange={(e) => handleDateChange("startDate", e.target.value)}
+									className={cn(
+										"h-8 w-32 text-xs bg-background",
+										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+									)}
+								/>
+								<span className="text-muted-foreground text-xs px-0.5">to</span>
+								<Input
+									type="date"
+									aria-label="End date"
+									value={endDate}
+									min={startDate || undefined}
+									onChange={(e) => handleDateChange("endDate", e.target.value)}
+									className={cn(
+										"h-8 w-32 text-xs bg-background",
+										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+									)}
+								/>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => handlePeriodChange("all_time")}
+									title="Reset date range to All Time"
+									className="h-8 w-8 text-muted-foreground hover:text-foreground"
+								>
+									<RotateCcwIcon className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+							{isDateRangeInvalid && (
+								<div className="flex items-center gap-1 text-xs text-destructive font-medium">
+									<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+									<span>Start date cannot be later than end date</span>
+								</div>
+							)}
 						</div>
 					)}
 				</div>

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Any
 
 from flask import jsonify, request
@@ -573,6 +574,15 @@ def orpc_list_entries(user):
     where_clauses: list[str] = []
     where_params: list[Any] = []
 
+    if period == "custom" and start_date_str and end_date_str:
+        try:
+            d_s = datetime.fromisoformat(start_date_str.replace("Z", "")).date()
+            d_e = datetime.fromisoformat(end_date_str.replace("Z", "")).date()
+            if d_s > d_e:
+                return rpc_error("Start date cannot be later than end date.", 400)
+        except (ValueError, TypeError):
+            return rpc_error("Invalid date format. Expected YYYY-MM-DD.", 400)
+
     current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     if current_start:
         where_clauses.append("SUBSTR(COALESCE(t.transaction_date, j.created_at), 1, 10) >= ?")
@@ -687,6 +697,15 @@ def orpc_list_expenses(user):
 
     where_clauses = ["i.type = 'debit'"]
     where_params: list[Any] = []
+
+    if period == "custom" and start_date_str and end_date_str:
+        try:
+            d_s = datetime.fromisoformat(start_date_str.replace("Z", "")).date()
+            d_e = datetime.fromisoformat(end_date_str.replace("Z", "")).date()
+            if d_s > d_e:
+                return rpc_error("Start date cannot be later than end date.", 400)
+        except (ValueError, TypeError):
+            return rpc_error("Invalid date format. Expected YYYY-MM-DD.", 400)
 
     current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     if current_start:
@@ -1331,7 +1350,7 @@ def orpc_delete_entry(user):
 def orpc_list_bata(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
-    limit = min(int(payload.get("limit", 20)), 100)
+    limit = min(int(payload.get("limit", 20)), 10000)
     search = payload.get("search")
     status_filter = payload.get("status", "all")
     period = payload.get("period", "all_time")
@@ -1356,6 +1375,15 @@ def orpc_list_bata(user):
     if vehicle_id:
         where_clauses.append("b.vehicle_id = ?")
         where_params.append(vehicle_id)
+
+    if period == "custom" and start_date_str and end_date_str:
+        try:
+            d_s = datetime.fromisoformat(start_date_str.replace("Z", "")).date()
+            d_e = datetime.fromisoformat(end_date_str.replace("Z", "")).date()
+            if d_s > d_e:
+                return rpc_error("Start date cannot be later than end date.", 400)
+        except (ValueError, TypeError):
+            return rpc_error("Invalid date format. Expected YYYY-MM-DD.", 400)
 
     current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     if current_start:
@@ -2025,6 +2053,15 @@ def orpc_list_admin_revenue(user):
 
     where_clauses = ["i.type = 'credit'"]
     where_params: list[Any] = []
+
+    if period == "custom" and start_date_str and end_date_str:
+        try:
+            d_s = datetime.fromisoformat(start_date_str.replace("Z", "")).date()
+            d_e = datetime.fromisoformat(end_date_str.replace("Z", "")).date()
+            if d_s > d_e:
+                return rpc_error("Start date cannot be later than end date.", 400)
+        except (ValueError, TypeError):
+            return rpc_error("Invalid date format. Expected YYYY-MM-DD.", 400)
 
     current_start, current_end, _, _ = period_date_bounds(period, start_date_str, end_date_str)
     if current_start:

@@ -7,17 +7,35 @@ import {
 	BoxesIcon,
 	WarehouseIcon,
 	Trash2Icon,
-	CheckCircle2Icon,
 	CalendarIcon,
 	SearchIcon,
 	XIcon,
 	PackageIcon,
+	RotateCcwIcon,
+	AlertCircleIcon,
+	DownloadIcon,
+	FileTextIcon,
+	FileSpreadsheetIcon,
 } from "lucide-react";
 import { orpc } from "@/orpc";
 import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+	Select,
+	SelectContent,
+	SelectGroup,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -29,11 +47,32 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useIsAdmin, useRowAccess, AccessDeniedDialog } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	exportStatementToPdf,
+	exportStatementToExcel,
+	type ExportColumn,
+	type StatementExportOptions,
+} from "@/lib/statement-export";
+
+const periodSchema = v.fallback(
+	v.picklist(["all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"]),
+	"all_time",
+);
+
+const periodOptions = [
+	{ value: "all_time", label: "All Time" },
+	{ value: "last_7d", label: "Last 7 Days" },
+	{ value: "last_30d", label: "Last 30 Days" },
+	{ value: "last_6m", label: "Last 6 Months" },
+	{ value: "last_12m", label: "Last 12 Months" },
+	{ value: "custom", label: "Custom Range" },
+] as const;
 
 const querySchema = v.object({
 	section: v.optional(v.fallback(v.picklist(["JAS", "JKM", "General"]), "JAS"), "JAS"),
 	status: v.optional(v.fallback(v.picklist(["all", "paid", "unpaid"]), "all"), "all"),
 	product: v.optional(v.string()),
+	period: v.optional(periodSchema, "all_time"),
 	startDate: v.optional(v.string()),
 	endDate: v.optional(v.string()),
 	search: v.optional(v.string()),
@@ -43,10 +82,11 @@ const querySchema = v.object({
 
 export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { section, status, product, startDate, endDate, search, offset, limit } }) => ({
+	loaderDeps: ({ search: { section, status, product, period, startDate, endDate, search, offset, limit } }) => ({
 		section,
 		status,
 		product,
+		period,
 		startDate,
 		endDate,
 		search,
@@ -54,14 +94,21 @@ export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 		limit,
 	}),
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
+		const isDateRangeInvalid = !!(
+			query.period === "custom" &&
+			query.startDate &&
+			query.endDate &&
+			query.startDate > query.endDate
+		);
 		queryClient.prefetchQuery(
 			orpc.admin.warehouse.list.queryOptions({
 				input: {
 					section: query.section,
-					status: query.status,
+					status: "all",
 					product: query.product,
-					startDate: query.startDate,
-					endDate: query.endDate,
+					period: query.period,
+					startDate: isDateRangeInvalid ? undefined : query.startDate,
+					endDate: isDateRangeInvalid ? undefined : query.endDate,
 					search: query.search,
 					limit: query.limit,
 					offset: query.offset,
@@ -91,9 +138,17 @@ function WarehouseList() {
 	const activeSection: WarehouseSection = (query.section as WarehouseSection) || "JAS";
 	const activeStatus = query.status || "all";
 	const activeProduct = query.product || "all";
+	const period = query.period || "all_time";
 	const startDate = query.startDate || "";
 	const endDate = query.endDate || "";
 	const search = query.search || "";
+
+	const isDateRangeInvalid = !!(
+		query.period === "custom" &&
+		query.startDate &&
+		query.endDate &&
+		query.startDate > query.endDate
+	);
 
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
 	const [accessDeniedState, setAccessDeniedState] = useState<{ open: boolean; recordId: string; label: string }>({
@@ -109,14 +164,17 @@ function WarehouseList() {
 	});
 	const productList: string[] = productsData?.products || [];
 
+	const [isExporting, setIsExporting] = useState(false);
+
 	const { data } = useSuspenseQuery({
 		...orpc.admin.warehouse.list.queryOptions({
 			input: {
 				section: activeSection,
-				status: activeStatus,
+				status: "all",
 				product: deferredQuery.product,
-				startDate: deferredQuery.startDate,
-				endDate: deferredQuery.endDate,
+				period: deferredQuery.period,
+				startDate: isDateRangeInvalid ? undefined : deferredQuery.startDate,
+				endDate: isDateRangeInvalid ? undefined : deferredQuery.endDate,
 				search: deferredQuery.search,
 				limit: deferredQuery.limit,
 				offset: deferredQuery.offset,
@@ -126,14 +184,6 @@ function WarehouseList() {
 
 	const deleteMutation = useMutation({
 		...orpc.admin.warehouse.delete.mutationOptions(),
-		onSuccess: () => {
-			queryClient.invalidateQueries();
-			setSelectedIds([]);
-		},
-	});
-
-	const bulkStatusMutation = useMutation({
-		...orpc.admin.warehouse.bulk_update_status.mutationOptions(),
 		onSuccess: () => {
 			queryClient.invalidateQueries();
 			setSelectedIds([]);
@@ -179,17 +229,6 @@ function WarehouseList() {
 		});
 	};
 
-	const handleStatusChange = (status: "all" | "paid" | "unpaid") => {
-		setSelectedIds([]);
-		navigate({
-			search: (prev) => ({
-				...prev,
-				status,
-				offset: 0,
-			}),
-		});
-	};
-
 	const handleProductChange = (product: string) => {
 		setSelectedIds([]);
 		navigate({
@@ -201,13 +240,39 @@ function WarehouseList() {
 		});
 	};
 
-	const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+	const handlePeriodChange = (newPeriod: string) => {
+		setSelectedIds([]);
 		navigate({
-			search: (prev) => ({
-				...prev,
-				[field]: value || undefined,
-				offset: 0,
-			}),
+			search: (prev) => {
+				const next = { ...prev, offset: 0, period: newPeriod as any };
+				if (newPeriod === "custom") {
+					const today = new Date().toISOString().split("T")[0];
+					const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+						.toISOString()
+						.split("T")[0];
+					next.startDate = prev.startDate || thirtyDaysAgo;
+					next.endDate = prev.endDate || today;
+				} else {
+					delete next.startDate;
+					delete next.endDate;
+				}
+				return next;
+			},
+		});
+	};
+
+	const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+		setSelectedIds([]);
+		navigate({
+			search: (prev) => {
+				const next = { ...prev, offset: 0, period: "custom" as any };
+				if (value) {
+					next[field] = value;
+				} else {
+					delete next[field];
+				}
+				return next;
+			},
 		});
 	};
 
@@ -245,10 +310,133 @@ function WarehouseList() {
 		deleteMutation.mutate({ id, reason });
 	};
 
-	const handleBulkMarkAsPaid = () => {
-		if (selectedIds.length === 0) return;
-		if (confirm(`Are you sure you want to mark ${selectedIds.length} records as PAID?`)) {
-			bulkStatusMutation.mutate({ ids: selectedIds, status: "paid" });
+	const handleExport = async (format: "pdf" | "excel") => {
+		if (!data || data.meta.total === 0) {
+			alert("No records to export for the selected filters.");
+			return;
+		}
+
+		setIsExporting(true);
+		try {
+			let exportRecords = data.data;
+			if (data.meta.total > data.data.length) {
+				const fullResult = await queryClient.fetchQuery(
+					orpc.admin.warehouse.list.queryOptions({
+						input: {
+							section: activeSection,
+							status: "all",
+							product: deferredQuery.product,
+							period: deferredQuery.period,
+							startDate: isDateRangeInvalid ? undefined : deferredQuery.startDate,
+							endDate: isDateRangeInvalid ? undefined : deferredQuery.endDate,
+							search: deferredQuery.search,
+							limit: 10000,
+							offset: 0,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data;
+				}
+			}
+
+			const formatCurrency = (val: number) => {
+				return `Rs. ${(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+			};
+
+			let grandTotalUnloads = 0;
+			let grandTotalOwnSalary = 0;
+			let grandTotalUnionSalary = 0;
+			let grandTotalValue = 0;
+			let grandTotalRegularWorkers = 0;
+			let grandTotalUnionWorkers = 0;
+
+			for (const r of exportRecords) {
+				grandTotalUnloads += Number(r.totalUnloads || 0);
+				grandTotalOwnSalary += Number(r.totalWorkersSalary || 0);
+				grandTotalUnionSalary += Number(r.totalUnionSalary || 0);
+				grandTotalValue += Number(r.totalValue || 0);
+				grandTotalRegularWorkers += Number(r.workersCount || 0);
+				grandTotalUnionWorkers += Number(r.unionCount || 0);
+			}
+
+			const columns: ExportColumn[] = [
+				{ header: "Date", key: "recordDate", width: 70, align: "left" },
+				{ header: "Product Name", key: "productName", width: 100, align: "left" },
+				{ header: "Total Worker", key: "totalWorker", width: 65, align: "right" },
+				{ header: "Regular Worker", key: "regularWorker", width: 70, align: "right" },
+				{ header: "Union Worker", key: "unionWorker", width: 65, align: "right" },
+				{ header: "Per Bag Price", key: "ratePerUnload", width: 70, align: "right" },
+				{ header: "Quantity (Unloads)", key: "totalUnloads", width: 85, align: "right" },
+				{ header: "Own Staff Salary", key: "ownStaffSalary", width: 85, align: "right" },
+				{ header: "Union Salary", key: "unionSalary", width: 80, align: "right" },
+				{ header: "Total Value", key: "totalValue", width: 80, align: "right" },
+			];
+
+			const rows = exportRecords.map((r: any) => ({
+				recordDate: r.recordDate,
+				productName: r.productName || "—",
+				totalWorker: (r.workersCount || 0) + (r.unionCount || 0),
+				regularWorker: r.workersCount || 0,
+				unionWorker: r.unionCount || 0,
+				ratePerUnload: formatCurrency(r.ratePerUnload),
+				totalUnloads: r.totalUnloads || 0,
+				ownStaffSalary: formatCurrency(r.totalWorkersSalary),
+				unionSalary: formatCurrency(r.totalUnionSalary),
+				totalValue: formatCurrency(r.totalValue),
+			}));
+
+			const grandTotalRow = {
+				recordDate: "GRAND TOTAL",
+				productName: `${exportRecords.length} Records`,
+				totalWorker: grandTotalRegularWorkers + grandTotalUnionWorkers,
+				regularWorker: grandTotalRegularWorkers,
+				unionWorker: grandTotalUnionWorkers,
+				ratePerUnload: "—",
+				totalUnloads: grandTotalUnloads,
+				ownStaffSalary: formatCurrency(grandTotalOwnSalary),
+				unionSalary: formatCurrency(grandTotalUnionSalary),
+				totalValue: formatCurrency(grandTotalValue),
+			};
+
+			const periodLabel =
+				period === "custom" && startDate && endDate
+					? `${startDate} to ${endDate}`
+					: periodOptions.find((p) => p.value === period)?.label || period;
+
+			const options: StatementExportOptions = {
+				filename: `${activeSection}_Warehouse_Statement_${new Date().toISOString().split("T")[0]}`,
+				title: `${activeTheme.label} Statement`,
+				subtitle: "Labor Wages, Unload Logs and Financial Summary",
+				themeColor:
+					activeSection === "JAS"
+						? { r: 0.145, g: 0.388, b: 0.921 }
+						: activeSection === "JKM"
+							? { r: 0.486, g: 0.227, b: 0.929 }
+							: { r: 0.918, g: 0.345, b: 0.047 },
+				metadata: {
+					"Section": activeTheme.label,
+					"Date Range": periodLabel,
+					"Product": activeProduct === "all" ? "All Products" : activeProduct,
+					"Search": search || "All",
+					"Generated": new Date().toLocaleString("en-IN"),
+					"Total Entries": `${exportRecords.length} records`,
+				},
+				columns,
+				rows,
+				grandTotalRow,
+			};
+
+			if (format === "pdf") {
+				exportStatementToPdf(options);
+			} else {
+				exportStatementToExcel(options);
+			}
+		} catch (err: any) {
+			console.error("Export error:", err);
+			alert("Failed to export statement: " + (err?.message || "Unknown error"));
+		} finally {
+			setIsExporting(false);
 		}
 	};
 
@@ -326,7 +514,27 @@ function WarehouseList() {
 						Independent warehouse records, labour wages, and unloading logs.
 					</p>
 				</div>
-				<div className="flex gap-4">
+				<div className="flex items-center gap-2">
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
+								<Button variant="outline" disabled={isExporting || isEmpty}>
+									<DownloadIcon className="h-4 w-4 mr-1.5" />
+									{isExporting ? "Exporting..." : "Download"}
+								</Button>
+							}
+						/>
+						<DropdownMenuContent align="end" className="w-44">
+							<DropdownMenuItem onClick={() => handleExport("pdf")}>
+								<FileTextIcon className="h-4 w-4 mr-2 text-rose-500" />
+								Download PDF
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => handleExport("excel")}>
+								<FileSpreadsheetIcon className="h-4 w-4 mr-2 text-emerald-600" />
+								Download Excel
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 					<WarehouseDialog key={activeSection} mode="create" defaultSection={activeSection} />
 				</div>
 			</div>
@@ -398,26 +606,8 @@ function WarehouseList() {
 
 			{/* Filters & Search Bar */}
 			<div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-lg border bg-card">
-				{/* Status Tabs */}
-				<div className="flex gap-1 bg-muted p-1 rounded-md">
-					{(["all", "unpaid", "paid"] as const).map((tab) => (
-						<button
-							key={tab}
-							onClick={() => handleStatusChange(tab)}
-							className={cn(
-								"px-3 py-1 text-xs font-semibold rounded-sm capitalize transition-colors",
-								activeStatus === tab
-									? "bg-background text-foreground shadow-2xs"
-									: "text-muted-foreground hover:text-foreground"
-							)}
-						>
-							{tab} Records
-						</button>
-					))}
-				</div>
-
 				{/* Search, Product Filter & Custom Date Filter */}
-				<div className="flex flex-wrap items-center gap-3 text-sm">
+				<div className="flex flex-wrap items-center gap-3 text-sm w-full">
 					{/* Product Filter */}
 					<div className="flex items-center gap-1.5">
 						<PackageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -464,34 +654,67 @@ function WarehouseList() {
 						)}
 					</div>
 
-					{/* Date Range Picker */}
-					<div className="flex items-center gap-1.5">
-						<CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-						<Input
-							type="date"
-							value={startDate}
-							onChange={(e) => handleDateChange("startDate", e.target.value)}
-							className="h-9 w-32 text-xs"
-						/>
-						<span className="text-muted-foreground text-xs">to</span>
-						<Input
-							type="date"
-							value={endDate}
-							onChange={(e) => handleDateChange("endDate", e.target.value)}
-							className="h-9 w-32 text-xs"
-						/>
-						{(startDate || endDate) && (
-							<Button
-								variant="ghost"
-								size="sm"
-								className="h-9 px-2 text-xs text-muted-foreground"
-								onClick={() => {
-									handleDateChange("startDate", "");
-									handleDateChange("endDate", "");
-								}}
-							>
-								Clear
-							</Button>
+					{/* Date Filter & Period Select */}
+					<div className="flex flex-wrap items-center gap-2">
+						<Select value={period} onValueChange={handlePeriodChange}>
+							<SelectTrigger className="w-[145px] h-9 text-xs">
+								<SelectValue placeholder="Period" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{periodOptions.map((option) => (
+										<SelectItem key={option.value} value={option.value} className="text-xs">
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+
+						{period === "custom" && (
+							<div className="flex flex-wrap items-center gap-1.5">
+								<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
+									<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
+									<Input
+										type="date"
+										aria-label="Start date"
+										value={startDate}
+										max={endDate || undefined}
+										onChange={(e) => handleDateChange("startDate", e.target.value)}
+										className={cn(
+											"h-8 w-32 text-xs bg-background",
+											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive"
+										)}
+									/>
+									<span className="text-muted-foreground text-xs px-0.5">to</span>
+									<Input
+										type="date"
+										aria-label="End date"
+										value={endDate}
+										min={startDate || undefined}
+										onChange={(e) => handleDateChange("endDate", e.target.value)}
+										className={cn(
+											"h-8 w-32 text-xs bg-background",
+											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive"
+										)}
+									/>
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => handlePeriodChange("all_time")}
+										title="Reset date range to All Time"
+										className="h-8 w-8 text-muted-foreground hover:text-foreground"
+									>
+										<RotateCcwIcon className="h-3.5 w-3.5" />
+									</Button>
+								</div>
+								{isDateRangeInvalid && (
+									<div className="flex items-center gap-1 text-xs text-destructive font-medium">
+										<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+										<span>Start date cannot be later than end date</span>
+									</div>
+								)}
+							</div>
 						)}
 					</div>
 				</div>
@@ -512,10 +735,6 @@ function WarehouseList() {
 						</div>
 					</div>
 					<div className="flex gap-2">
-						<Button size="sm" onClick={handleBulkMarkAsPaid} className="bg-green-600 hover:bg-green-700 text-white">
-							<CheckCircle2Icon className="h-4 w-4 mr-1" />
-							Mark as Paid
-						</Button>
 						<Button size="sm" variant="outline" onClick={() => setSelectedIds([])}>
 							Clear Selection
 						</Button>
@@ -526,7 +745,7 @@ function WarehouseList() {
 			{/* Records Table */}
 			{isEmpty ? (
 				<div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-card text-center space-y-2">
-					<p className="text-muted-foreground text-sm">No {activeSection} records found under "{activeStatus}".</p>
+					<p className="text-muted-foreground text-sm">No {activeTheme.label} records found.</p>
 					{(startDate || endDate || search) && (
 						<p className="text-xs text-muted-foreground">Try clearing date or search filters.</p>
 					)}
@@ -544,14 +763,14 @@ function WarehouseList() {
 								</TableHead>
 								<TableHead>Date</TableHead>
 								<TableHead>Product Name</TableHead>
+								<TableHead className="text-right">Total Worker</TableHead>
 								<TableHead className="text-right">Regular Worker</TableHead>
 								<TableHead className="text-right">Union Worker</TableHead>
 								<TableHead className="text-right">Per Bag Price</TableHead>
-								<TableHead className="text-right">Quantity</TableHead>
-								<TableHead className="text-right">Total Value</TableHead>
-								<TableHead className="text-right">Union Salary</TableHead>
+								<TableHead className="text-right">Quantity (Unloads)</TableHead>
 								<TableHead className="text-right">Own Staff Salary</TableHead>
-								<TableHead className="text-center">Status</TableHead>
+								<TableHead className="text-right">Union Salary</TableHead>
+								<TableHead className="text-right">Total Value</TableHead>
 								<TableHead className="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -580,26 +799,14 @@ function WarehouseList() {
 											</div>
 										</TableCell>
 										<TableCell className="font-medium">{record.productName || "—"}</TableCell>
+										<TableCell className="text-right font-semibold">{record.workersCount + record.unionCount}</TableCell>
 										<TableCell className="text-right font-medium">{record.workersCount}</TableCell>
 										<TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">{record.unionCount}</TableCell>
 										<TableCell className="text-right">{formatWarehouseCurrency(record.ratePerUnload)}</TableCell>
 										<TableCell className="text-right font-semibold">{record.totalUnloads}</TableCell>
-										<TableCell className="text-right font-bold text-foreground">{formatWarehouseCurrency(record.totalValue)}</TableCell>
-										<TableCell className="text-right text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(record.totalUnionSalary)}</TableCell>
 										<TableCell className="text-right font-bold text-primary">{formatWarehouseCurrency(record.totalWorkersSalary)}</TableCell>
-										<TableCell className="text-center whitespace-nowrap">
-											<span
-												className={cn(
-													"inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold select-none",
-													record.status === "paid"
-														? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-														: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-												)}
-											>
-												<span className={cn("h-1.5 w-1.5 rounded-full", record.status === "paid" ? "bg-green-500" : "bg-amber-500")} />
-												{record.status}
-											</span>
-										</TableCell>
+										<TableCell className="text-right text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(record.totalUnionSalary)}</TableCell>
+										<TableCell className="text-right font-bold text-foreground">{formatWarehouseCurrency(record.totalValue)}</TableCell>
 										<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
 											<div className="flex items-center justify-end gap-1">
 												<WarehouseDialog

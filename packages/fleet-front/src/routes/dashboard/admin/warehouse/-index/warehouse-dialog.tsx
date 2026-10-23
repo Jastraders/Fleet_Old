@@ -33,7 +33,7 @@ const warehouseFormSchema = v.object({
 	unionCount: v.union([v.number(), v.string()]),
 	ratePerUnload: v.union([v.number(), v.string()]),
 	totalUnloads: v.union([v.number(), v.string()]),
-	status: v.picklist(["paid", "unpaid"]),
+	status: v.optional(v.picklist(["paid", "unpaid"])),
 	reason: v.optional(v.string()),
 });
 
@@ -54,7 +54,7 @@ export interface WarehouseDialogProps {
 		totalUnloads: number;
 		unionSum?: number;
 		ownStaffAmount?: number;
-		status: "paid" | "unpaid";
+		status?: "paid" | "unpaid";
 		reason?: string;
 	};
 	onSuccess?: () => void;
@@ -300,7 +300,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			unionCount: mode === "edit" ? (initialValues?.unionCount ?? "") : "",
 			ratePerUnload: mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "3.50",
 			totalUnloads: mode === "edit" ? (initialValues?.totalUnloads ?? "") : "",
-			status: initialValues?.status ?? "unpaid",
+			status: initialValues?.status ?? "paid",
 			reason: "",
 		},
 		validators: {
@@ -340,7 +340,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 				totalUnloads: unloads,
 				unionSum: unionSalary,
 				ownStaffAmount: ownStaffSalary,
-				status: value.status as "paid" | "unpaid",
+				status: (value.status || initialValues?.status || "paid") as "paid" | "unpaid",
 				reason: value.reason,
 			};
 
@@ -400,7 +400,7 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 						</DialogHeader>
 
 						<FieldGroup className="my-4 space-y-4">
-							<div className="grid grid-cols-2 gap-4">
+							<div>
 								<form.Field name="recordDate">
 									{(field) => (
 										<Field>
@@ -410,23 +410,6 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 												value={field.state.value}
 												onChange={(e) => field.handleChange(e.target.value)}
 											/>
-											<FieldError errors={field.state.meta.errors} />
-										</Field>
-									)}
-								</form.Field>
-
-								<form.Field name="status">
-									{(field) => (
-										<Field>
-											<FieldLabel>Payment Status</FieldLabel>
-											<select
-												value={field.state.value}
-												onChange={(e) => field.handleChange(e.target.value as "paid" | "unpaid")}
-												className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-											>
-												<option value="unpaid">Unpaid</option>
-												<option value="paid">Paid</option>
-											</select>
 											<FieldError errors={field.state.meta.errors} />
 										</Field>
 									)}

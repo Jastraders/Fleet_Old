@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime
 from typing import Any
 from flask import jsonify, request
 from database import connect, rows_to_dicts
-from fleet_backend.common import require_auth, rpc_error, rpc_payload, rpc_response, now_iso, with_meta
+from fleet_backend.common import require_auth, rpc_error, rpc_payload, rpc_response, now_iso, with_meta, period_date_bounds
 from fleet_backend.server import app
 
 def check_warehouse_permission(conn: Any, user: dict[str, Any], resource_id: str, action: str) -> bool:
@@ -89,11 +90,12 @@ def serialize_warehouse_row(row: dict) -> dict:
 def orpc_list_warehouse(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
-    limit = min(int(payload.get("limit", 100)), 200)
+    limit = min(int(payload.get("limit", 100)), 10000)
     section = payload.get("section", "JAS")
     status_filter = payload.get("status", "all")  # "all" | "paid" | "unpaid"
-    start_date = payload.get("startDate")
-    end_date = payload.get("endDate")
+    period = payload.get("period", "all_time")
+    start_date_str = payload.get("startDate")
+    end_date_str = payload.get("endDate")
     search = (payload.get("search") or "").strip()
     product = (payload.get("product") or "").strip()
 
@@ -107,13 +109,33 @@ def orpc_list_warehouse(user):
         where_clauses.append("w.status = ?")
         params.append(status_filter)
 
-    if start_date:
-        where_clauses.append("SUBSTR(w.record_date, 1, 10) >= ?")
-        params.append(start_date)
+    # Validate custom date range
+    if (period == "custom" or (start_date_str and end_date_str)) and start_date_str and end_date_str:
+        try:
+            d_s = datetime.fromisoformat(start_date_str.replace("Z", "")).date()
+            d_e = datetime.fromisoformat(end_date_str.replace("Z", "")).date()
+            if d_s > d_e:
+                return rpc_error("Start date cannot be later than end date.", 400)
+        except (ValueError, TypeError):
+            return rpc_error("Invalid date format. Expected YYYY-MM-DD.", 400)
 
-    if end_date:
+    effective_period = period
+    if not payload.get("period") and (start_date_str or end_date_str):
+        effective_period = "custom"
+
+    current_start, current_end, _, _ = period_date_bounds(effective_period, start_date_str, end_date_str)
+    if not current_start and start_date_str and effective_period == "custom":
+        current_start = start_date_str[:10]
+    if not current_end and end_date_str and effective_period == "custom":
+        current_end = end_date_str[:10]
+
+    if current_start:
+        where_clauses.append("SUBSTR(w.record_date, 1, 10) >= ?")
+        params.append(current_start)
+
+    if current_end:
         where_clauses.append("SUBSTR(w.record_date, 1, 10) <= ?")
-        params.append(end_date)
+        params.append(current_end)
 
     if product and product != "all":
         where_clauses.append("LOWER(TRIM(w.product_name)) = ?")
@@ -227,7 +249,7 @@ def orpc_create_warehouse(user):
         record_date = payload.get("recordDate")
         firm_name = (payload.get("firmName") or "").strip()
         product_name = (payload.get("productName") or "").strip()
-        status = payload.get("status", "unpaid")
+        status = payload.get("status") or "paid"
     except (ValueError, TypeError):
         return rpc_error("Invalid numerical input values.", 400)
 

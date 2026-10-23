@@ -63,6 +63,12 @@ export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 		sortOrder,
 	}),
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
+		const isDateRangeInvalid = !!(
+			query.period === "custom" &&
+			query.startDate &&
+			query.endDate &&
+			query.startDate > query.endDate
+		);
 		queryClient.prefetchQuery(
 			orpc.accountant.journalEntries.list.queryOptions({
 				input: {
@@ -70,8 +76,8 @@ export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 					offset: query.offset,
 					search: query.search,
 					period: query.period,
-					startDate: query.startDate,
-					endDate: query.endDate,
+					startDate: isDateRangeInvalid ? undefined : query.startDate,
+					endDate: isDateRangeInvalid ? undefined : query.endDate,
 					sortBy: query.sortBy,
 					sortOrder: query.sortOrder,
 				},
@@ -93,6 +99,13 @@ function EntriesList() {
 	const _query = Route.useSearch();
 	const query = useDeferredValue(_query);
 
+	const isDateRangeInvalid = !!(
+		query.period === "custom" &&
+		query.startDate &&
+		query.endDate &&
+		query.startDate > query.endDate
+	);
+
 	const { data } = useSuspenseQuery<JournalEntriesListResponse>({
 		...orpc.accountant.journalEntries.list.queryOptions({
 			input: {
@@ -100,8 +113,8 @@ function EntriesList() {
 				offset: query.offset,
 				search: query.search,
 				period: query.period,
-				startDate: query.startDate,
-				endDate: query.endDate,
+				startDate: isDateRangeInvalid ? undefined : query.startDate,
+				endDate: isDateRangeInvalid ? undefined : query.endDate,
 				sortBy: query.sortBy,
 				sortOrder: query.sortOrder,
 			},

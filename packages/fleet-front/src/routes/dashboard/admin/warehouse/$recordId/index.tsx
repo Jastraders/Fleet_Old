@@ -6,11 +6,8 @@ import {
 	BoxesIcon,
 	WarehouseIcon,
 	ArrowLeftIcon,
-	CheckCircle2Icon,
-	XCircleIcon,
 	CalendarIcon,
 	UserIcon,
-	ClockIcon,
 	PencilIcon,
 	Trash2Icon,
 	InfoIcon,
@@ -84,13 +81,6 @@ function WarehouseDetailView() {
 		}),
 	});
 
-	const updateStatusMutation = useMutation({
-		...orpc.admin.warehouse.update_status.mutationOptions(),
-		onSuccess: () => {
-			queryClient.invalidateQueries();
-		},
-	});
-
 	const deleteMutation = useMutation({
 		...orpc.admin.warehouse.delete.mutationOptions(),
 		onSuccess: () => {
@@ -98,11 +88,6 @@ function WarehouseDetailView() {
 			navigate({ to: "/dashboard/admin/warehouse" });
 		},
 	});
-
-	const handleToggleStatus = () => {
-		const nextStatus = record.status === "paid" ? "unpaid" : "paid";
-		updateStatusMutation.mutate({ id: recordId, status: nextStatus });
-	};
 
 	const handleDelete = async () => {
 		if (!isAdmin) {
@@ -155,27 +140,6 @@ function WarehouseDetailView() {
 				</div>
 
 				<div className="flex flex-wrap items-center gap-2">
-					<Button
-						variant={record.status === "paid" ? "outline" : "default"}
-						onClick={handleToggleStatus}
-						disabled={updateStatusMutation.isPending}
-						className={cn(
-							record.status === "unpaid" && "bg-green-600 hover:bg-green-700 text-white"
-						)}
-					>
-						{record.status === "paid" ? (
-							<>
-								<XCircleIcon className="h-4 w-4 mr-1 text-amber-600" />
-								Mark as Unpaid
-							</>
-						) : (
-							<>
-								<CheckCircle2Icon className="h-4 w-4 mr-1" />
-								Mark as Paid
-							</>
-						)}
-					</Button>
-
 					<WarehouseDialog
 						key={`${record.id}-${record.updatedAt || ""}`}
 						mode="edit"
@@ -207,7 +171,7 @@ function WarehouseDetailView() {
 			</div>
 
 			{/* Summary Stat Cards */}
-			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				<Card>
 					<CardHeader className="pb-2">
 						<CardDescription>Total Value</CardDescription>
@@ -241,28 +205,6 @@ function WarehouseDetailView() {
 					</CardHeader>
 					<CardContent className="text-xs text-muted-foreground">
 						Union Workers: {record.unionCount}
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="pb-2">
-						<CardDescription>Payment Status</CardDescription>
-						<CardTitle className="text-2xl font-bold capitalize">
-							<span
-								className={cn(
-									"inline-flex items-center gap-1.5 rounded-full px-3 py-0.5 text-sm font-semibold select-none",
-									record.status === "paid"
-										? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-										: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-								)}
-							>
-								<span className={cn("h-2 w-2 rounded-full", record.status === "paid" ? "bg-green-500" : "bg-amber-500")} />
-								{record.status}
-							</span>
-						</CardTitle>
-					</CardHeader>
-					<CardContent className="text-xs text-muted-foreground">
-						{record.status === "paid" && record.paidByName ? `Paid by ${record.paidByName}` : "Awaiting payment"}
 					</CardContent>
 				</Card>
 			</div>
@@ -303,7 +245,7 @@ function WarehouseDetailView() {
 
 				<Card>
 					<CardHeader>
-						<CardTitle className="text-lg">Financial Breakdown & Payment Info</CardTitle>
+						<CardTitle className="text-lg">Financial Breakdown</CardTitle>
 					</CardHeader>
 					<CardContent className="space-y-4 text-sm">
 						<div className="flex justify-between border-b pb-2">
@@ -332,33 +274,9 @@ function WarehouseDetailView() {
 				{/* Metadata & Audit Trail */}
 				<Card className="lg:col-span-2">
 					<CardHeader>
-						<CardTitle className="text-lg">Audit & Payment Metadata</CardTitle>
+						<CardTitle className="text-lg">Audit Trail & Record Info</CardTitle>
 					</CardHeader>
 					<CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-						<div className="space-y-2">
-							<div className="flex items-center gap-2 text-muted-foreground">
-								<CheckCircle2Icon className="h-4 w-4 text-green-600" />
-								<span>Payment Status:</span>
-								<strong className="text-foreground capitalize">{record.status}</strong>
-							</div>
-							{record.status === "paid" && (
-								<>
-									<div className="flex items-center gap-2 text-muted-foreground">
-										<UserIcon className="h-4 w-4" />
-										<span>Marked as Paid By:</span>
-										<strong className="text-foreground">{record.paidByName || record.paidBy || "Admin"}</strong>
-									</div>
-									<div className="flex items-center gap-2 text-muted-foreground">
-										<ClockIcon className="h-4 w-4" />
-										<span>Marked as Paid On:</span>
-										<strong className="text-foreground">
-											{record.paidAt ? new Date(record.paidAt).toLocaleString() : "N/A"}
-										</strong>
-									</div>
-								</>
-							)}
-						</div>
-
 						<div className="space-y-2">
 							<div className="flex items-center gap-2 text-muted-foreground">
 								<UserIcon className="h-4 w-4" />
@@ -372,13 +290,20 @@ function WarehouseDetailView() {
 									{record.createdAt ? new Date(record.createdAt).toLocaleString() : "N/A"}
 								</strong>
 							</div>
-							{record.reason && (
-								<div className="flex items-start gap-2 text-muted-foreground pt-1">
+						</div>
+
+						<div className="space-y-2">
+							{record.reason ? (
+								<div className="flex items-start gap-2 text-muted-foreground">
 									<InfoIcon className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
 									<div>
 										<span>Last Edit Reason:</span>
 										<p className="text-foreground font-medium italic mt-0.5">{record.reason}</p>
 									</div>
+								</div>
+							) : (
+								<div className="text-xs text-muted-foreground">
+									No edits recorded for this record.
 								</div>
 							)}
 						</div>

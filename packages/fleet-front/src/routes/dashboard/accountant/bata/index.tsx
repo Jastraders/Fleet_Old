@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	type ColumnDef,
@@ -7,25 +7,33 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import {
-	ArrowDown,
-	ArrowUp,
+	AlertCircleIcon,
 	ArrowUpDown,
-	CheckCircle2Icon,
-	ClockIcon,
+	CalendarIcon,
 	CoinsIcon,
-	SearchIcon,
+	RotateCcwIcon,
 	UserIcon,
+	DownloadIcon,
+	FileTextIcon,
+	FileSpreadsheetIcon,
 } from "lucide-react";
-import { Suspense, useDeferredValue } from "react";
+import { Suspense, useDeferredValue, useState } from "react";
 import * as v from "valibot";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { BataSearchAutocomplete } from "./-index/bata-search-autocomplete";
 import {
 	Select,
 	SelectContent,
+	SelectGroup,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
@@ -38,20 +46,30 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { parseDateValue } from "@/lib/date";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 import {
-	AccountantDownloadButton,
-	downloadExcelCompatibleCsv,
-} from "@/routes/dashboard/accountant/-shared/admin-helpers";
+	exportStatementToPdf,
+	exportStatementToExcel,
+	type ExportColumn,
+	type StatementExportOptions,
+} from "@/lib/statement-export";
 
 const statusSchema = v.fallback(v.picklist(["all", "paid", "unpaid"]), "all");
 const periodSchema = v.fallback(
 	v.picklist(["all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"]),
 	"all_time",
 );
+
+const periodOptions = [
+	{ value: "all_time", label: "All Time" },
+	{ value: "last_7d", label: "Last 7 Days" },
+	{ value: "last_30d", label: "Last 30 Days" },
+	{ value: "last_6m", label: "Last 6 Months" },
+	{ value: "last_12m", label: "Last 12 Months" },
+	{ value: "custom", label: "Custom Range" },
+] as const;
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -127,11 +145,17 @@ export const Route = createFileRoute("/dashboard/accountant/bata/")({
 		sortOrder,
 	}),
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
+		const isCustomInvalid = Boolean(
+			query.period === "custom" && query.startDate && query.endDate && query.startDate > query.endDate
+		);
 		queryClient.prefetchQuery(
 			(orpc as any).accountant.bata.list.queryOptions({
 				input: {
 					...query,
+					status: "all",
 					search: query.driverId ? undefined : query.search,
+					startDate: isCustomInvalid ? undefined : query.startDate,
+					endDate: isCustomInvalid ? undefined : query.endDate,
 				},
 			}),
 		);
@@ -150,8 +174,8 @@ function RouteComponent() {
 function BataListSkeleton() {
 	return (
 		<div className="space-y-6">
-			<div className="grid gap-4 md:grid-cols-3">
-				{[1, 2, 3].map((i) => (
+			<div className="grid gap-4 sm:grid-cols-2">
+				{[1, 2].map((i) => (
 					<Card key={i} className="animate-pulse">
 						<CardHeader className="h-16 bg-muted/40" />
 						<CardContent className="h-12 bg-muted/20" />
@@ -167,6 +191,13 @@ function BataList() {
 	const _query = Route.useSearch();
 	const query = useDeferredValue(_query);
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const [isExporting, setIsExporting] = useState(false);
+
+	const isCustom = query.period === "custom";
+	const isDateRangeInvalid = Boolean(
+		isCustom && query.startDate && query.endDate && query.startDate > query.endDate
+	);
 
 	const { data } = useSuspenseQuery<BataListResponse>({
 		...(orpc as any).accountant.bata.list.queryOptions({
@@ -175,27 +206,49 @@ function BataList() {
 				offset: query.offset,
 				search: query.driverId ? undefined : query.search,
 				driverId: query.driverId,
-				status: query.status,
+				status: "all",
 				period: query.period,
-				startDate: query.startDate,
-				endDate: query.endDate,
+				startDate: isDateRangeInvalid ? undefined : query.startDate,
+				endDate: isDateRangeInvalid ? undefined : query.endDate,
 				sortBy: query.sortBy,
 				sortOrder: query.sortOrder,
 			},
 		}),
 	});
 
-	const handleStatusChange = (newStatus: string) => {
-		navigate({
-			to: "/dashboard/accountant/bata",
-			search: (prev) => ({ ...prev, status: newStatus as "all" | "paid" | "unpaid", offset: 0 }),
-		});
-	};
-
 	const handlePeriodChange = (newPeriod: string) => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: (prev) => ({ ...prev, period: newPeriod as any, offset: 0 }),
+			search: (prev) => {
+				const next = { ...prev, offset: 0, period: newPeriod as any };
+				if (newPeriod === "custom") {
+					const today = new Date().toISOString().split("T")[0];
+					const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+						.toISOString()
+						.split("T")[0];
+					next.startDate = prev.startDate || thirtyDaysAgo;
+					next.endDate = prev.endDate || today;
+				} else {
+					delete next.startDate;
+					delete next.endDate;
+				}
+				return next;
+			},
+		});
+	};
+
+	const handleDateChange = (field: "startDate" | "endDate", value: string) => {
+		navigate({
+			to: "/dashboard/accountant/bata",
+			search: (prev) => {
+				const next = { ...prev, offset: 0, period: "custom" as any };
+				if (value) {
+					next[field] = value;
+				} else {
+					delete next[field];
+				}
+				return next;
+			},
 		});
 	};
 
@@ -325,24 +378,6 @@ function BataList() {
 			),
 		},
 		{
-			accessorKey: "status",
-			header: "Status",
-			cell: ({ row }) => {
-				const isPaid = row.original.status === "paid";
-				return isPaid ? (
-					<Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/25 border-emerald-500/30 gap-1.5">
-						<CheckCircle2Icon className="h-3.5 w-3.5" />
-						Paid
-					</Badge>
-				) : (
-					<Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25 border-amber-500/30 gap-1.5">
-						<ClockIcon className="h-3.5 w-3.5" />
-						Unpaid
-					</Badge>
-				);
-			},
-		},
-		{
 			id: "actions",
 			header: "",
 			cell: ({ row }) => (
@@ -373,79 +408,148 @@ function BataList() {
 		getCoreRowModel: getCoreRowModel(),
 	});
 
-	const exportCsv = () => {
-		const exportData = items.map((item) => ({
-			"Driver Name": item.driver_name || "",
-			"Vehicle Name": item.vehicle_name || "",
-			"License Plate": item.vehicle_license_plate || "",
-			"Transaction Date": item.transaction_date || "",
-			"Product Name": item.product_name || "",
-			"Bata Amount (INR)": item.bata_amount,
-			"Status": item.status.toUpperCase(),
-			"Paid By": item.paid_by_name || "",
-			"Paid At": item.paid_at || "",
-		}));
-		downloadExcelCompatibleCsv(exportData, `Bata_Records_${new Date().toISOString().slice(0, 10)}.csv`);
+	const handleExport = async (format: "pdf" | "excel") => {
+		if (!data || data.meta.total === 0) {
+			alert("No Bata records to export for the selected filters.");
+			return;
+		}
+
+		setIsExporting(true);
+		try {
+			let exportRecords = data.data;
+			if (data.meta.total > data.data.length) {
+				const fullResult = await queryClient.fetchQuery<BataListResponse>(
+					(orpc as any).accountant.bata.list.queryOptions({
+						input: {
+							limit: 10000,
+							offset: 0,
+							search: query.driverId ? undefined : query.search,
+							driverId: query.driverId,
+							status: "all",
+							period: query.period,
+							startDate: isDateRangeInvalid ? undefined : query.startDate,
+							endDate: isDateRangeInvalid ? undefined : query.endDate,
+							sortBy: query.sortBy,
+							sortOrder: query.sortOrder,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data;
+				}
+			}
+
+			let grandTotalBata = 0;
+			for (const r of exportRecords) {
+				grandTotalBata += Number(r.bata_amount || 0);
+			}
+
+			const exportColumns: ExportColumn[] = [
+				{ header: "Driver", key: "driverName", width: 140, align: "left" },
+				{ header: "Vehicle", key: "vehicleName", width: 140, align: "left" },
+				{ header: "Date", key: "transactionDate", width: 100, align: "left" },
+				{ header: "Product Name", key: "productName", width: 170, align: "left" },
+				{ header: "Bata Amount", key: "bataAmount", width: 120, align: "right" },
+			];
+
+			const rows = exportRecords.map((item) => {
+				const dateVal = parseDateValue(item.transaction_date);
+				const formattedDate = dateVal
+					? dateVal.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+					: (item.transaction_date || "—");
+
+				const vehicleLabel = item.vehicle_name
+					? `${item.vehicle_name}${item.vehicle_license_plate ? ` (${item.vehicle_license_plate.toUpperCase()})` : ""}`
+					: (item.vehicle_license_plate || "—");
+
+				return {
+					driverName: item.driver_name || "Unassigned",
+					vehicleName: vehicleLabel,
+					transactionDate: formattedDate,
+					productName: item.product_name || "—",
+					bataAmount: `Rs. ${Number(item.bata_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+				};
+			});
+
+			const grandTotalRow = {
+				driverName: "GRAND TOTAL",
+				vehicleName: `${exportRecords.length} Records`,
+				transactionDate: "—",
+				productName: "—",
+				bataAmount: `Rs. ${grandTotalBata.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+			};
+
+			const periodLabel =
+				query.period === "custom" && query.startDate && query.endDate
+					? `${query.startDate} to ${query.endDate}`
+					: periodOptions.find((p) => p.value === query.period)?.label || query.period || "All Time";
+
+			const activeDriver = exportRecords.find((r) => r.driver_id === query.driverId)?.driver_name;
+
+			const options: StatementExportOptions = {
+				filename: `Bata_Statement_${new Date().toISOString().split("T")[0]}`,
+				title: "Driver Bata Statement",
+				subtitle: "Driver Allowance & Trip Wage Statement",
+				themeColor: { r: 0.85, g: 0.45, b: 0.05 },
+				metadata: {
+					"Driver Filter": activeDriver || query.search || "All Drivers",
+					"Date Range": periodLabel,
+					"Export Date": new Date().toLocaleString("en-IN"),
+					"Total Records": `${exportRecords.length} entries`,
+				},
+				columns: exportColumns,
+				rows,
+				grandTotalRow,
+			};
+
+			if (format === "pdf") {
+				exportStatementToPdf(options);
+			} else {
+				exportStatementToExcel(options);
+			}
+		} catch (err: any) {
+			console.error("Export error:", err);
+			alert("Failed to export statement: " + (err?.message || "Unknown error"));
+		} finally {
+			setIsExporting(false);
+		}
 	};
 
 	return (
 		<div className="space-y-6">
 			{/* KPI Summary Cards */}
-			<div className="grid gap-4 md:grid-cols-3">
+			<div className="grid gap-4 sm:grid-cols-2">
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
 						<CardTitle className="text-sm font-medium">Total Bata</CardTitle>
-						<CoinsIcon className="h-4 w-4 text-muted-foreground" />
+						<CoinsIcon className="h-4 w-4 text-amber-500" />
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">{formatINR(data?.meta.totalBata ?? 0)}</div>
-						<p className="text-xs text-muted-foreground mt-1">Total Bata across recorded entries</p>
+						<p className="text-xs text-muted-foreground mt-1">Total driver allowance across {total} entries</p>
 					</CardContent>
 				</Card>
 
 				<Card>
 					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">Paid Bata</CardTitle>
-						<CheckCircle2Icon className="h-4 w-4 text-emerald-500" />
+						<CardTitle className="text-sm font-medium">Total Records</CardTitle>
+						<UserIcon className="h-4 w-4 text-primary" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-							{formatINR(data?.meta.paidBata ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground mt-1">Settled & linked to expenses</p>
-					</CardContent>
-				</Card>
-
-				<Card>
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium">Unpaid Bata</CardTitle>
-						<ClockIcon className="h-4 w-4 text-amber-500" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
-							{formatINR(data?.meta.unpaidBata ?? 0)}
-						</div>
-						<p className="text-xs text-muted-foreground mt-1">Pending payment to drivers</p>
+						<div className="text-2xl font-bold">{total}</div>
+						<p className="text-xs text-muted-foreground mt-1">Driver trip records under active filters</p>
 					</CardContent>
 				</Card>
 			</div>
 
 			{/* Filters & Control Bar */}
-			<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-				<Tabs value={query.status || "all"} onValueChange={handleStatusChange} className="w-full md:w-auto">
-					<TabsList>
-						<TabsTrigger value="all">All</TabsTrigger>
-						<TabsTrigger value="paid">Paid</TabsTrigger>
-						<TabsTrigger value="unpaid">Unpaid</TabsTrigger>
-					</TabsList>
-				</Tabs>
-
-				<div className="flex flex-wrap items-center gap-3">
+			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+				<div className="flex flex-wrap items-center gap-3 flex-1">
 					<BataSearchAutocomplete
 						initialSearch={query.search}
 						initialDriverId={query.driverId}
 						onSearchChange={handleSearchChange}
-						className="flex-1 md:w-72"
+						className="w-full sm:w-72"
 					/>
 
 					<Select value={query.period || "all_time"} onValueChange={handlePeriodChange}>
@@ -453,16 +557,83 @@ function BataList() {
 							<SelectValue placeholder="Period" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value="all_time">All Time</SelectItem>
-							<SelectItem value="last_7d">Last 7 Days</SelectItem>
-							<SelectItem value="last_30d">Last 30 Days</SelectItem>
-							<SelectItem value="last_6m">Last 6 Months</SelectItem>
-							<SelectItem value="last_12m">Last 12 Months</SelectItem>
+							<SelectGroup>
+								{periodOptions.map((option) => (
+									<SelectItem key={option.value} value={option.value}>
+										{option.label}
+									</SelectItem>
+								))}
+							</SelectGroup>
 						</SelectContent>
 					</Select>
 
-					<AccountantDownloadButton onDownload={exportCsv} />
+					{query.period === "custom" && (
+						<div className="flex flex-wrap items-center gap-2">
+							<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
+								<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
+								<Input
+									type="date"
+									aria-label="Start date"
+									value={query.startDate || ""}
+									max={query.endDate || undefined}
+									onChange={(e) => handleDateChange("startDate", e.target.value)}
+									className={cn(
+										"h-8 w-32 text-xs bg-background",
+										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+									)}
+								/>
+								<span className="text-xs text-muted-foreground px-0.5">to</span>
+								<Input
+									type="date"
+									aria-label="End date"
+									value={query.endDate || ""}
+									min={query.startDate || undefined}
+									onChange={(e) => handleDateChange("endDate", e.target.value)}
+									className={cn(
+										"h-8 w-32 text-xs bg-background",
+										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+									)}
+								/>
+								<Button
+									variant="ghost"
+									size="icon"
+									onClick={() => handlePeriodChange("all_time")}
+									title="Reset date range to All Time"
+									className="h-8 w-8 text-muted-foreground hover:text-foreground"
+								>
+									<RotateCcwIcon className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+							{isDateRangeInvalid && (
+								<div className="flex items-center gap-1 text-xs text-destructive font-medium w-full sm:w-auto">
+									<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+									<span>Start date cannot be later than end date</span>
+								</div>
+							)}
+						</div>
+					)}
 				</div>
+
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						render={
+							<Button variant="outline" disabled={isExporting || total === 0}>
+								<DownloadIcon className="h-4 w-4 mr-1.5" />
+								{isExporting ? "Exporting..." : "Download"}
+							</Button>
+						}
+					/>
+					<DropdownMenuContent align="end" className="w-44">
+						<DropdownMenuItem onClick={() => handleExport("pdf")}>
+							<FileTextIcon className="h-4 w-4 mr-2 text-rose-500" />
+							Download PDF
+						</DropdownMenuItem>
+						<DropdownMenuItem onClick={() => handleExport("excel")}>
+							<FileSpreadsheetIcon className="h-4 w-4 mr-2 text-emerald-600" />
+							Download Excel
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 
 			{/* Data Table */}

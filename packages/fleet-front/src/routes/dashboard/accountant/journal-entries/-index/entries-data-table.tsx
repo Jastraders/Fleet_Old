@@ -5,7 +5,15 @@ import {
 	getCoreRowModel,
 	useReactTable,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, PlusIcon } from "lucide-react";
+import {
+	ArrowDown,
+	ArrowUp,
+	ArrowUpDown,
+	PlusIcon,
+	CalendarIcon,
+	RotateCcwIcon,
+	AlertCircleIcon,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -542,23 +550,54 @@ export function EntriesDataTable({
 						</SelectContent>
 					</Select>
 
-					{period === "custom" && (
-						<div className="flex items-center gap-2 max-sm:w-full">
-							<Input
-								type="date"
-								value={startDate || ""}
-								onChange={(e) => handleDateChange("startDate", e.target.value)}
-								className="w-[140px] h-9"
-							/>
-							<span className="text-xs text-muted-foreground">to</span>
-							<Input
-								type="date"
-								value={endDate || ""}
-								onChange={(e) => handleDateChange("endDate", e.target.value)}
-								className="w-[140px] h-9"
-							/>
-						</div>
-					)}
+					{(() => {
+						const isDateRangeInvalid = !!(period === "custom" && startDate && endDate && startDate > endDate);
+						return period === "custom" ? (
+							<div className="flex flex-wrap items-center gap-1.5 max-sm:w-full">
+								<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
+									<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
+									<Input
+										type="date"
+										aria-label="Start date"
+										value={startDate || ""}
+										max={endDate || undefined}
+										onChange={(e) => handleDateChange("startDate", e.target.value)}
+										className={cn(
+											"w-[130px] h-8 text-xs bg-background",
+											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+										)}
+									/>
+									<span className="text-xs text-muted-foreground px-0.5">to</span>
+									<Input
+										type="date"
+										aria-label="End date"
+										value={endDate || ""}
+										min={startDate || undefined}
+										onChange={(e) => handleDateChange("endDate", e.target.value)}
+										className={cn(
+											"w-[130px] h-8 text-xs bg-background",
+											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+										)}
+									/>
+									<Button
+										variant="ghost"
+										size="icon"
+										onClick={() => handlePeriodChange("all_time")}
+										title="Reset date range to All Time"
+										className="h-8 w-8 text-muted-foreground hover:text-foreground"
+									>
+										<RotateCcwIcon className="h-3.5 w-3.5" />
+									</Button>
+								</div>
+								{isDateRangeInvalid && (
+									<div className="flex items-center gap-1 text-xs text-destructive font-medium">
+										<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+										<span>Start date cannot be later than end date</span>
+									</div>
+								)}
+							</div>
+						) : null;
+					})()}
 				</div>
 			</div>
 
