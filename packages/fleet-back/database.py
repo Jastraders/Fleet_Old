@@ -361,6 +361,34 @@ def init_db() -> None:
                 conn.execute(f"ALTER TABLE journal_entry_items ADD COLUMN IF NOT EXISTS {col_name} TEXT;")
             except Exception:
                 pass
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS accounting_products (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    created_at TEXT DEFAULT now()::text
+                );
+            """)
+            conn.execute("ALTER TABLE accounting_products ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';")
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounting_products_name ON accounting_products(LOWER(name));")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_accounting_products_status ON accounting_products(status);")
+            conn.execute("""
+                INSERT INTO accounting_products (id, name, status, created_at)
+                SELECT gen_random_uuid()::text, TRIM(product_name), 'active', now()::text
+                FROM journal_entry_items
+                WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                ON CONFLICT (LOWER(name)) DO NOTHING;
+            """)
+            conn.execute("""
+                INSERT INTO accounting_products (id, name, status, created_at)
+                SELECT gen_random_uuid()::text, TRIM(product_name), 'active', now()::text
+                FROM bata
+                WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                ON CONFLICT (LOWER(name)) DO NOTHING;
+            """)
+        except Exception:
+            pass
 
 
 def rows_to_dicts(rows: Iterable[dict]) -> List[dict[str, Any]]:

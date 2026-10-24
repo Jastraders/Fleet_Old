@@ -1,4 +1,8 @@
-import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	type ColumnDef,
@@ -11,25 +15,30 @@ import {
 	ArrowUpDown,
 	CalendarIcon,
 	CoinsIcon,
-	RotateCcwIcon,
-	UserIcon,
 	DownloadIcon,
-	FileTextIcon,
 	FileSpreadsheetIcon,
+	FileTextIcon,
+	PackageIcon,
+	RotateCcwIcon,
+	TruckIcon,
+	UserIcon,
 } from "lucide-react";
-import { Suspense, useDeferredValue, useState } from "react";
+import { Suspense, useDeferredValue, useMemo, useState } from "react";
 import * as v from "valibot";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BataSearchAutocomplete } from "./-index/bata-search-autocomplete";
+import {
+	FilterAutocomplete,
+	type FilterOption,
+} from "@/components/ui/filter-autocomplete";
+import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -47,18 +56,25 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { parseDateValue } from "@/lib/date";
-import { cn, formatINR } from "@/lib/utils";
-import { orpc } from "@/orpc";
 import {
-	exportStatementToPdf,
-	exportStatementToExcel,
 	type ExportColumn,
+	exportStatementToExcel,
+	exportStatementToPdf,
 	type StatementExportOptions,
 } from "@/lib/statement-export";
+import { cn, formatINR } from "@/lib/utils";
+import { orpc } from "@/orpc";
 
 const statusSchema = v.fallback(v.picklist(["all", "paid", "unpaid"]), "all");
 const periodSchema = v.fallback(
-	v.picklist(["all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"]),
+	v.picklist([
+		"all_time",
+		"last_7d",
+		"last_30d",
+		"last_6m",
+		"last_12m",
+		"custom",
+	]),
 	"all_time",
 );
 
@@ -76,6 +92,10 @@ const querySchema = v.object({
 	limit: v.optional(v.fallback(v.number(), 20), 20),
 	search: v.optional(v.string()),
 	driverId: v.optional(v.string()),
+	driverSearch: v.optional(v.string()),
+	vehicleId: v.optional(v.string()),
+	vehicleSearch: v.optional(v.string()),
+	product: v.optional(v.string()),
 	status: v.optional(statusSchema, "all"),
 	period: v.optional(periodSchema, "all_time"),
 	startDate: v.optional(v.string()),
@@ -94,7 +114,10 @@ const querySchema = v.object({
 		),
 		"transactionDate",
 	),
-	sortOrder: v.optional(v.fallback(v.picklist(["asc", "desc"]), "desc"), "desc"),
+	sortOrder: v.optional(
+		v.fallback(v.picklist(["asc", "desc"]), "desc"),
+		"desc",
+	),
 });
 
 interface BataItem {
@@ -132,11 +155,32 @@ interface BataListResponse {
 
 export const Route = createFileRoute("/dashboard/accountant/bata/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, driverId, status, period, startDate, endDate, sortBy, sortOrder } }) => ({
+	loaderDeps: ({
+		search: {
+			offset,
+			limit,
+			search,
+			driverId,
+			driverSearch,
+			vehicleId,
+			vehicleSearch,
+			product,
+			status,
+			period,
+			startDate,
+			endDate,
+			sortBy,
+			sortOrder,
+		},
+	}) => ({
 		offset,
 		limit,
 		search,
 		driverId,
+		driverSearch,
+		vehicleId,
+		vehicleSearch,
+		product,
 		status,
 		period,
 		startDate,
@@ -146,14 +190,16 @@ export const Route = createFileRoute("/dashboard/accountant/bata/")({
 	}),
 	loader: ({ context: { orpc, queryClient }, deps: query }) => {
 		const isCustomInvalid = Boolean(
-			query.period === "custom" && query.startDate && query.endDate && query.startDate > query.endDate
+			query.period === "custom" &&
+				query.startDate &&
+				query.endDate &&
+				query.startDate > query.endDate,
 		);
 		queryClient.prefetchQuery(
 			(orpc as any).accountant.bata.list.queryOptions({
 				input: {
 					...query,
 					status: "all",
-					search: query.driverId ? undefined : query.search,
 					startDate: isCustomInvalid ? undefined : query.startDate,
 					endDate: isCustomInvalid ? undefined : query.endDate,
 				},
@@ -196,16 +242,24 @@ function BataList() {
 
 	const isCustom = query.period === "custom";
 	const isDateRangeInvalid = Boolean(
-		isCustom && query.startDate && query.endDate && query.startDate > query.endDate
+		isCustom &&
+			query.startDate &&
+			query.endDate &&
+			query.startDate > query.endDate,
 	);
 
+	// Primary Bata list query
 	const { data } = useSuspenseQuery<BataListResponse>({
 		...(orpc as any).accountant.bata.list.queryOptions({
 			input: {
 				limit: query.limit,
 				offset: query.offset,
-				search: query.driverId ? undefined : query.search,
+				search: query.search,
 				driverId: query.driverId,
+				driverSearch: query.driverSearch,
+				vehicleId: query.vehicleId,
+				vehicleSearch: query.vehicleSearch,
+				product: query.product,
 				status: "all",
 				period: query.period,
 				startDate: isDateRangeInvalid ? undefined : query.startDate,
@@ -215,6 +269,150 @@ function BataList() {
 			},
 		}),
 	});
+
+	// Query Drivers list for Autocomplete
+	const { data: driversDataRaw, isLoading: isLoadingDrivers } = useQuery({
+		...orpc.accountant.drivers.list.queryOptions({
+			input: {
+				offset: 0,
+				limit: 500,
+			},
+		}),
+	});
+
+	// Query Vehicles list for Autocomplete
+	const { data: vehiclesDataRaw, isLoading: isLoadingVehicles } = useQuery({
+		...orpc.accountant.vehicles.list.queryOptions({
+			input: {
+				offset: 0,
+				limit: 500,
+			},
+		}),
+	});
+
+	// Query Distinct Products for Autocomplete
+	const { data: productsDataRaw, isLoading: isLoadingProducts } = useQuery({
+		...(orpc as any).accountant.products.distinct.queryOptions({
+			input: {},
+		}),
+	});
+
+	// Build Driver options
+	const driverOptions: FilterOption[] = useMemo(() => {
+		const list = (driversDataRaw as any)?.data || [];
+		return list.map((d: any) => ({
+			id: d.id,
+			label: d.name,
+			sublabel: d.phoneNumber || undefined,
+		}));
+	}, [driversDataRaw]);
+
+	// Build Vehicle options
+	const vehicleOptions: FilterOption[] = useMemo(() => {
+		const list = (vehiclesDataRaw as any)?.data || [];
+		return list.map((v: any) => ({
+			id: v.id,
+			label: v.name,
+			sublabel: v.licensePlate || undefined,
+		}));
+	}, [vehiclesDataRaw]);
+
+	// Build Product options
+	const productOptions: FilterOption[] = useMemo(() => {
+		const serverProducts = (productsDataRaw as any)?.products || [];
+		const tableProducts = (data?.data || [])
+			.map((r) => r.product_name)
+			.filter(Boolean);
+		const set = new Set<string>([
+			...serverProducts,
+			...(tableProducts as string[]),
+		]);
+		return Array.from(set)
+			.filter(Boolean)
+			.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+			.map((p) => ({ label: p, value: p }));
+	}, [productsDataRaw, data]);
+
+	// Active Driver display label
+	const activeDriverLabel = useMemo(() => {
+		if (query.driverId) {
+			const found = driverOptions.find((d) => d.id === query.driverId);
+			if (found) return found.label;
+		}
+		return query.driverSearch || "";
+	}, [query.driverId, query.driverSearch, driverOptions]);
+
+	// Active Vehicle display label
+	const activeVehicleLabel = useMemo(() => {
+		if (query.vehicleId) {
+			const found = vehicleOptions.find((v) => v.id === query.vehicleId);
+			if (found) return found.label;
+		}
+		return query.vehicleSearch || "";
+	}, [query.vehicleId, query.vehicleSearch, vehicleOptions]);
+
+	// Active Product display label
+	const activeProductLabel = query.product || "";
+
+	// Handlers for independent filters
+	const handleDriverSelect = (opt: FilterOption | null) => {
+		navigate({
+			to: "/dashboard/accountant/bata",
+			search: (prev) => {
+				const next = { ...prev, offset: 0 };
+				if (opt) {
+					if (opt.id) {
+						next.driverId = opt.id;
+						delete next.driverSearch;
+					} else {
+						delete next.driverId;
+						next.driverSearch = opt.label;
+					}
+				} else {
+					delete next.driverId;
+					delete next.driverSearch;
+				}
+				return next;
+			},
+		});
+	};
+
+	const handleVehicleSelect = (opt: FilterOption | null) => {
+		navigate({
+			to: "/dashboard/accountant/bata",
+			search: (prev) => {
+				const next = { ...prev, offset: 0 };
+				if (opt) {
+					if (opt.id) {
+						next.vehicleId = opt.id;
+						delete next.vehicleSearch;
+					} else {
+						delete next.vehicleId;
+						next.vehicleSearch = opt.label;
+					}
+				} else {
+					delete next.vehicleId;
+					delete next.vehicleSearch;
+				}
+				return next;
+			},
+		});
+	};
+
+	const handleProductSelect = (opt: FilterOption | null) => {
+		navigate({
+			to: "/dashboard/accountant/bata",
+			search: (prev) => {
+				const next = { ...prev, offset: 0 };
+				if (opt?.label) {
+					next.product = opt.label;
+				} else {
+					delete next.product;
+				}
+				return next;
+			},
+		});
+	};
 
 	const handlePeriodChange = (newPeriod: string) => {
 		navigate({
@@ -252,30 +450,38 @@ function BataList() {
 		});
 	};
 
-	const handleSearchChange = (newSearch: string | undefined, newDriverId: string | undefined) => {
+	const hasActiveFilters = Boolean(
+		query.driverId ||
+			query.driverSearch ||
+			query.vehicleId ||
+			query.vehicleSearch ||
+			query.product ||
+			query.search ||
+			(query.period && query.period !== "all_time") ||
+			query.startDate ||
+			query.endDate,
+	);
+
+	const handleResetAllFilters = () => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: (prev) => {
-				const next = { ...prev, offset: 0 };
-				if (newSearch) {
-					next.search = newSearch;
-				} else {
-					delete next.search;
-				}
-				if (newDriverId) {
-					next.driverId = newDriverId;
-				} else {
-					delete next.driverId;
-				}
-				return next;
-			},
+			search: () => ({
+				status: "all",
+				period: "all_time",
+				offset: 0,
+				limit: query.limit || 20,
+			}),
 		});
 	};
 
-	const handleSort = (sortBy: string, sortOrder: string) => {
+	const handleSort = (field: string, newOrder: "asc" | "desc") => {
 		navigate({
 			to: "/dashboard/accountant/bata",
-			search: (prev) => ({ ...prev, sortBy: sortBy as any, sortOrder: sortOrder as any }),
+			search: (prev) => ({
+				...prev,
+				sortBy: field as any,
+				sortOrder: newOrder,
+			}),
 		});
 	};
 
@@ -287,21 +493,33 @@ function BataList() {
 					variant="ghost"
 					size="sm"
 					className="gap-2 px-0 font-medium"
-					onClick={() => handleSort("driverName", query.sortOrder === "desc" ? "asc" : "desc")}
+					onClick={() =>
+						handleSort(
+							"driverName",
+							query.sortOrder === "desc" ? "asc" : "desc",
+						)
+					}
 				>
 					Driver
 					<ArrowUpDown className="h-4 w-4" />
 				</Button>
 			),
 			cell: ({ row }) => (
-				<div className="flex items-center gap-2">
-					<div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-medium text-xs">
-						{row.original.driver_name ? row.original.driver_name.charAt(0).toUpperCase() : <UserIcon className="h-4 w-4" />}
-					</div>
-					<div>
-						<div className="font-medium text-sm">{row.original.driver_name || "Unassigned"}</div>
+				<div className="flex items-center gap-3">
+					<Avatar className="h-8 w-8">
+						<AvatarImage src={row.original.created_by_image || undefined} />
+						<AvatarFallback className="text-xs">
+							{(row.original.driver_name || "D").slice(0, 2).toUpperCase()}
+						</AvatarFallback>
+					</Avatar>
+					<div className="flex flex-col">
+						<span className="font-medium text-sm">
+							{row.original.driver_name || "Unassigned"}
+						</span>
 						{row.original.driver_phone_number && (
-							<div className="text-xs text-muted-foreground">{row.original.driver_phone_number}</div>
+							<span className="text-xs text-muted-foreground">
+								{row.original.driver_phone_number}
+							</span>
 						)}
 					</div>
 				</div>
@@ -314,17 +532,26 @@ function BataList() {
 					variant="ghost"
 					size="sm"
 					className="gap-2 px-0 font-medium"
-					onClick={() => handleSort("vehicleName", query.sortOrder === "desc" ? "asc" : "desc")}
+					onClick={() =>
+						handleSort(
+							"vehicleName",
+							query.sortOrder === "desc" ? "asc" : "desc",
+						)
+					}
 				>
 					Vehicle
 					<ArrowUpDown className="h-4 w-4" />
 				</Button>
 			),
 			cell: ({ row }) => (
-				<div>
-					<div className="font-medium text-sm">{row.original.vehicle_name || "Vehicle"}</div>
+				<div className="flex flex-col">
+					<span className="font-medium text-sm">
+						{row.original.vehicle_name || "-"}
+					</span>
 					{row.original.vehicle_license_plate && (
-						<div className="text-xs text-muted-foreground uppercase">{row.original.vehicle_license_plate}</div>
+						<span className="text-xs text-muted-foreground uppercase">
+							{row.original.vehicle_license_plate}
+						</span>
 					)}
 				</div>
 			),
@@ -336,7 +563,12 @@ function BataList() {
 					variant="ghost"
 					size="sm"
 					className="gap-2 px-0 font-medium"
-					onClick={() => handleSort("transactionDate", query.sortOrder === "desc" ? "asc" : "desc")}
+					onClick={() =>
+						handleSort(
+							"transactionDate",
+							query.sortOrder === "desc" ? "asc" : "desc",
+						)
+					}
 				>
 					Date
 					<ArrowUpDown className="h-4 w-4" />
@@ -346,7 +578,13 @@ function BataList() {
 				const dateVal = parseDateValue(row.original.transaction_date);
 				return (
 					<div className="text-sm">
-						{dateVal ? dateVal.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "-"}
+						{dateVal
+							? dateVal.toLocaleDateString("en-IN", {
+									day: "2-digit",
+									month: "short",
+									year: "numeric",
+								})
+							: "-"}
 					</div>
 				);
 			},
@@ -355,7 +593,9 @@ function BataList() {
 			accessorKey: "product_name",
 			header: "Product Name",
 			cell: ({ row }) => (
-				<div className="text-sm font-medium">{row.original.product_name || "—"}</div>
+				<div className="text-sm font-medium">
+					{row.original.product_name || "—"}
+				</div>
 			),
 		},
 		{
@@ -365,7 +605,12 @@ function BataList() {
 					variant="ghost"
 					size="sm"
 					className="gap-2 px-0 font-medium"
-					onClick={() => handleSort("bataAmount", query.sortOrder === "desc" ? "asc" : "desc")}
+					onClick={() =>
+						handleSort(
+							"bataAmount",
+							query.sortOrder === "desc" ? "asc" : "desc",
+						)
+					}
 				>
 					Bata Amount
 					<ArrowUpDown className="h-4 w-4" />
@@ -386,7 +631,10 @@ function BataList() {
 					size="sm"
 					onClick={(e) => {
 						e.stopPropagation();
-						navigate({ to: `/dashboard/accountant/bata/$bataId`, params: { bataId: row.original.id } });
+						navigate({
+							to: `/dashboard/accountant/bata/$bataId`,
+							params: { bataId: row.original.id },
+						});
 					}}
 				>
 					View Detail
@@ -423,8 +671,12 @@ function BataList() {
 						input: {
 							limit: 10000,
 							offset: 0,
-							search: query.driverId ? undefined : query.search,
+							search: query.search,
 							driverId: query.driverId,
+							driverSearch: query.driverSearch,
+							vehicleId: query.vehicleId,
+							vehicleSearch: query.vehicleSearch,
+							product: query.product,
 							status: "all",
 							period: query.period,
 							startDate: isDateRangeInvalid ? undefined : query.startDate,
@@ -448,26 +700,46 @@ function BataList() {
 				{ header: "Driver", key: "driverName", width: 140, align: "left" },
 				{ header: "Vehicle", key: "vehicleName", width: 140, align: "left" },
 				{ header: "Date", key: "transactionDate", width: 100, align: "left" },
-				{ header: "Product Name", key: "productName", width: 170, align: "left" },
-				{ header: "Bata Amount", key: "bataAmount", width: 120, align: "right" },
+				{
+					header: "Product Name",
+					key: "productName",
+					width: 170,
+					align: "left",
+				},
+				{
+					header: "Bata Amount",
+					key: "bataAmount",
+					width: 120,
+					align: "right",
+				},
 			];
 
 			const rows = exportRecords.map((item) => {
 				const dateVal = parseDateValue(item.transaction_date);
 				const formattedDate = dateVal
-					? dateVal.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-					: (item.transaction_date || "—");
+					? dateVal.toLocaleDateString("en-IN", {
+							day: "2-digit",
+							month: "short",
+							year: "numeric",
+						})
+					: item.transaction_date || "—";
 
 				const vehicleLabel = item.vehicle_name
 					? `${item.vehicle_name}${item.vehicle_license_plate ? ` (${item.vehicle_license_plate.toUpperCase()})` : ""}`
-					: (item.vehicle_license_plate || "—");
+					: item.vehicle_license_plate || "—";
 
 				return {
 					driverName: item.driver_name || "Unassigned",
 					vehicleName: vehicleLabel,
 					transactionDate: formattedDate,
 					productName: item.product_name || "—",
-					bataAmount: `Rs. ${Number(item.bata_amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+					bataAmount: `Rs. ${Number(item.bata_amount || 0).toLocaleString(
+						"en-IN",
+						{
+							minimumFractionDigits: 2,
+							maximumFractionDigits: 2,
+						},
+					)}`,
 				};
 			});
 
@@ -476,15 +748,25 @@ function BataList() {
 				vehicleName: `${exportRecords.length} Records`,
 				transactionDate: "—",
 				productName: "—",
-				bataAmount: `Rs. ${grandTotalBata.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+				bataAmount: `Rs. ${grandTotalBata.toLocaleString("en-IN", {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				})}`,
 			};
 
 			const periodLabel =
 				query.period === "custom" && query.startDate && query.endDate
 					? `${query.startDate} to ${query.endDate}`
-					: periodOptions.find((p) => p.value === query.period)?.label || query.period || "All Time";
+					: periodOptions.find((p) => p.value === query.period)?.label ||
+						query.period ||
+						"All Time";
 
-			const activeDriver = exportRecords.find((r) => r.driver_id === query.driverId)?.driver_name;
+			const activeDriverName =
+				driverOptions.find((d) => d.id === query.driverId)?.label ||
+				query.driverSearch;
+			const activeVehicleName =
+				vehicleOptions.find((v) => v.id === query.vehicleId)?.label ||
+				query.vehicleSearch;
 
 			const options: StatementExportOptions = {
 				filename: `Bata_Statement_${new Date().toISOString().split("T")[0]}`,
@@ -492,7 +774,9 @@ function BataList() {
 				subtitle: "Driver Allowance & Trip Wage Statement",
 				themeColor: { r: 0.85, g: 0.45, b: 0.05 },
 				metadata: {
-					"Driver Filter": activeDriver || query.search || "All Drivers",
+					"Driver Filter": activeDriverName || "All Drivers",
+					"Vehicle Filter": activeVehicleName || "All Vehicles",
+					"Product Filter": query.product || "All Products",
 					"Date Range": periodLabel,
 					"Export Date": new Date().toLocaleString("en-IN"),
 					"Total Records": `${exportRecords.length} entries`,
@@ -525,8 +809,12 @@ function BataList() {
 						<CoinsIcon className="h-4 w-4 text-amber-500" />
 					</CardHeader>
 					<CardContent>
-						<div className="text-2xl font-bold">{formatINR(data?.meta.totalBata ?? 0)}</div>
-						<p className="text-xs text-muted-foreground mt-1">Total driver allowance across {total} entries</p>
+						<div className="text-2xl font-bold">
+							{formatINR(data?.meta.totalBata ?? 0)}
+						</div>
+						<p className="text-xs text-muted-foreground mt-1">
+							Total driver allowance across {total} entries
+						</p>
 					</CardContent>
 				</Card>
 
@@ -537,103 +825,168 @@ function BataList() {
 					</CardHeader>
 					<CardContent>
 						<div className="text-2xl font-bold">{total}</div>
-						<p className="text-xs text-muted-foreground mt-1">Driver trip records under active filters</p>
+						<p className="text-xs text-muted-foreground mt-1">
+							Driver trip records under active filters
+						</p>
 					</CardContent>
 				</Card>
 			</div>
 
-			{/* Filters & Control Bar */}
-			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-				<div className="flex flex-wrap items-center gap-3 flex-1">
-					<BataSearchAutocomplete
-						initialSearch={query.search}
-						initialDriverId={query.driverId}
-						onSearchChange={handleSearchChange}
-						className="w-full sm:w-72"
-					/>
+			{/* Filters & Control Bar: 3 Search Bars + Date Range + Download */}
+			<div className="flex flex-col gap-3 p-4 rounded-lg border bg-card shadow-2xs">
+				<div className="flex flex-wrap items-center justify-between gap-3">
+					<div className="flex flex-wrap items-center gap-3 flex-1">
+						{/* 1. Driver Autocomplete Search */}
+						<FilterAutocomplete
+							value={activeDriverLabel}
+							selectedId={query.driverId}
+							onSelect={handleDriverSelect}
+							placeholder="Filter driver..."
+							icon={<UserIcon className="h-4 w-4 text-muted-foreground" />}
+							options={driverOptions}
+							isLoading={isLoadingDrivers}
+							className="w-full sm:w-60"
+							ariaLabel="Filter by driver"
+						/>
 
-					<Select value={query.period || "all_time"} onValueChange={handlePeriodChange}>
-						<SelectTrigger className="w-[160px]">
-							<SelectValue placeholder="Period" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectGroup>
-								{periodOptions.map((option) => (
-									<SelectItem key={option.value} value={option.value}>
-										{option.label}
-									</SelectItem>
-								))}
-							</SelectGroup>
-						</SelectContent>
-					</Select>
+						{/* 2. Vehicle Autocomplete Search */}
+						<FilterAutocomplete
+							value={activeVehicleLabel}
+							selectedId={query.vehicleId}
+							onSelect={handleVehicleSelect}
+							placeholder="Filter vehicle name / number..."
+							icon={<TruckIcon className="h-4 w-4 text-muted-foreground" />}
+							options={vehicleOptions}
+							isLoading={isLoadingVehicles}
+							className="w-full sm:w-64"
+							ariaLabel="Filter by vehicle name or registration number"
+						/>
 
-					{query.period === "custom" && (
-						<div className="flex flex-wrap items-center gap-2">
-							<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
-								<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
-								<Input
-									type="date"
-									aria-label="Start date"
-									value={query.startDate || ""}
-									max={query.endDate || undefined}
-									onChange={(e) => handleDateChange("startDate", e.target.value)}
-									className={cn(
-										"h-8 w-32 text-xs bg-background",
-										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
-									)}
-								/>
-								<span className="text-xs text-muted-foreground px-0.5">to</span>
-								<Input
-									type="date"
-									aria-label="End date"
-									value={query.endDate || ""}
-									min={query.startDate || undefined}
-									onChange={(e) => handleDateChange("endDate", e.target.value)}
-									className={cn(
-										"h-8 w-32 text-xs bg-background",
-										isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
-									)}
-								/>
+						{/* 3. Product Autocomplete Search */}
+						<FilterAutocomplete
+							value={activeProductLabel}
+							onSelect={handleProductSelect}
+							placeholder="Filter product..."
+							icon={<PackageIcon className="h-4 w-4 text-muted-foreground" />}
+							options={productOptions}
+							isLoading={isLoadingProducts}
+							className="w-full sm:w-56"
+							ariaLabel="Filter by product name"
+						/>
+
+						{/* 4. Date Range & Period Select */}
+						<Select
+							value={query.period || "all_time"}
+							onValueChange={handlePeriodChange}
+						>
+							<SelectTrigger className="w-[160px] h-9 text-xs">
+								<SelectValue placeholder="Period" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectGroup>
+									{periodOptions.map((option) => (
+										<SelectItem
+											key={option.value}
+											value={option.value}
+											className="text-xs"
+										>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectGroup>
+							</SelectContent>
+						</Select>
+
+						{/* Reset All Filters Button */}
+						{hasActiveFilters && (
+							<Button
+								variant="ghost"
+								size="sm"
+								onClick={handleResetAllFilters}
+								className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+								title="Reset all filters"
+							>
+								<RotateCcwIcon className="h-3.5 w-3.5 mr-1" />
+								Reset
+							</Button>
+						)}
+					</div>
+
+					{/* Download Statement Dropdown */}
+					<DropdownMenu>
+						<DropdownMenuTrigger
+							render={
 								<Button
-									variant="ghost"
-									size="icon"
-									onClick={() => handlePeriodChange("all_time")}
-									title="Reset date range to All Time"
-									className="h-8 w-8 text-muted-foreground hover:text-foreground"
+									variant="outline"
+									disabled={isExporting || total === 0}
+									className="h-9"
 								>
-									<RotateCcwIcon className="h-3.5 w-3.5" />
+									<DownloadIcon className="h-4 w-4 mr-1.5" />
+									{isExporting ? "Exporting..." : "Download"}
 								</Button>
-							</div>
-							{isDateRangeInvalid && (
-								<div className="flex items-center gap-1 text-xs text-destructive font-medium w-full sm:w-auto">
-									<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
-									<span>Start date cannot be later than end date</span>
-								</div>
-							)}
-						</div>
-					)}
+							}
+						/>
+						<DropdownMenuContent align="end" className="w-44">
+							<DropdownMenuItem onClick={() => handleExport("pdf")}>
+								<FileTextIcon className="h-4 w-4 mr-2 text-rose-500" />
+								Download PDF
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => handleExport("excel")}>
+								<FileSpreadsheetIcon className="h-4 w-4 mr-2 text-emerald-600" />
+								Download Excel
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 
-				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<Button variant="outline" disabled={isExporting || total === 0}>
-								<DownloadIcon className="h-4 w-4 mr-1.5" />
-								{isExporting ? "Exporting..." : "Download"}
+				{/* Custom Date Inputs if custom period is selected */}
+				{query.period === "custom" && (
+					<div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/50">
+						<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
+							<CalendarIcon className="h-4 w-4 text-muted-foreground ml-1 shrink-0" />
+							<Input
+								type="date"
+								aria-label="Start date"
+								value={query.startDate || ""}
+								max={query.endDate || undefined}
+								onChange={(e) => handleDateChange("startDate", e.target.value)}
+								className={cn(
+									"h-8 w-32 text-xs bg-background",
+									isDateRangeInvalid &&
+										"border-destructive focus-visible:ring-destructive text-destructive",
+								)}
+							/>
+							<span className="text-xs text-muted-foreground px-0.5">to</span>
+							<Input
+								type="date"
+								aria-label="End date"
+								value={query.endDate || ""}
+								min={query.startDate || undefined}
+								onChange={(e) => handleDateChange("endDate", e.target.value)}
+								className={cn(
+									"h-8 w-32 text-xs bg-background",
+									isDateRangeInvalid &&
+										"border-destructive focus-visible:ring-destructive text-destructive",
+								)}
+							/>
+							<Button
+								variant="ghost"
+								size="icon"
+								onClick={() => handlePeriodChange("all_time")}
+								title="Reset date range to All Time"
+								className="h-8 w-8 text-muted-foreground hover:text-foreground"
+							>
+								<RotateCcwIcon className="h-3.5 w-3.5" />
 							</Button>
-						}
-					/>
-					<DropdownMenuContent align="end" className="w-44">
-						<DropdownMenuItem onClick={() => handleExport("pdf")}>
-							<FileTextIcon className="h-4 w-4 mr-2 text-rose-500" />
-							Download PDF
-						</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => handleExport("excel")}>
-							<FileSpreadsheetIcon className="h-4 w-4 mr-2 text-emerald-600" />
-							Download Excel
-						</DropdownMenuItem>
-					</DropdownMenuContent>
-				</DropdownMenu>
+						</div>
+						{isDateRangeInvalid && (
+							<div className="flex items-center gap-1 text-xs text-destructive font-medium w-full sm:w-auto">
+								<AlertCircleIcon className="h-3.5 w-3.5 shrink-0" />
+								<span>Start date cannot be later than end date</span>
+							</div>
+						)}
+					</div>
+				)}
 			</div>
 
 			{/* Data Table */}
@@ -646,7 +999,10 @@ function BataList() {
 									<TableHead key={header.id}>
 										{header.isPlaceholder
 											? null
-											: flexRender(header.column.columnDef.header, header.getContext())}
+											: flexRender(
+													header.column.columnDef.header,
+													header.getContext(),
+												)}
 									</TableHead>
 								))}
 							</TableRow>
@@ -659,19 +1015,28 @@ function BataList() {
 									key={row.id}
 									className="cursor-pointer hover:bg-muted/50"
 									onClick={() =>
-										navigate({ to: `/dashboard/accountant/bata/$bataId`, params: { bataId: row.original.id } })
+										navigate({
+											to: `/dashboard/accountant/bata/$bataId`,
+											params: { bataId: row.original.id },
+										})
 									}
 								>
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id}>
-											{flexRender(cell.column.columnDef.cell, cell.getContext())}
+											{flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext(),
+											)}
 										</TableCell>
 									))}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+								<TableCell
+									colSpan={columns.length}
+									className="h-24 text-center"
+								>
 									No Bata records found.
 								</TableCell>
 							</TableRow>
@@ -681,10 +1046,11 @@ function BataList() {
 			</div>
 
 			{/* Pagination Controls */}
-			{total > 0 && (
-				<div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground px-1">
-					<div>
-						Showing {offset + 1} to {Math.min(offset + limit, total)} of {total} records
+			{totalPages > 1 && (
+				<div className="flex items-center justify-between">
+					<div className="text-sm text-muted-foreground">
+						Showing {offset + 1} to {Math.min(offset + limit, total)} of {total}{" "}
+						records
 					</div>
 					<div className="flex items-center gap-2">
 						<Button
@@ -693,14 +1059,17 @@ function BataList() {
 							onClick={() =>
 								navigate({
 									to: "/dashboard/accountant/bata",
-									search: (prev) => ({ ...prev, offset: Math.max(0, offset - limit) }),
+									search: (prev) => ({
+										...prev,
+										offset: Math.max(0, offset - limit),
+									}),
 								})
 							}
 							disabled={offset === 0}
 						>
 							Previous
 						</Button>
-						<span className="text-xs font-medium px-2">
+						<span className="text-sm">
 							Page {currentPage} of {totalPages}
 						</span>
 						<Button
@@ -709,7 +1078,10 @@ function BataList() {
 							onClick={() =>
 								navigate({
 									to: "/dashboard/accountant/bata",
-									search: (prev) => ({ ...prev, offset: offset + limit }),
+									search: (prev) => ({
+										...prev,
+										offset: offset + limit,
+									}),
 								})
 							}
 							disabled={offset + limit >= total}

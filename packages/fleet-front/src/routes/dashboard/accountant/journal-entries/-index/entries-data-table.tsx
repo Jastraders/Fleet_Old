@@ -14,7 +14,7 @@ import {
 	RotateCcwIcon,
 	AlertCircleIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ import { cn, formatINR } from "@/lib/utils";
 import {
 	AccountantDownloadButton,
 	downloadExcelCompatibleCsv,
+	useIsAdmin,
 } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { EntriesDataTableActionCell } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table/entries-data-table-action-cell";
 
@@ -153,171 +154,188 @@ const createColumns = (
 	currentSortBy: string,
 	currentSortOrder: string,
 	onSort: (sortBy: string, sortOrder: string) => void,
-): ColumnDef<JournalEntry>[] => [
-	{
-		accessorKey: "vehicle",
-		header: () =>
-			createSortHeader(
-				"Vehicle",
-				"vehicleName",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const vehicle = row.original.vehicle;
-			if (!vehicle) {
-				return <div className="text-muted-foreground text-sm">-</div>;
-			}
-			return (
-				<div>
-					<div className="font-medium">{vehicle.name}</div>
-					<div className="text-muted-foreground text-xs">
-						{vehicle.licensePlate}
+	isAdmin: boolean,
+): ColumnDef<JournalEntry>[] => {
+	const cols: ColumnDef<JournalEntry>[] = [
+		{
+			accessorKey: "vehicle",
+			header: () =>
+				createSortHeader(
+					"Vehicle",
+					"vehicleName",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const vehicle = row.original.vehicle;
+				if (!vehicle) {
+					return <div className="text-muted-foreground text-sm">-</div>;
+				}
+				return (
+					<div>
+						<div className="font-medium">{vehicle.name}</div>
+						<div className="text-muted-foreground text-xs">
+							{vehicle.licensePlate}
+						</div>
 					</div>
-				</div>
-			);
+				);
+			},
 		},
-	},
-	{
-		accessorKey: "revenue",
-		header: () =>
-			createSortHeader(
-				"Revenue",
-				"revenue",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const revenue = getRevenue(row.original.items);
-			return <div className="font-medium">{formatINR(revenue)}</div>;
-		},
-	},
-	{
-		accessorKey: "expenses",
-		header: () =>
-			createSortHeader(
-				"Expenses",
-				"expenses",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const expenses = getExpenses(row.original.items);
-			return <div className="font-medium">{formatINR(expenses)}</div>;
-		},
-	},
-	{
-		accessorKey: "transactionDate",
-		header: () =>
-			createSortHeader(
-				"Date",
-				"transactionDate",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const date = parseDateValue(
-				row.original.transactionDate ?? row.original.items?.[0]?.transactionDate,
-			);
-			if (!date) return <div className="text-muted-foreground text-sm">-</div>;
-			return (
-				<div className="font-medium text-sm">
-					{date.toLocaleDateString("en-GB", {
-						day: "2-digit",
-						month: "2-digit",
-						year: "numeric",
-					})}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "amount",
-		header: () =>
-			createSortHeader(
-				"Total Amount",
-				"amount",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const totalAmount = getTotalAmount(row.original.items);
-			const isNegative = totalAmount < 0;
-			return (
-				<div
-					className={
-						isNegative ? "text-destructive font-medium" : "font-medium"
-					}
-				>
-					{formatINR(totalAmount)}
-				</div>
-			);
-		},
-	},
-	{
-		accessorKey: "createdByUser",
-		header: () =>
-			createSortHeader(
-				"Created By",
-				"createdBy",
-				currentSortBy,
-				currentSortOrder,
-				onSort,
-			),
-		cell: ({ row }) => {
-			const user = row.original.createdByUser;
-			const date = parseDateValue(row.original.createdAt);
+	];
 
-			if (!user) {
-				return <div className="text-muted-foreground text-sm">-</div>;
-			}
+	if (isAdmin) {
+		cols.push({
+			accessorKey: "revenue",
+			header: () =>
+				createSortHeader(
+					"Revenue",
+					"revenue",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const revenue = getRevenue(row.original.items);
+				return <div className="font-medium">{formatINR(revenue)}</div>;
+			},
+		});
+	}
 
-			const initials = user.name
-				.split(" ")
-				.map((n) => n[0])
-				.join("")
-				.toUpperCase();
-
-			return (
-				<div className="flex items-center gap-2">
-					<Avatar>
-						{user.image && <AvatarImage src={user.image} alt={user.name} />}
-						<AvatarFallback>{initials}</AvatarFallback>
-					</Avatar>
-					<div className="grid flex-1 text-left text-sm leading-tight">
-						<span className="truncate font-medium">{user.name}</span>
-						{date ? (
-							<time
-								className="text-muted-foreground truncate text-xs"
-								dateTime={date.toISOString()}
-							>
-								{date.toLocaleDateString("en-US", {
-									month: "short",
-									day: "numeric",
-									year: "numeric",
-								})}
-							</time>
-						) : (
-							<span className="text-muted-foreground truncate text-xs">-</span>
-						)}
+	cols.push(
+		{
+			accessorKey: "expenses",
+			header: () =>
+				createSortHeader(
+					"Expenses",
+					"expenses",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const expenses = getExpenses(row.original.items);
+				return <div className="font-medium">{formatINR(expenses)}</div>;
+			},
+		},
+		{
+			accessorKey: "transactionDate",
+			header: () =>
+				createSortHeader(
+					"Date",
+					"transactionDate",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const date = parseDateValue(
+					row.original.transactionDate ?? row.original.items?.[0]?.transactionDate,
+				);
+				if (!date) return <div className="text-muted-foreground text-sm">-</div>;
+				return (
+					<div className="font-medium text-sm">
+						{date.toLocaleDateString("en-GB", {
+							day: "2-digit",
+							month: "2-digit",
+							year: "numeric",
+						})}
 					</div>
-				</div>
-			);
+				);
+			},
 		},
-	},
-	{
-		id: "actions",
-		header: () => <span className="sr-only">Actions</span>,
-		cell: ({ row }) => {
-			return <EntriesDataTableActionCell entry={row.original} />;
+	);
+
+	if (isAdmin) {
+		cols.push({
+			accessorKey: "amount",
+			header: () =>
+				createSortHeader(
+					"Total Amount",
+					"amount",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const totalAmount = getTotalAmount(row.original.items);
+				const isNegative = totalAmount < 0;
+				return (
+					<div
+						className={
+							isNegative ? "text-destructive font-medium" : "font-medium"
+						}
+					>
+						{formatINR(totalAmount)}
+					</div>
+				);
+			},
+		});
+	}
+
+	cols.push(
+		{
+			accessorKey: "createdByUser",
+			header: () =>
+				createSortHeader(
+					"Created By",
+					"createdBy",
+					currentSortBy,
+					currentSortOrder,
+					onSort,
+				),
+			cell: ({ row }) => {
+				const user = row.original.createdByUser;
+				const date = parseDateValue(row.original.createdAt);
+
+				if (!user) {
+					return <div className="text-muted-foreground text-sm">-</div>;
+				}
+
+				const initials = user.name
+					.split(" ")
+					.map((n) => n[0])
+					.join("")
+					.toUpperCase();
+
+				return (
+					<div className="flex items-center gap-2">
+						<Avatar>
+							{user.image && <AvatarImage src={user.image} alt={user.name} />}
+							<AvatarFallback>{initials}</AvatarFallback>
+						</Avatar>
+						<div className="grid flex-1 text-left text-sm leading-tight">
+							<span className="truncate font-medium">{user.name}</span>
+							{date ? (
+								<time
+									className="text-muted-foreground truncate text-xs"
+									dateTime={date.toISOString()}
+								>
+									{date.toLocaleDateString("en-US", {
+										month: "short",
+										day: "numeric",
+										year: "numeric",
+									})}
+								</time>
+							) : (
+								<span className="text-muted-foreground truncate text-xs">-</span>
+							)}
+						</div>
+					</div>
+				);
+			},
 		},
-	},
-];
+		{
+			id: "actions",
+			header: () => <span className="sr-only">Actions</span>,
+			cell: ({ row }) => {
+				return <EntriesDataTableActionCell entry={row.original} />;
+			},
+		},
+	);
+
+	return cols;
+};
 
 export interface EntriesDataTableProps {
 	data: JournalEntry[];
@@ -354,7 +372,7 @@ type EntriesSearchState = {
 export function EntriesDataTable({
 	data,
 	total,
-	totalAmount,
+	totalAmount: _totalAmount,
 	offset,
 	limit,
 	search,
@@ -370,6 +388,17 @@ export function EntriesDataTable({
 
 	const [searchValue, setSearchValue] = useState(search ?? "");
 
+	const handleSearch = useCallback((value: string) => {
+		void router.navigate({
+			to: ".",
+			search: (prev: EntriesSearchState) => ({
+				...prev,
+				search: value || undefined,
+				offset: 0,
+			}),
+		});
+	}, [router]);
+
 	useEffect(() => {
 		setSearchValue(search ?? "");
 	}, [search]);
@@ -380,7 +409,7 @@ export function EntriesDataTable({
 		}, 300);
 
 		return () => clearTimeout(timer);
-	}, [searchValue]);
+	}, [searchValue, handleSearch]);
 
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
 		void router.navigate({
@@ -389,17 +418,6 @@ export function EntriesDataTable({
 				...prev,
 				sortBy: newSortBy as EntriesDataTableProps["sortBy"],
 				sortOrder: newSortOrder as "asc" | "desc",
-				offset: 0,
-			}),
-		});
-	};
-
-	const handleSearch = (value: string) => {
-		void router.navigate({
-			to: ".",
-			search: (prev: EntriesSearchState) => ({
-				...prev,
-				search: value || undefined,
 				offset: 0,
 			}),
 		});
@@ -448,7 +466,8 @@ export function EntriesDataTable({
 		});
 	};
 
-	const columns = createColumns(sortBy, sortOrder, handleSort);
+	const isAdmin = useIsAdmin();
+	const columns = createColumns(sortBy, sortOrder, handleSort, isAdmin);
 
 	const table = useReactTable({
 		data,
@@ -498,21 +517,26 @@ export function EntriesDataTable({
 									const txDate = parseDateValue(
 										entry.transactionDate ?? entry.items?.[0]?.transactionDate,
 									);
-									return {
+									const row: Record<string, unknown> = {
 										Vehicle: entry.vehicle?.name ?? "",
-										Revenue: getRevenue(entry.items),
-										Expenses: getExpenses(entry.items),
-										Date: txDate
-											? txDate.toLocaleDateString("en-GB", {
-													day: "2-digit",
-													month: "2-digit",
-													year: "numeric",
-												})
-											: "",
-										"Total Amount": getTotalAmount(entry.items),
-										"Created By": entry.createdByUser?.name ?? "",
-										"Created At": String(entry.createdAt),
 									};
+									if (isAdmin) {
+										row.Revenue = getRevenue(entry.items);
+									}
+									row.Expenses = getExpenses(entry.items);
+									row.Date = txDate
+										? txDate.toLocaleDateString("en-GB", {
+												day: "2-digit",
+												month: "2-digit",
+												year: "numeric",
+											})
+										: "";
+									if (isAdmin) {
+										row["Total Amount"] = getTotalAmount(entry.items);
+									}
+									row["Created By"] = entry.createdByUser?.name ?? "";
+									row["Created At"] = String(entry.createdAt);
+									return row;
 								}),
 							)
 						}

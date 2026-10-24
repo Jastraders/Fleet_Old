@@ -1,7 +1,7 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { ArrowLeftIcon, Loader2Icon, TrashIcon } from "lucide-react";
+import { ArrowLeftIcon, Loader2Icon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import * as v from "valibot";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,25 +23,9 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
-import { CategorySelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/category-select-field";
 import { DriverSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/driver-select-field";
 import { VehicleSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/vehicle-select-field";
-
-const expenseItemSchema = v.object({
-	expenseCategoryId: v.pipe(
-		v.string("Select a category"),
-		v.minLength(1, "Category is required"),
-	),
-	amount: v.pipe(
-		v.string(),
-		v.minLength(1, "Amount is required"),
-		v.transform((val) => parseFloat(val) || 0),
-	),
-	handler: v.optional(v.string()),
-	nextRenewalDate: v.optional(v.string()),
-	depo: v.optional(v.string()),
-	deliveryLocation: v.optional(v.string()),
-});
+import { AccountingProductField } from "@/routes/dashboard/accountant/-shared/accounting-product-field";
 
 const newEntryFormSchema = v.object({
 	vehicleId: v.pipe(v.string(), v.minLength(1, "Vehicle is required")),
@@ -58,7 +42,7 @@ const newEntryFormSchema = v.object({
 	revenueDepo: v.optional(v.string()),
 	revenueDeliveryLocation: v.optional(v.string()),
 	notes: v.optional(v.string()),
-	expenses: v.array(expenseItemSchema),
+	expenses: v.optional(v.array(v.any()), []),
 });
 
 type FormValues = v.InferInput<typeof newEntryFormSchema>;
@@ -126,16 +110,9 @@ function RouteComponent() {
 			const bataPct = isCalc && bataType === "percentage" ? (parseFloat(value.bataPercentage || "0") || 0) : 0;
 			const fixedBata = isCalc && bataType === "fixed" ? (parseFloat(value.fixedBataAmount || "0") || 0) : 0;
 
-			let bataExpense = 0;
-			if (isCalc) {
-				if (bataType === "fixed") {
-					bataExpense = fixedBata;
-				} else {
-					bataExpense = (val * bataPct) / 100;
-				}
-			}
-
-			const calculatedAmount = isCalc ? val : (parseFloat(value.revenue || "0") || 0);
+			const calculatedAmount = (value.revenue && parseFloat(value.revenue) > 0)
+				? (parseFloat(value.revenue) || 0)
+				: (isCalc ? val : (parseFloat(value.revenue || "0") || 0));
 
 			const items = [
 				{
@@ -153,16 +130,6 @@ function RouteComponent() {
 					depo: value.revenueDepo || undefined,
 					deliveryLocation: value.revenueDeliveryLocation || undefined,
 				},
-				...value.expenses.map((exp) => ({
-					transactionDate: value.transactionDate,
-					type: "debit" as const,
-					amount: exp.amount.toString(),
-					expenseCategoryId: exp.expenseCategoryId,
-					handler: exp.handler || "Driver",
-					nextRenewalDate: exp.nextRenewalDate || undefined,
-					depo: exp.depo || undefined,
-					deliveryLocation: exp.deliveryLocation || undefined,
-				})),
 			];
 
 			createEntryMutation.mutate({
@@ -177,9 +144,7 @@ function RouteComponent() {
 
 	const hasPrefillData =
 		Boolean(search.prefillVehicleId) ||
-		Boolean(search.prefillExpenseCategoryId) ||
 		Boolean(search.prefillTransactionDate) ||
-		Boolean(search.prefillNextRenewalDate) ||
 		Boolean(search.prefillNotes);
 	const hasAppliedPrefillRef = useRef(false);
 	useEffect(() => {
@@ -188,34 +153,7 @@ function RouteComponent() {
 		form.setFieldValue("vehicleId", search.prefillVehicleId || "");
 		form.setFieldValue("transactionDate", search.prefillTransactionDate || defaultValues.transactionDate);
 		form.setFieldValue("notes", search.prefillNotes || "");
-		if (form.state.values.expenses.length === 0) {
-			form.pushFieldValue("expenses", {
-				// biome-ignore lint/suspicious/noExplicitAny: default to optional prefilled values
-				expenseCategoryId: (search.prefillExpenseCategoryId || null) as any,
-				amount: "",
-				handler: "Driver",
-				nextRenewalDate: search.prefillNextRenewalDate || "",
-			});
-		}
 	}, [hasPrefillData, search, form]);
-
-	const handleAddExpense = () => {
-		form.pushFieldValue("expenses", {
-			// biome-ignore lint/suspicious/noExplicitAny: default to unselected
-			expenseCategoryId: null as any,
-			amount: "",
-			handler: "Driver",
-			nextRenewalDate: "",
-		});
-	};
-
-	const handleRemoveExpense = (index: number) => {
-		form.removeFieldValue("expenses", index);
-	};
-
-	const createRemoveExpenseHandler = (index: number) => {
-		return () => handleRemoveExpense(index);
-	};
 
 	const handleGoBack = () => {
 		void router.navigate({
@@ -348,20 +286,14 @@ function RouteComponent() {
 										}}
 									</form.Field>
 
-									{/* Product Name Field (Immediately after Date, before Revenue Entry Mode) */}
+									{/* Product Name Field with Dropdown and Manage Products */}
 									<form.Field name="productName">
 										{(field: any) => (
-											<Field>
-												<FieldLabel htmlFor="product-name">Product Name (Optional)</FieldLabel>
-												<Input
-													id="product-name"
-													name={field.name}
-													value={field.state.value || ""}
-													onBlur={field.handleBlur}
-													onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="Enter product name"
-												/>
-											</Field>
+											<AccountingProductField
+												value={field.state.value}
+												onChange={(val) => field.handleChange(val)}
+												errors={field.state.meta.errors}
+											/>
 										)}
 									</form.Field>
 
@@ -549,27 +481,51 @@ function RouteComponent() {
 																	</div>
 																</div>
 
-																{/* Highlighted Auto-filled Revenue Field */}
-																<Field className="pt-2">
-																	<FieldLabel htmlFor="calculated-revenue-display" className="text-green-600 dark:text-green-400 font-semibold">
-																		Revenue Amount (Calculated)
-																	</FieldLabel>
-																	<InputGroup className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
-																		<InputGroupAddon className="text-green-600 dark:text-green-400 font-semibold">₹</InputGroupAddon>
-																		<InputGroupInput
-																			id="calculated-revenue-display"
-																			type="text"
-																			value={revenue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-																			disabled
-																			readOnly
-																			className="bg-transparent border-none text-green-700 dark:text-green-400 font-bold select-all disabled:opacity-100"
-																		/>
-																	</InputGroup>
-																	{/* Supporting Text directly BELOW Revenue Amount */}
-																	<p className="text-xs text-muted-foreground mt-1.5 font-medium">
-																		Bata Expense = ₹{bataExpense.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-																	</p>
-																</Field>
+																{/* Highlighted Auto-filled Revenue Field (Editable Default) */}
+																<form.Field name="revenue">
+																	{(revField: any) => {
+																		const displayValue =
+																			revField.state.value !== "" && revField.state.value !== undefined
+																				? revField.state.value
+																				: (revenue > 0 ? revenue.toFixed(2) : "");
+																		return (
+																			<Field className="pt-2">
+																				<div className="flex justify-between items-center">
+																					<FieldLabel htmlFor="calculated-revenue-display" className="text-green-600 dark:text-green-400 font-semibold">
+																						Revenue Amount (Calculated Default, Editable)
+																					</FieldLabel>
+																					{revField.state.value !== "" && revField.state.value !== (revenue > 0 ? revenue.toFixed(2) : "") && (
+																						<button
+																							type="button"
+																							onClick={() => revField.handleChange(revenue > 0 ? revenue.toFixed(2) : "")}
+																							className="text-[11px] text-primary hover:underline"
+																						>
+																							Reset to calculated (₹{revenue.toFixed(2)})
+																						</button>
+																					)}
+																				</div>
+																				<InputGroup className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+																					<InputGroupAddon className="text-green-600 dark:text-green-400 font-semibold">₹</InputGroupAddon>
+																					<InputGroupInput
+																						id="calculated-revenue-display"
+																						type="number"
+																						step="0.01"
+																						min="0"
+																						name={revField.name}
+																						value={displayValue}
+																						onBlur={revField.handleBlur}
+																						onChange={(e) => revField.handleChange(e.target.value)}
+																						placeholder="0.00"
+																						className="bg-transparent border-none text-green-700 dark:text-green-400 font-bold select-all"
+																					/>
+																				</InputGroup>
+																				<p className="text-xs text-muted-foreground mt-1.5 font-medium">
+																					Bata Expense = ₹{bataExpense.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+																				</p>
+																			</Field>
+																		);
+																	}}
+																</form.Field>
 
 																{/* Validation Error for Fixed Bata > Calculated Value */}
 																{isFixedExceeded && (
@@ -653,228 +609,6 @@ function RouteComponent() {
 							</FieldSet>
 						</div>
 
-						{/* Section 2: Expenses */}
-						<div className="border rounded-lg p-6 bg-card">
-							<FieldSet>
-								<div className="flex justify-between items-center">
-									<FieldLegend>Expenses</FieldLegend>
-									<Button
-										type="button"
-										size="sm"
-										variant="outline"
-										onClick={handleAddExpense}
-									>
-										Add Expense
-									</Button>
-								</div>
-
-								<form.Subscribe selector={(state) => state.values.expenses}>
-									{(expenses) => {
-										if (expenses.length === 0) {
-											return (
-												<p className="text-muted-foreground text-sm text-center py-8">
-													No expenses added yet. Click "Add Expense" to get
-													started.
-												</p>
-											);
-										}
-
-										return null;
-									}}
-								</form.Subscribe>
-
-								<FieldGroup>
-									<form.Field name="expenses" mode="array">
-										{(field) => {
-											return field.state.value.map((_, index) => {
-												return (
-													<div
-														// biome-ignore lint/suspicious/noArrayIndexKey: managed by tanstack form
-														key={index}
-														className="border rounded-md p-4 bg-muted/30"
-													>
-														<div className="space-y-4">
-															<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-																{/* Category Field */}
-																<div>
-																	<form.Field
-																		name={`expenses[${index}].expenseCategoryId`}
-																	>
-																		{(field) => {
-																			const isInvalid =
-																				field.state.meta.isTouched &&
-																				!field.state.meta.isValid;
-																			return (
-																				<Field data-invalid={isInvalid}>
-																					<FieldLabel
-																						htmlFor={`expense-category-${index}`}
-																					>
-																						Expense Category
-																						<span className="text-destructive">
-																							*
-																						</span>
-																					</FieldLabel>
-																					<CategorySelectField
-																						fieldId={`expense-category-${index}`}
-																						value={field.state.value}
-																						onChange={(value) => {
-																							field.handleChange(value);
-																						}}
-																						onBlur={field.handleBlur}
-																					/>
-																					{isInvalid && (
-																						<FieldError
-																							errors={field.state.meta.errors}
-																						/>
-																					)}
-																				</Field>
-																			);
-																		}}
-																	</form.Field>
-																</div>
-
-																{/* Amount Field */}
-																<div>
-																	<form.Field name={`expenses[${index}].amount`}>
-																		{(amountField) => {
-																			const amountIsInvalid =
-																				amountField.state.meta.isTouched &&
-																				!amountField.state.meta.isValid;
-																			return (
-																				<Field data-invalid={amountIsInvalid}>
-																					<FieldLabel
-																						htmlFor={`expense-amount-${index}`}
-																					>
-																						Amount
-																						<span className="text-destructive">
-																							*
-																						</span>
-																					</FieldLabel>
-																					<InputGroup>
-																						<InputGroupAddon>₹</InputGroupAddon>
-																						<InputGroupInput
-																							id={`expense-amount-${index}`}
-																							type="number"
-																							step="0.01"
-																							min="0"
-																							name={amountField.name}
-																							value={amountField.state.value}
-																							onBlur={amountField.handleBlur}
-																							onChange={(e) => {
-																								amountField.handleChange(
-																									e.target.value,
-																								);
-																							}}
-																							placeholder="0.00"
-																							aria-invalid={amountIsInvalid}
-																						/>
-																					</InputGroup>
-																					{amountIsInvalid && (
-																						<FieldError
-																							errors={
-																								amountField.state.meta.errors
-																							}
-																						/>
-																					)}
-																				</Field>
-																			);
-																		}}
-																	</form.Field>
-																</div>
-															</div>
-
-															<div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
-																<div>
-																	<form.Field name={`expenses[${index}].handler`}>
-																		{(handlerField) => {
-																			const handlerIsInvalid =
-																				handlerField.state.meta.isTouched &&
-																				!handlerField.state.meta.isValid;
-																			return (
-																				<Field data-invalid={handlerIsInvalid}>
-																					<FieldLabel htmlFor={`expense-handler-${index}`}>
-																						Handler
-																					</FieldLabel>
-																					<Input
-																						id={`expense-handler-${index}`}
-																						name={handlerField.name}
-																						value={handlerField.state.value}
-																						onBlur={handlerField.handleBlur}
-																						onChange={(e) =>
-																							handlerField.handleChange(
-																								e.target.value,
-																							)
-																						}
-																						placeholder="Driver"
-																						className="placeholder:text-black/55"
-																					/>
-																					{handlerIsInvalid && (
-																						<FieldError
-																							errors={handlerField.state.meta.errors}
-																						/>
-																					)}
-																				</Field>
-																			);
-																		}}
-																	</form.Field>
-																</div>
-
-																<div>
-																	<form.Field
-																		name={`expenses[${index}].nextRenewalDate`}
-																	>
-																		{(renewalField) => (
-																			<Field>
-																				<FieldLabel htmlFor={`expense-renewal-${index}`}>
-																					Next Renewal
-																				</FieldLabel>
-																				<Input
-																					id={`expense-renewal-${index}`}
-																					type="date"
-																					name={renewalField.name}
-																					value={renewalField.state.value || ""}
-																					onBlur={renewalField.handleBlur}
-																					onChange={(e) =>
-																						renewalField.handleChange(e.target.value)
-																					}
-																				/>
-																			</Field>
-																		)}
-																	</form.Field>
-																</div>
-
-																{/* Delete Button */}
-																<div className="flex items-center justify-end">
-																	<Button
-																		className="max-md:hidden"
-																		type="button"
-																		size="icon"
-																		variant="destructive"
-																		onClick={createRemoveExpenseHandler(index)}
-																	>
-																		<TrashIcon className="h-4 w-4" />
-																	</Button>
-																	<Button
-																		className="md:hidden"
-																		type="button"
-																		variant="destructive"
-																		onClick={createRemoveExpenseHandler(index)}
-																	>
-																		Delete
-																		<TrashIcon className="h-4 w-4" />
-																	</Button>
-																</div>
-															</div>
-														</div>
-													</div>
-												);
-											});
-										}}
-									</form.Field>
-								</FieldGroup>
-							</FieldSet>
-						</div>
-
 						{createEntryMutation.error && (
 							<Alert>
 								<AlertDescription>
@@ -899,7 +633,6 @@ function RouteComponent() {
 								bataType: state.values.bataType,
 								bataPercentage: state.values.bataPercentage,
 								fixedBataAmount: state.values.fixedBataAmount,
-								expenses: state.values.expenses,
 							})}
 						>
 							{(values) => {
@@ -919,59 +652,34 @@ function RouteComponent() {
 									}
 								}
 
-								const revenue = isCalc ? val : (parseFloat(values.revenue || "0") || 0);
-								const totalExpenses = values.expenses.reduce(
-									(sum: number, exp: { amount: string }) =>
-										sum + (parseFloat(exp.amount) || 0),
-									0,
-								);
-								const profit = revenue - totalExpenses;
-								const profitPercentage =
-									revenue > 0 ? (profit / revenue) * 100 : 0;
+								const revenue = (values.revenue && parseFloat(values.revenue) > 0)
+									? (parseFloat(values.revenue) || 0)
+									: (isCalc ? val : 0);
 
 								return (
 									<div className="space-y-4">
 										{/* Revenue */}
 										<div className="space-y-1">
-											<p className="text-muted-foreground text-sm">Revenue</p>
+											<p className="text-muted-foreground text-sm">Revenue Amount</p>
 											<p className="text-2xl font-bold text-green-600">
 												{formatINR(revenue)}
 											</p>
 										</div>
 
-										{/* Expenses */}
+										{/* Driver Bata */}
 										<div className="space-y-1">
-											<p className="text-muted-foreground text-sm">Expenses</p>
-											<p className="text-2xl font-bold text-red-600">
-												{formatINR(totalExpenses)}
+											<p className="text-muted-foreground text-sm">Driver Bata Expense</p>
+											<p className="text-2xl font-bold text-amber-600">
+												{formatINR(bataExpense)}
+											</p>
+											<p className="text-xs text-muted-foreground">
+												{bType === "fixed" ? "Fixed bata amount" : `${values.bataPercentage || 0}% of calculated revenue`}
 											</p>
 										</div>
 
-										{/* Divider */}
-										<div className="border-t pt-4" />
-
-										{/* Profit */}
-										<div className="space-y-1">
-											<p className="text-muted-foreground text-sm">Profit</p>
-											<p
-												className={`text-2xl font-bold ${profit >= 0 ? "text-green-600" : "text-red-600"
-													}`}
-											>
-												{formatINR(profit)}
-											</p>
-										</div>
-
-										{/* Profit Percentage */}
-										<div className="space-y-1">
-											<p className="text-muted-foreground text-sm">Profit %</p>
-											<p
-												className={`text-2xl font-bold ${profitPercentage >= 0
-													? "text-green-600"
-													: "text-red-600"
-													}`}
-											>
-												{profitPercentage.toFixed(2)}%
-											</p>
+										{/* Information Notice */}
+										<div className="border-t pt-3 text-xs text-muted-foreground">
+											Expense entries are created directly through the <span className="font-semibold text-foreground">Expenses</span> module.
 										</div>
 									</div>
 								);

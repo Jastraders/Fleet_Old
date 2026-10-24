@@ -51,6 +51,7 @@ import {
 	useIsAdmin,
 	useRowAccess,
 } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import { ExpenseDialog } from "./expense-dialog";
 
 interface ExpenseRow {
 	id: string;
@@ -198,6 +199,7 @@ export function ExpensesDataTable({
 	const { canAccess } = useRowAccess();
 	const [searchValue, setSearchValue] = useState(search ?? "");
 	const [blockedRow, setBlockedRow] = useState<ExpenseRow | null>(null);
+	const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.max(1, Math.ceil(total / limit));
 	const deleteEntryMutation = useMutation({
@@ -324,7 +326,7 @@ export function ExpensesDataTable({
 						}
 					/>
 					<Input placeholder="Search expenses..." value={searchValue} onChange={(e) => setSearchValue(e.currentTarget.value)} className="w-[200px] max-sm:w-full" />
-					<Button onClick={() => void router.navigate({ to: "/dashboard/accountant/journal-entries/new" })}><PlusIcon className="h-4 w-4" />Add Expense</Button>
+					<Button onClick={() => setIsExpenseDialogOpen(true)}><PlusIcon className="h-4 w-4" />Add Expense</Button>
 				</div>
 			</div>
 
@@ -488,6 +490,10 @@ export function ExpensesDataTable({
 				resourceType="journal_entry"
 				resourceId={blockedRow?.journal_entry_id ?? ""}
 				primaryLabel={blockedRow?.voucher_id ? String(blockedRow.voucher_id) : blockedRow?.journal_entry_id ?? ""}
+			/>
+			<ExpenseDialog
+				isOpen={isExpenseDialogOpen}
+				onOpenChange={setIsExpenseDialogOpen}
 			/>
 		</div>
 	);

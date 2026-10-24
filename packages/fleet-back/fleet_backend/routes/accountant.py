@@ -646,6 +646,9 @@ def orpc_list_entries(user):
                 (*where_params, limit, offset),
             ).fetchall()
         )
+        user_roles = {r["role"] for r in user.get("roles", [])}
+        is_admin = bool(user_roles & {"admin", "owner"})
+
         serialized_entries = []
         for entry in entries:
             items = rows_to_dicts(
@@ -654,7 +657,18 @@ def orpc_list_entries(user):
                     (entry["id"],),
                 ).fetchall()
             )
-            serialized_entries.append(serialize_journal_entry_row(entry, items))
+            serialized = serialize_journal_entry_row(entry, items)
+            if not is_admin:
+                serialized["revenue"] = None
+                serialized["amount"] = None
+                if "items" in serialized and isinstance(serialized["items"], list):
+                    for item in serialized["items"]:
+                        if item.get("type") == "credit":
+                            item["amount"] = None
+                            item["value"] = None
+                            item["quantity"] = None
+                            item["perItemRate"] = None
+            serialized_entries.append(serialized)
         total_row = conn.execute(
             f"""
                 SELECT
@@ -678,7 +692,7 @@ def orpc_list_entries(user):
             tuple(where_params),
         ).fetchone()
         total_count = total_row["c"]
-        total_amount = float(total_row["s"] or 0)
+        total_amount = float(total_row["s"] or 0) if is_admin else None
     return rpc_response(with_meta(serialized_entries, offset, limit, total_count, totalAmount=total_amount))
 
 
@@ -816,6 +830,244 @@ def orpc_list_expenses(user):
     }
 
     return rpc_response({"data": rows, "meta": meta})
+
+
+@app.post("/orpc/accountant/expenses/create")
+@app.post("/api/orpc/accountant/expenses/create")
+@require_auth({"accountant"})
+def orpc_create_expense(user):
+    payload = rpc_payload()
+    category_id = payload.get("expenseCategoryId")
+    if not category_id:
+        return rpc_error("Expense Category is required.", 400)
+    
+    amount_raw = payload.get("amount")
+    try:
+        amount = float(amount_raw)
+        if amount <= 0:
+            return rpc_error("Amount must be greater than zero.", 400)
+    except (ValueError, TypeError):
+        return rpc_error("Valid numeric amount is required.", 400)
+        
+    tx_date = payload.get("transactionDate") or payload.get("expenseDate") or now_iso()[:10]
+    vehicle_id = payload.get("vehicleId")
+    driver_id = payload.get("driverId")
+    handler = payload.get("handler") or "Driver"
+    next_renewal_date = payload.get("nextRenewalDate")
+    depo = payload.get("depo")
+    delivery_location = payload.get("deliveryLocation")
+    product_name = payload.get("productName")
+    quantity = payload.get("quantity")
+    per_item_rate = payload.get("perItemRate")
+    notes = payload.get("notes")
+
+    calc_val = None
+    if quantity is not None and per_item_rate is not None and str(quantity).strip() != "" and str(per_item_rate).strip() != "":
+        try:
+            q = float(quantity)
+            r = float(per_item_rate)
+            if q >= 0 and r >= 0:
+                calc_val = q * r
+        except (ValueError, TypeError):
+            pass
+
+    with connect() as conn:
+        try:
+            eid = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO journal_entries (id, vehicle_id, driver_id, notes, created_by) VALUES (?, ?, ?, ?, ?)",
+                (eid, vehicle_id, driver_id, notes, user["id"]),
+            )
+            item_id = str(uuid.uuid4())
+            v_id = next_voucher_id(conn)
+            conn.execute(
+                """
+                INSERT INTO journal_entry_items (
+                    id, journal_entry_id, vehicle_id, transaction_date, type, amount,
+                    voucher_id, handler, next_renewal_date, expense_category_id,
+                    quantity, per_item_rate, value, depo, delivery_location, product_name,
+                    created_at
+                ) VALUES (?, ?, ?, ?, 'debit', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    item_id,
+                    eid,
+                    vehicle_id,
+                    tx_date,
+                    amount,
+                    v_id,
+                    handler,
+                    next_renewal_date,
+                    category_id,
+                    quantity,
+                    per_item_rate,
+                    calc_val,
+                    depo,
+                    delivery_location,
+                    product_name,
+                    now_iso(),
+                ),
+            )
+            if vehicle_id:
+                refresh_vehicle_total_expense(conn, vehicle_id)
+            if driver_id:
+                refresh_driver_total_expense(conn, driver_id)
+
+            if vehicle_id and category_id:
+                stale_rows = rows_to_dicts(
+                    conn.execute(
+                        """
+                        SELECT n.id
+                        FROM notifications n
+                        JOIN journal_entry_items ji ON ji.id = n.resource_id
+                        WHERE n.type = 'renewal_reminder'
+                          AND ji.vehicle_id = ?
+                          AND ji.expense_category_id = ?
+                          AND ji.id != ?
+                        """,
+                        (vehicle_id, category_id, item_id),
+                    ).fetchall()
+                )
+                for stale in stale_rows:
+                    conn.execute("DELETE FROM notifications WHERE id = ?", (stale["id"],))
+
+            conn.commit()
+            return rpc_response({
+                "id": item_id,
+                "journalEntryId": eid,
+                "voucherId": v_id,
+                "amount": amount,
+                "message": "Expense created successfully",
+            })
+        except Exception as e:
+            conn.rollback()
+            return rpc_error(f"Failed to create expense: {str(e)}", 500)
+
+
+@app.post("/orpc/accountant/products/list")
+@app.post("/api/orpc/accountant/products/list")
+@require_auth({"accountant"})
+def orpc_list_accounting_products(user):
+    payload = rpc_payload()
+    include_archived = payload.get("includeArchived", False)
+    where_sql = "" if include_archived else "WHERE status = 'active'"
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT name FROM accounting_products {where_sql} ORDER BY name ASC"
+        ).fetchall()
+        products = [r["name"] for r in rows if r.get("name")]
+    return rpc_response({"products": products})
+
+
+@app.post("/orpc/accountant/products/manage_list")
+@app.post("/api/orpc/accountant/products/manage_list")
+@require_auth({"accountant"})
+def orpc_manage_list_accounting_products(user):
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT 
+                p.id,
+                p.name,
+                p.status,
+                p.created_at,
+                COALESCE(u.usage_count, 0) AS record_count
+            FROM accounting_products p
+            LEFT JOIN (
+                SELECT LOWER(product_name) AS pname, COUNT(*) AS usage_count
+                FROM journal_entry_items
+                WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                GROUP BY LOWER(product_name)
+            ) u ON LOWER(p.name) = u.pname
+            ORDER BY p.name ASC
+            """
+        ).fetchall()
+        result = []
+        for r in rows:
+            rec_count = int(r["record_count"] or 0)
+            result.append({
+                "id": r["id"],
+                "name": r["name"],
+                "status": r["status"] or "active",
+                "inUse": rec_count > 0,
+                "recordCount": rec_count,
+                "createdAt": to_iso_datetime(r["created_at"]) or "",
+            })
+    return rpc_response({"products": result})
+
+
+@app.post("/orpc/accountant/products/create")
+@app.post("/api/orpc/accountant/products/create")
+@require_auth({"accountant"})
+def orpc_create_accounting_product(user):
+    payload = rpc_payload()
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return rpc_error("Product name cannot be empty.", 400)
+    with connect() as conn:
+        existing = conn.execute(
+            "SELECT id, name, status FROM accounting_products WHERE LOWER(name) = LOWER(?)",
+            (name,),
+        ).fetchone()
+        if existing:
+            if existing["status"] == "archived":
+                conn.execute("UPDATE accounting_products SET status = 'active' WHERE id = ?", (existing["id"],))
+                return rpc_response({"id": existing["id"], "name": existing["name"], "status": "active"})
+            return rpc_error("A product with this name already exists.", 400)
+        pid = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO accounting_products (id, name, status, created_at) VALUES (?, ?, 'active', ?)",
+            (pid, name, now_iso()),
+        )
+    return rpc_response({"id": pid, "name": name, "status": "active"})
+
+
+@app.post("/orpc/accountant/products/archive")
+@app.post("/api/orpc/accountant/products/archive")
+@require_auth({"accountant"})
+def orpc_archive_accounting_product(user):
+    payload = rpc_payload()
+    pid = payload.get("id")
+    if not pid:
+        return rpc_error("Product ID is required.", 400)
+    with connect() as conn:
+        conn.execute("UPDATE accounting_products SET status = 'archived' WHERE id = ?", (pid,))
+    return rpc_response({"success": True})
+
+
+@app.post("/orpc/accountant/products/restore")
+@app.post("/api/orpc/accountant/products/restore")
+@require_auth({"accountant"})
+def orpc_restore_accounting_product(user):
+    payload = rpc_payload()
+    pid = payload.get("id")
+    if not pid:
+        return rpc_error("Product ID is required.", 400)
+    with connect() as conn:
+        conn.execute("UPDATE accounting_products SET status = 'active' WHERE id = ?", (pid,))
+    return rpc_response({"success": True})
+
+
+@app.post("/orpc/accountant/products/delete")
+@app.post("/api/orpc/accountant/products/delete")
+@require_auth({"accountant"})
+def orpc_delete_accounting_product(user):
+    payload = rpc_payload()
+    pid = payload.get("id")
+    if not pid:
+        return rpc_error("Product ID is required.", 400)
+    with connect() as conn:
+        prod = conn.execute("SELECT * FROM accounting_products WHERE id = ?", (pid,)).fetchone()
+        if not prod:
+            return rpc_error("Product not found.", 404)
+        usage = conn.execute(
+            "SELECT COUNT(*) AS c FROM journal_entry_items WHERE LOWER(product_name) = LOWER(?)",
+            (prod["name"],),
+        ).fetchone()["c"]
+        if usage > 0:
+            return rpc_error("Cannot delete product because it has been used in records. Archive it instead.", 400)
+        conn.execute("DELETE FROM accounting_products WHERE id = ?", (pid,))
+    return rpc_response({"success": True})
 
 
 def get_or_create_bata_expense_category(conn, user_id: str | None = None) -> str:
@@ -1103,7 +1355,20 @@ def orpc_get_entry(user):
                 (entry_id,),
             ).fetchall()
         )
-    return rpc_response(serialize_journal_entry_row(entry, items))
+        user_roles = {r["role"] for r in user.get("roles", [])}
+        is_admin = bool(user_roles & {"admin", "owner"})
+        serialized = serialize_journal_entry_row(entry, items)
+        if not is_admin:
+            serialized["revenue"] = None
+            serialized["amount"] = None
+            if "items" in serialized and isinstance(serialized["items"], list):
+                for item in serialized["items"]:
+                    if item.get("type") == "credit":
+                        item["amount"] = None
+                        item["value"] = None
+                        item["quantity"] = None
+                        item["perItemRate"] = None
+    return rpc_response(serialized)
 
 
 @app.post("/orpc/accountant/journalEntries/update")
@@ -1357,7 +1622,10 @@ def orpc_list_bata(user):
     start_date_str = payload.get("startDate")
     end_date_str = payload.get("endDate")
     driver_id = payload.get("driverId")
+    driver_search = payload.get("driverSearch")
     vehicle_id = payload.get("vehicleId")
+    vehicle_search = payload.get("vehicleSearch")
+    product = payload.get("product")
     sort_by = payload.get("sortBy", "transactionDate")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
 
@@ -1371,10 +1639,21 @@ def orpc_list_bata(user):
     if driver_id:
         where_clauses.append("b.driver_id = ?")
         where_params.append(driver_id)
+    elif driver_search:
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE LOWER(?)")
+        where_params.append(f"%{driver_search}%")
 
     if vehicle_id:
         where_clauses.append("b.vehicle_id = ?")
         where_params.append(vehicle_id)
+    elif vehicle_search:
+        search_v = f"%{vehicle_search}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(v.license_plate, '')) LIKE LOWER(?))")
+        where_params.extend([search_v, search_v])
+
+    if product:
+        where_clauses.append("LOWER(COALESCE(b.product_name, '')) LIKE LOWER(?)")
+        where_params.append(f"%{product}%")
 
     if period == "custom" and start_date_str and end_date_str:
         try:
@@ -1393,7 +1672,7 @@ def orpc_list_bata(user):
         where_clauses.append("SUBSTR(COALESCE(b.bata_date, t.transaction_date), 1, 10) <= ?")
         where_params.append(current_end)
 
-    if search and not driver_id:
+    if search and not driver_id and not vehicle_id and not product:
         search_term = f"%{search}%"
         where_clauses.append("(COALESCE(d.name, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(b.product_name, '') ILIKE ?)")
         where_params.extend([search_term, search_term, search_term, search_term])
@@ -2043,8 +2322,13 @@ def serialize_revenue_item_row(row: dict) -> dict:
 def orpc_list_admin_revenue(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
-    limit = min(int(payload.get("limit", 20)), 100)
+    limit = min(int(payload.get("limit", 20)), 10000)
     search = payload.get("search")
+    driver_id = payload.get("driverId")
+    driver_search = payload.get("driverSearch")
+    vehicle_id = payload.get("vehicleId")
+    vehicle_search = payload.get("vehicleSearch")
+    product = payload.get("product")
     sort_by = payload.get("sortBy", "createdAt")
     sort_order = str(payload.get("sortOrder", "desc")).lower()
     period = payload.get("period", "all_time")
@@ -2053,6 +2337,25 @@ def orpc_list_admin_revenue(user):
 
     where_clauses = ["i.type = 'credit'"]
     where_params: list[Any] = []
+
+    if driver_id:
+        where_clauses.append("j.driver_id = ?")
+        where_params.append(driver_id)
+    elif driver_search:
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE LOWER(?)")
+        where_params.append(f"%{driver_search}%")
+
+    if vehicle_id:
+        where_clauses.append("i.vehicle_id = ?")
+        where_params.append(vehicle_id)
+    elif vehicle_search:
+        search_v = f"%{vehicle_search}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(v.license_plate, '')) LIKE LOWER(?))")
+        where_params.extend([search_v, search_v])
+
+    if product:
+        where_clauses.append("LOWER(COALESCE(i.product_name, '')) LIKE LOWER(?)")
+        where_params.append(f"%{product}%")
 
     if period == "custom" and start_date_str and end_date_str:
         try:
@@ -2071,12 +2374,12 @@ def orpc_list_admin_revenue(user):
         where_clauses.append("SUBSTR(i.transaction_date, 1, 10) <= ?")
         where_params.append(current_end)
 
-    if search:
+    if search and not driver_id and not vehicle_id and not product:
         search_term = f"%{search}%"
         where_clauses.append(
-            "(COALESCE(i.product_name, '') LIKE ? OR COALESCE(i.depo, '') LIKE ? OR COALESCE(i.delivery_location, '') LIKE ? OR COALESCE(v.name, '') LIKE ? OR COALESCE(d.name, '') LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+            "(COALESCE(i.product_name, '') ILIKE ? OR COALESCE(i.depo, '') ILIKE ? OR COALESCE(i.delivery_location, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(d.name, '') ILIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
         )
-        where_params.extend([search_term, search_term, search_term, search_term, search_term, search_term])
+        where_params.extend([search_term, search_term, search_term, search_term, search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}"
 
@@ -2181,4 +2484,25 @@ def orpc_get_admin_revenue(user):
         return rpc_error("Revenue record not found", 404)
 
     return rpc_response(serialize_revenue_item_row(dict(row)))
+
+
+@app.post("/orpc/accountant/products/distinct")
+@app.post("/api/orpc/accountant/products/distinct")
+@require_auth({"accountant", "admin"})
+def orpc_distinct_products(user):
+    with connect() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT product_name FROM (
+                SELECT product_name FROM journal_entry_items WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                UNION
+                SELECT product_name FROM bata WHERE product_name IS NOT NULL AND TRIM(product_name) != ''
+                UNION
+                SELECT name AS product_name FROM warehouse_products WHERE name IS NOT NULL AND TRIM(name) != ''
+                UNION
+                SELECT name AS product_name FROM accounting_products WHERE name IS NOT NULL AND TRIM(name) != ''
+            ) p
+            ORDER BY product_name ASC
+        """).fetchall()
+        products = [r["product_name"] for r in rows if r.get("product_name")]
+    return rpc_response({"products": products})
 
