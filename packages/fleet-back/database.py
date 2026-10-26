@@ -389,6 +389,36 @@ def init_db() -> None:
             """)
         except Exception:
             pass
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS warehouses (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    code TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    color TEXT NOT NULL DEFAULT '#2563EB',
+                    is_system INTEGER NOT NULL DEFAULT 0,
+                    status TEXT NOT NULL DEFAULT 'active',
+                    created_at TEXT DEFAULT now()::text,
+                    updated_at TEXT DEFAULT now()::text
+                );
+            """)
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_warehouses_code_ci ON warehouses(LOWER(code));")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_warehouses_status ON warehouses(status);")
+            conn.execute("""
+                INSERT INTO warehouses (id, name, code, description, color, is_system, status, created_at, updated_at)
+                VALUES 
+                    ('jas-system-warehouse-id', 'JAS Warehouse', 'JAS', 'Owner''s Business (Primary)', '#2563EB', 1, 'active', now()::text, now()::text)
+                ON CONFLICT (code) DO NOTHING;
+            """)
+            conn.execute("""
+                INSERT INTO warehouses (id, name, code, description, color, is_system, status, created_at, updated_at)
+                VALUES 
+                    ('jkm-system-warehouse-id', 'JKM Warehouse', 'JKM', 'Secondary Warehouse', '#7C3AED', 1, 'active', now()::text, now()::text)
+                ON CONFLICT (code) DO NOTHING;
+            """)
+        except Exception:
+            pass
 
 
 def rows_to_dicts(rows: Iterable[dict]) -> List[dict[str, Any]]:

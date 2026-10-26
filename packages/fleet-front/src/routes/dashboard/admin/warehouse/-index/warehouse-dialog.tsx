@@ -26,7 +26,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
 
 const warehouseFormSchema = v.object({
-	section: v.picklist(["JAS", "JKM", "General"]),
+	section: v.string(),
 	recordDate: v.pipe(v.string(), v.minLength(1, "Date is required")),
 	productName: v.optional(v.string()),
 	workersCount: v.union([v.number(), v.string()]),
@@ -37,7 +37,7 @@ const warehouseFormSchema = v.object({
 	reason: v.optional(v.string()),
 });
 
-export type WarehouseSection = "JAS" | "JKM" | "General";
+export type WarehouseSection = string;
 
 export interface WarehouseDialogProps {
 	mode: "create" | "edit";

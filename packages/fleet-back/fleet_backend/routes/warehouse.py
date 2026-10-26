@@ -1,3 +1,4 @@
+import re
 import uuid
 from datetime import datetime
 from typing import Any
@@ -5,6 +6,33 @@ from flask import jsonify, request
 from database import connect, rows_to_dicts
 from fleet_backend.common import require_auth, rpc_error, rpc_payload, rpc_response, now_iso, with_meta, period_date_bounds
 from fleet_backend.server import app
+
+def resolve_warehouse_section(conn: Any, section_input: str | None, default: str = "JAS") -> str:
+    """
+    Validates and resolves section to a valid warehouse code.
+    Matches code exactly, case-insensitively, or matches warehouse name.
+    Falls back to 'JAS' if not found.
+    """
+    if not section_input:
+        return default
+    sec = str(section_input).strip()
+    try:
+        row = conn.execute(
+            """
+            SELECT code FROM warehouses 
+            WHERE status = 'active' AND (code = ? OR LOWER(code) = LOWER(?) OR LOWER(name) = LOWER(?))
+            LIMIT 1
+            """,
+            (sec, sec, sec),
+        ).fetchone()
+        if row and row["code"]:
+            return row["code"]
+    except Exception:
+        pass
+    if sec.upper() in ("JAS", "JKM"):
+        return sec.upper()
+    return default
+
 
 def check_warehouse_permission(conn: Any, user: dict[str, Any], resource_id: str, action: str) -> bool:
     """Check if the user has permission to edit or delete a warehouse record."""
@@ -91,23 +119,13 @@ def orpc_list_warehouse(user):
     payload = rpc_payload()
     offset = int(payload.get("offset", 0))
     limit = min(int(payload.get("limit", 100)), 10000)
-    section = payload.get("section", "JAS")
+    section_input = payload.get("section", "JAS")
     status_filter = payload.get("status", "all")  # "all" | "paid" | "unpaid"
     period = payload.get("period", "all_time")
     start_date_str = payload.get("startDate")
     end_date_str = payload.get("endDate")
     search = (payload.get("search") or "").strip()
     product = (payload.get("product") or "").strip()
-
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
-
-    where_clauses = ["COALESCE(w.section, 'JAS') = ?"]
-    params: list[Any] = [section]
-
-    if status_filter in ("paid", "unpaid"):
-        where_clauses.append("w.status = ?")
-        params.append(status_filter)
 
     # Validate custom date range
     if (period == "custom" or (start_date_str and end_date_str)) and start_date_str and end_date_str:
@@ -129,25 +147,32 @@ def orpc_list_warehouse(user):
     if not current_end and end_date_str and effective_period == "custom":
         current_end = end_date_str[:10]
 
-    if current_start:
-        where_clauses.append("SUBSTR(w.record_date, 1, 10) >= ?")
-        params.append(current_start)
-
-    if current_end:
-        where_clauses.append("SUBSTR(w.record_date, 1, 10) <= ?")
-        params.append(current_end)
-
-    if product and product != "all":
-        where_clauses.append("LOWER(TRIM(w.product_name)) = ?")
-        params.append(product.lower())
-
-    if search:
-        where_clauses.append("(LOWER(w.firm_name) LIKE ? OR LOWER(w.product_name) LIKE ?)")
-        params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
-
-    where_sql = f"WHERE {' AND '.join(where_clauses)}"
-
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
+        where_clauses = ["COALESCE(w.section, 'JAS') = ?"]
+        params: list[Any] = [section]
+
+        if status_filter in ("paid", "unpaid"):
+            where_clauses.append("w.status = ?")
+            params.append(status_filter)
+
+        if current_start:
+            where_clauses.append("SUBSTR(w.record_date, 1, 10) >= ?")
+            params.append(current_start)
+
+        if current_end:
+            where_clauses.append("SUBSTR(w.record_date, 1, 10) <= ?")
+            params.append(current_end)
+
+        if product and product != "all":
+            where_clauses.append("LOWER(TRIM(w.product_name)) = ?")
+            params.append(product.lower())
+
+        if search:
+            where_clauses.append("(LOWER(w.firm_name) LIKE ? OR LOWER(w.product_name) LIKE ?)")
+            params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
+
+        where_sql = f"WHERE {' AND '.join(where_clauses)}"
         rows = rows_to_dicts(
             conn.execute(
                 f"""
@@ -237,9 +262,7 @@ def orpc_get_warehouse_record(user):
 @require_auth({"admin", "accountant"})
 def orpc_create_warehouse(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
 
     try:
         workers = float(payload.get("workersCount", 0) or 0)
@@ -268,6 +291,7 @@ def orpc_create_warehouse(user):
     paid_at = now_iso() if status == "paid" else None
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         wid = str(uuid.uuid4())
         conn.execute(
             """
@@ -348,9 +372,7 @@ def orpc_update_warehouse(user):
         if not reason:
             return rpc_error("A reason is required to update a warehouse record.", 400)
 
-        section = payload.get("section") or existing["section"] or "JAS"
-        if section not in ("JAS", "JKM", "General"):
-            section = "JAS"
+        section = resolve_warehouse_section(conn, payload.get("section") or existing["section"])
 
         try:
             workers = float(payload.get("workersCount", existing["workers_count"]) or 0)
@@ -547,8 +569,9 @@ def orpc_delete_warehouse(user):
 @require_auth({"admin", "accountant", "analyst"})
 def orpc_firms_and_products(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
+    section_input = payload.get("section", "JAS")
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         firms = [
             row["firm_name"]
             for row in conn.execute(
@@ -582,12 +605,11 @@ def orpc_firms_and_products(user):
 @require_auth({"admin", "accountant", "analyst"})
 def orpc_warehouse_products_list(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
     include_archived = bool(payload.get("includeArchived", False))
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         if include_archived:
             rows = conn.execute(
                 """
@@ -636,11 +658,10 @@ def orpc_warehouse_products_list(user):
 @require_auth({"admin", "accountant", "analyst"})
 def orpc_warehouse_products_manage_list(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         rows = conn.execute(
             """
             SELECT 
@@ -684,15 +705,14 @@ def orpc_warehouse_products_manage_list(user):
 @require_auth({"admin", "accountant"})
 def orpc_warehouse_products_create(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
     name = (payload.get("name") or "").strip()
 
     if not name:
         return rpc_error("Product name cannot be empty.", 400)
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         # Check case-insensitive duplicate within this section in warehouse_products
         existing = conn.execute(
             """
@@ -773,9 +793,7 @@ def orpc_warehouse_products_create(user):
 @require_auth({"admin", "accountant"})
 def orpc_warehouse_products_archive(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
     pid = payload.get("id")
     name = (payload.get("name") or "").strip()
 
@@ -783,6 +801,7 @@ def orpc_warehouse_products_archive(user):
         return rpc_error("Product id or name is required.", 400)
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         if pid:
             row = conn.execute(
                 "SELECT id, name, section FROM warehouse_products WHERE id = ? AND section = ?",
@@ -824,9 +843,7 @@ def orpc_warehouse_products_archive(user):
 @require_auth({"admin", "accountant"})
 def orpc_warehouse_products_restore(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
     pid = payload.get("id")
     name = (payload.get("name") or "").strip()
 
@@ -834,6 +851,7 @@ def orpc_warehouse_products_restore(user):
         return rpc_error("Product id or name is required.", 400)
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         if pid:
             row = conn.execute(
                 "SELECT id, name, section FROM warehouse_products WHERE id = ? AND section = ?",
@@ -862,9 +880,7 @@ def orpc_warehouse_products_restore(user):
 @require_auth({"admin", "accountant"})
 def orpc_warehouse_products_delete(user):
     payload = rpc_payload()
-    section = payload.get("section", "JAS")
-    if section not in ("JAS", "JKM", "General"):
-        section = "JAS"
+    section_input = payload.get("section", "JAS")
     pid = payload.get("id")
     name = (payload.get("name") or "").strip()
 
@@ -872,6 +888,7 @@ def orpc_warehouse_products_delete(user):
         return rpc_error("Product id or name is required.", 400)
 
     with connect() as conn:
+        section = resolve_warehouse_section(conn, section_input)
         if pid:
             row = conn.execute(
                 "SELECT id, name, section FROM warehouse_products WHERE id = ? AND section = ?",
@@ -906,3 +923,244 @@ def orpc_warehouse_products_delete(user):
         conn.commit()
 
     return rpc_response({"ok": True, "deleted": True, "name": row["name"]})
+
+
+# -----------------------------------------------------------------------------
+# Warehouse Entity CRUD Endpoints
+# -----------------------------------------------------------------------------
+
+@app.post("/orpc/admin/warehouse/warehouses/list")
+@app.post("/api/orpc/admin/warehouse/warehouses/list")
+@require_auth({"admin", "accountant", "analyst"})
+def orpc_list_warehouses(user):
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT 
+                w.id,
+                w.name,
+                w.code,
+                w.description,
+                w.color,
+                w.is_system,
+                w.status,
+                w.created_at,
+                w.updated_at,
+                COALESCE(rc.record_count, 0) AS record_count,
+                COALESCE(pc.product_count, 0) AS product_count
+            FROM warehouses w
+            LEFT JOIN (
+                SELECT section, COUNT(*) AS record_count 
+                FROM warehouse_records 
+                GROUP BY section
+            ) rc ON rc.section = w.code
+            LEFT JOIN (
+                SELECT section, COUNT(*) AS product_count 
+                FROM warehouse_products 
+                WHERE status = 'active'
+                GROUP BY section
+            ) pc ON pc.section = w.code
+            WHERE w.status = 'active'
+            ORDER BY w.is_system DESC, w.name ASC
+            """
+        ).fetchall()
+
+        warehouses = [
+            {
+                "id": r["id"],
+                "name": r["name"],
+                "code": r["code"],
+                "description": r["description"] or "",
+                "color": r["color"] or "#2563EB",
+                "isSystem": bool(r["is_system"]),
+                "status": r["status"] or "active",
+                "createdAt": r["created_at"],
+                "updatedAt": r["updated_at"],
+                "recordCount": int(r["record_count"] or 0),
+                "productCount": int(r["product_count"] or 0),
+            }
+            for r in rows
+        ]
+
+    return rpc_response({"warehouses": warehouses})
+
+
+@app.post("/orpc/admin/warehouse/warehouses/create")
+@app.post("/api/orpc/admin/warehouse/warehouses/create")
+@require_auth({"admin"})
+def orpc_create_custom_warehouse(user):
+    payload = rpc_payload()
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return rpc_error("Warehouse name is required.", 400)
+
+    description = (payload.get("description") or "").strip()
+    color = (payload.get("color") or "#2563EB").strip()
+    custom_code = (payload.get("code") or "").strip().upper()
+
+    with connect() as conn:
+        # Check duplicate name
+        existing_name = conn.execute(
+            "SELECT id FROM warehouses WHERE LOWER(name) = LOWER(?) AND status = 'active' LIMIT 1",
+            (name,),
+        ).fetchone()
+        if existing_name:
+            return rpc_error(f"A warehouse with the name '{name}' already exists.", 400)
+
+        # Generate or validate code
+        if custom_code:
+            code = re.sub(r"[^A-Z0-9_]", "_", custom_code).strip("_")
+        else:
+            code = re.sub(r"[^A-Z0-9_]", "_", name.upper()).strip("_")
+
+        if not code:
+            code = f"WH_{uuid.uuid4().hex[:6].upper()}"
+
+        # Ensure code uniqueness
+        base_code = code
+        suffix = 1
+        while True:
+            existing_code = conn.execute(
+                "SELECT id FROM warehouses WHERE code = ? LIMIT 1",
+                (code,),
+            ).fetchone()
+            if not existing_code:
+                break
+            suffix += 1
+            code = f"{base_code}_{suffix}"
+
+        wid = str(uuid.uuid4())
+        now = now_iso()
+        conn.execute(
+            """
+            INSERT INTO warehouses (id, name, code, description, color, is_system, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, 0, 'active', ?, ?)
+            """,
+            (wid, name, code, description, color, now, now),
+        )
+        conn.commit()
+
+        row = conn.execute("SELECT * FROM warehouses WHERE id = ?", (wid,)).fetchone()
+
+    return rpc_response({
+        "warehouse": {
+            "id": row["id"],
+            "name": row["name"],
+            "code": row["code"],
+            "description": row["description"] or "",
+            "color": row["color"] or "#2563EB",
+            "isSystem": bool(row["is_system"]),
+            "status": row["status"],
+            "createdAt": row["created_at"],
+            "updatedAt": row["updated_at"],
+            "recordCount": 0,
+            "productCount": 0,
+        }
+    })
+
+
+@app.post("/orpc/admin/warehouse/warehouses/update")
+@app.post("/api/orpc/admin/warehouse/warehouses/update")
+@require_auth({"admin"})
+def orpc_update_custom_warehouse(user):
+    payload = rpc_payload()
+    wid = (payload.get("id") or "").strip()
+    if not wid:
+        return rpc_error("Warehouse id is required.", 400)
+
+    name = (payload.get("name") or "").strip()
+    description = payload.get("description")
+    color = (payload.get("color") or "").strip()
+
+    with connect() as conn:
+        wh = conn.execute("SELECT * FROM warehouses WHERE id = ?", (wid,)).fetchone()
+        if not wh:
+            return rpc_error("Warehouse not found.", 404)
+
+        # Check duplicate name if name changed
+        if name and name.lower() != wh["name"].lower():
+            existing = conn.execute(
+                "SELECT id FROM warehouses WHERE LOWER(name) = LOWER(?) AND id != ? AND status = 'active' LIMIT 1",
+                (name, wid),
+            ).fetchone()
+            if existing:
+                return rpc_error(f"A warehouse with the name '{name}' already exists.", 400)
+
+        new_name = name if name else wh["name"]
+        new_desc = description.strip() if description is not None else (wh["description"] or "")
+        new_color = color if color else (wh["color"] or "#2563EB")
+        now = now_iso()
+
+        conn.execute(
+            """
+            UPDATE warehouses 
+            SET name = ?, description = ?, color = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (new_name, new_desc, new_color, now, wid),
+        )
+        conn.commit()
+
+        row = conn.execute(
+            """
+            SELECT 
+                w.*,
+                COALESCE((SELECT COUNT(*) FROM warehouse_records WHERE section = w.code), 0) AS record_count,
+                COALESCE((SELECT COUNT(*) FROM warehouse_products WHERE section = w.code AND status = 'active'), 0) AS product_count
+            FROM warehouses w
+            WHERE w.id = ?
+            """,
+            (wid,),
+        ).fetchone()
+
+    return rpc_response({
+        "warehouse": {
+            "id": row["id"],
+            "name": row["name"],
+            "code": row["code"],
+            "description": row["description"] or "",
+            "color": row["color"] or "#2563EB",
+            "isSystem": bool(row["is_system"]),
+            "status": row["status"],
+            "createdAt": row["created_at"],
+            "updatedAt": row["updated_at"],
+            "recordCount": int(row["record_count"] or 0),
+            "productCount": int(row["product_count"] or 0),
+        }
+    })
+
+
+@app.post("/orpc/admin/warehouse/warehouses/delete")
+@app.post("/api/orpc/admin/warehouse/warehouses/delete")
+@require_auth({"admin"})
+def orpc_delete_custom_warehouse(user):
+    payload = rpc_payload()
+    wid = (payload.get("id") or "").strip()
+    if not wid:
+        return rpc_error("Warehouse id is required.", 400)
+
+    with connect() as conn:
+        wh = conn.execute("SELECT * FROM warehouses WHERE id = ?", (wid,)).fetchone()
+        if not wh:
+            return rpc_error("Warehouse not found.", 404)
+
+        if wh["is_system"]:
+            return rpc_error("System warehouses (JAS, JKM) cannot be deleted.", 400)
+
+        # Check records
+        rec_cnt_row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM warehouse_records WHERE section = ?",
+            (wh["code"],),
+        ).fetchone()
+        rec_cnt = int(rec_cnt_row["cnt"] or 0)
+        if rec_cnt > 0:
+            return rpc_error(
+                f"Cannot delete warehouse '{wh['name']}' because it contains {rec_cnt} record(s). Please delete all records first.",
+                400,
+            )
+
+        now = now_iso()
+        conn.execute("UPDATE warehouses SET status = 'archived', updated_at = ? WHERE id = ?", (now, wid))
+        conn.commit()
+
+    return rpc_response({"success": True, "id": wid})

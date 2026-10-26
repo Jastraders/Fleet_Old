@@ -4,8 +4,6 @@ import { Suspense, useDeferredValue, useState, useMemo } from "react";
 import * as v from "valibot";
 import {
 	Building2Icon,
-	BoxesIcon,
-	WarehouseIcon,
 	Trash2Icon,
 	CalendarIcon,
 	SearchIcon,
@@ -16,9 +14,26 @@ import {
 	DownloadIcon,
 	FileTextIcon,
 	FileSpreadsheetIcon,
+	PencilIcon,
+	PlusIcon,
+	CheckIcon,
 } from "lucide-react";
 import { orpc } from "@/orpc";
 import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
+import {
+	WarehouseManagementDialog,
+	type WarehouseItem,
+} from "@/routes/dashboard/admin/warehouse/-index/warehouse-management-dialog";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -69,7 +84,7 @@ const periodOptions = [
 ] as const;
 
 const querySchema = v.object({
-	section: v.optional(v.fallback(v.picklist(["JAS", "JKM", "General"]), "JAS"), "JAS"),
+	section: v.optional(v.fallback(v.string(), "JAS"), "JAS"),
 	status: v.optional(v.fallback(v.picklist(["all", "paid", "unpaid"]), "all"), "all"),
 	product: v.optional(v.string()),
 	period: v.optional(periodSchema, "all_time"),
@@ -99,6 +114,9 @@ export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 			query.startDate &&
 			query.endDate &&
 			query.startDate > query.endDate
+		);
+		queryClient.prefetchQuery(
+			orpc.admin.warehouse.warehouses.list.queryOptions({}),
 		);
 		queryClient.prefetchQuery(
 			orpc.admin.warehouse.list.queryOptions({
@@ -156,6 +174,69 @@ function WarehouseList() {
 		recordId: "",
 		label: "",
 	});
+
+	const { data: warehousesData } = useQuery({
+		...orpc.admin.warehouse.warehouses.list.queryOptions({}),
+	});
+	const warehouses: WarehouseItem[] = warehousesData?.warehouses || [
+		{ id: "jas", name: "JAS Warehouse", code: "JAS", description: "Owner's Business (Primary)", color: "#2563EB", isSystem: true, status: "active" },
+		{ id: "jkm", name: "JKM Warehouse", code: "JKM", description: "Secondary Warehouse", color: "#7C3AED", isSystem: true, status: "active" },
+	];
+
+	const [warehouseSearch, setWarehouseSearch] = useState("");
+	const [managementModal, setManagementModal] = useState<{
+		open: boolean;
+		mode: "create" | "edit";
+		warehouse?: WarehouseItem | null;
+	}>({
+		open: false,
+		mode: "create",
+		warehouse: null,
+	});
+
+	const [warehouseToDelete, setWarehouseToDelete] = useState<WarehouseItem | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
+
+	const deleteWarehouseMutation = useMutation({
+		...orpc.admin.warehouse.warehouses.delete.mutationOptions(),
+		onSuccess: () => {
+			queryClient.invalidateQueries();
+			if (warehouseToDelete && activeSection.toLowerCase() === warehouseToDelete.code.toLowerCase()) {
+				handleSectionChange("JAS");
+			}
+			setWarehouseToDelete(null);
+			setDeleteError(null);
+		},
+		onError: (err: any) => {
+			setDeleteError(err?.message || "Failed to delete warehouse");
+		},
+	});
+
+	const filteredWarehouses = useMemo(() => {
+		if (!warehouseSearch.trim()) return warehouses;
+		const term = warehouseSearch.trim().toLowerCase();
+		return warehouses.filter(
+			(w) =>
+				w.name.toLowerCase().includes(term) ||
+				w.code.toLowerCase().includes(term) ||
+				(w.description && w.description.toLowerCase().includes(term)),
+		);
+	}, [warehouses, warehouseSearch]);
+
+	const activeWarehouse = useMemo(() => {
+		return (
+			warehouses.find((w) => w.code.toLowerCase() === activeSection.toLowerCase()) ||
+			warehouses[0] || {
+				id: "jas",
+				name: "JAS Warehouse",
+				code: "JAS",
+				description: "Owner's Business (Primary)",
+				color: "#2563EB",
+				isSystem: true,
+				status: "active",
+			}
+		);
+	}, [warehouses, activeSection]);
 
 	const { data: productsData } = useQuery({
 		...orpc.admin.warehouse.products.list.queryOptions({
@@ -405,15 +486,10 @@ function WarehouseList() {
 					: periodOptions.find((p) => p.value === period)?.label || period;
 
 			const options: StatementExportOptions = {
-				filename: `${activeSection}_Warehouse_Statement_${new Date().toISOString().split("T")[0]}`,
+				filename: `${activeTheme.label.replace(/\s+/g, "_")}_Statement_${new Date().toISOString().split("T")[0]}`,
 				title: `${activeTheme.label} Statement`,
 				subtitle: "Labor Wages, Unload Logs and Financial Summary",
-				themeColor:
-					activeSection === "JAS"
-						? { r: 0.145, g: 0.388, b: 0.921 }
-						: activeSection === "JKM"
-							? { r: 0.486, g: 0.227, b: 0.929 }
-							: { r: 0.918, g: 0.345, b: 0.047 },
+				themeColor: hexToRgb(activeTheme.colorHex),
 				metadata: {
 					"Section": activeTheme.label,
 					"Date Range": periodLabel,
@@ -462,44 +538,60 @@ function WarehouseList() {
 
 	const isEmpty = !data || data.meta.total === 0;
 
-	// Theme color styles per warehouse
-	const getThemeConfig = (sec: WarehouseSection) => {
-		switch (sec) {
-			case "JAS":
-				return {
-					label: "JAS Warehouse",
-					sub: "Owner's Business (Primary)",
-					activeTab: "border-blue-600 text-blue-600 bg-blue-50/50 dark:bg-blue-950/30 dark:text-blue-400 font-bold",
-					badge: "bg-blue-600 text-white",
-					colorHex: "#2563EB",
-					icon: (
-						<span className="flex h-6 w-6 items-center justify-center rounded bg-blue-600 text-white font-black text-xs shadow-xs">
-							J
-						</span>
-					),
-				};
-			case "JKM":
-				return {
-					label: "JKM Warehouse",
-					sub: "Secondary Warehouse",
-					activeTab: "border-purple-600 text-purple-600 bg-purple-50/50 dark:bg-purple-950/30 dark:text-purple-400 font-semibold",
-					badge: "bg-purple-600 text-white",
-					colorHex: "#7C3AED",
-					icon: <Building2Icon className="h-5 w-5 text-purple-600 dark:text-purple-400" />,
-				};
-			case "General":
-				return {
-					label: "General Warehouse",
-					sub: "General / Third-Party",
-					activeTab: "border-orange-600 text-orange-600 bg-orange-50/50 dark:bg-orange-950/30 dark:text-orange-400 font-semibold",
-					badge: "bg-orange-600 text-white",
-					colorHex: "#EA580C",
-					icon: <BoxesIcon className="h-5 w-5 text-orange-600 dark:text-orange-400" />,
-				};
+	function hexToRgb(hex: string): { r: number; g: number; b: number } {
+		let clean = hex.replace("#", "").trim();
+		if (clean.length === 3) {
+			clean = clean
+				.split("")
+				.map((c) => c + c)
+				.join("");
 		}
+		if (clean.length !== 6) {
+			return { r: 0.145, g: 0.388, b: 0.921 };
+		}
+		const num = parseInt(clean, 16);
+		return {
+			r: ((num >> 16) & 255) / 255,
+			g: ((num >> 8) & 255) / 255,
+			b: (num & 255) / 255,
+		};
+	}
+
+	// Theme color styles per warehouse
+	const getThemeConfig = (wh: WarehouseItem) => {
+		const isJAS = wh.code.toUpperCase() === "JAS";
+		const isJKM = wh.code.toUpperCase() === "JKM";
+		const color = wh.color || "#2563EB";
+
+		return {
+			label: wh.name,
+			sub:
+				wh.description ||
+				(isJAS
+					? "Owner's Business (Primary)"
+					: isJKM
+						? "Secondary Warehouse"
+						: "Independent Warehouse"),
+			colorHex: color,
+			badge: isJAS ? "Primary" : wh.isSystem ? "System" : null,
+			icon: isJAS ? (
+				<span className="flex h-6 w-6 items-center justify-center rounded bg-blue-600 text-white font-black text-xs shadow-xs">
+					J
+				</span>
+			) : isJKM ? (
+				<Building2Icon className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+			) : (
+				<div
+					className="flex h-6 w-6 items-center justify-center rounded text-white font-bold text-xs shadow-xs"
+					style={{ backgroundColor: color }}
+				>
+					{wh.name.charAt(0).toUpperCase()}
+				</div>
+			),
+		};
 	};
 
-	const activeTheme = getThemeConfig(activeSection);
+	const activeTheme = getThemeConfig(activeWarehouse);
 
 	return (
 		<div className="w-full space-y-6">
@@ -539,38 +631,144 @@ function WarehouseList() {
 				</div>
 			</div>
 
-			{/* 3 Independent Warehouse Section Switcher */}
-			<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-				{(["JAS", "JKM", "General"] as const).map((sec) => {
-					const cfg = getThemeConfig(sec);
-					const isSelected = activeSection === sec;
-					return (
-						<button
-							key={sec}
-							type="button"
-							onClick={() => handleSectionChange(sec)}
-							className={cn(
-								"flex items-center gap-3 p-4 rounded-xl border text-left transition-all shadow-2xs hover:shadow-md",
-								isSelected
-									? cn("border-2 shadow-sm bg-card", cfg.activeTab)
-									: "bg-card hover:border-muted-foreground/40 text-muted-foreground"
-							)}
+			{/* Dynamic Warehouse Selection & Search Bar */}
+			<div className="space-y-3">
+				<div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+					<div className="relative flex-1 max-w-md">
+						<SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+						<Input
+							placeholder="Search warehouses by name or description..."
+							value={warehouseSearch}
+							onChange={(e) => setWarehouseSearch(e.target.value)}
+							className="pl-9 pr-8 h-9"
+						/>
+						{warehouseSearch && (
+							<button
+								type="button"
+								onClick={() => setWarehouseSearch("")}
+								className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+							>
+								<XIcon className="h-4 w-4" />
+							</button>
+						)}
+					</div>
+					{isAdmin && (
+						<Button
+							size="sm"
+							onClick={() => setManagementModal({ open: true, mode: "create" })}
+							className="gap-1.5 shadow-xs"
 						>
-							<div className="shrink-0">{cfg.icon}</div>
-							<div>
-								<div className="font-bold text-sm text-foreground flex items-center gap-1.5">
-									{cfg.label}
-									{sec === "JAS" && (
-										<span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-											Primary
-										</span>
+							<PlusIcon className="h-4 w-4" />
+							Add Warehouse
+						</Button>
+					)}
+				</div>
+
+				{/* Dynamic Warehouse Cards Grid */}
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+					{filteredWarehouses.map((wh) => {
+						const cfg = getThemeConfig(wh);
+						const isSelected = activeSection.toLowerCase() === wh.code.toLowerCase();
+						return (
+							<div
+								key={wh.id}
+								className={cn(
+									"group relative flex flex-col justify-between p-4 rounded-xl border text-left transition-all shadow-2xs hover:shadow-md",
+									isSelected
+										? "border-2 shadow-sm bg-card ring-1 ring-offset-1"
+										: "bg-card hover:border-muted-foreground/40 text-muted-foreground"
+								)}
+								style={{
+									borderColor: isSelected ? cfg.colorHex : undefined,
+								}}
+							>
+								<div className="flex items-start justify-between gap-2">
+									<button
+										type="button"
+										onClick={() => handleSectionChange(wh.code)}
+										className="flex items-center gap-3 flex-1 text-left cursor-pointer outline-none focus-visible:underline"
+									>
+										<div className="shrink-0">{cfg.icon}</div>
+										<div>
+											<div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+												{cfg.label}
+												{cfg.badge && (
+													<span
+														className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded"
+														style={{
+															backgroundColor: `${cfg.colorHex}20`,
+															color: cfg.colorHex,
+														}}
+													>
+														{cfg.badge}
+													</span>
+												)}
+											</div>
+											<div className="text-xs text-muted-foreground line-clamp-1">{cfg.sub}</div>
+										</div>
+									</button>
+
+									{/* Custom warehouse actions for admin */}
+									{isAdmin && !wh.isSystem && (
+										<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-7 w-7 text-muted-foreground hover:text-foreground"
+												onClick={() => setManagementModal({ open: true, mode: "edit", warehouse: wh })}
+												title="Edit Warehouse"
+											>
+												<PencilIcon className="h-3.5 w-3.5" />
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="h-7 w-7 text-destructive hover:bg-destructive/10"
+												onClick={() => setWarehouseToDelete(wh)}
+												title="Delete Warehouse"
+											>
+												<Trash2Icon className="h-3.5 w-3.5" />
+											</Button>
+										</div>
 									)}
 								</div>
-								<div className="text-xs text-muted-foreground">{cfg.sub}</div>
+
+								<button
+									type="button"
+									onClick={() => handleSectionChange(wh.code)}
+									className="mt-3 pt-2 border-t flex items-center justify-between text-xs text-muted-foreground w-full cursor-pointer outline-none"
+								>
+									<span>{wh.recordCount ?? 0} record{(wh.recordCount ?? 0) === 1 ? "" : "s"}</span>
+									{isSelected && (
+										<span className="font-semibold text-[11px] flex items-center gap-1" style={{ color: cfg.colorHex }}>
+											<CheckIcon className="h-3 w-3" /> Active
+										</span>
+									)}
+								</button>
 							</div>
+						);
+					})}
+
+					{/* Add New Warehouse Card at the end of the grid if user is admin */}
+					{isAdmin && !warehouseSearch && (
+						<button
+							type="button"
+							onClick={() => setManagementModal({ open: true, mode: "create" })}
+							className="flex flex-col items-center justify-center p-4 rounded-xl border border-dashed hover:border-primary/60 bg-muted/20 hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all text-center min-h-[100px] gap-2"
+						>
+							<div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+								<PlusIcon className="h-4 w-4" />
+							</div>
+							<div className="font-semibold text-xs">Add New Warehouse</div>
 						</button>
-					);
-				})}
+					)}
+				</div>
+
+				{filteredWarehouses.length === 0 && warehouseSearch && (
+					<div className="p-6 text-center text-sm text-muted-foreground rounded-xl border border-dashed">
+						No warehouses matching "<span className="font-semibold text-foreground">{warehouseSearch}</span>" found.
+					</div>
+				)}
 			</div>
 
 			{/* Summary Salary Totals Following Active Filters */}
@@ -646,6 +844,7 @@ function WarehouseList() {
 						/>
 						{search && (
 							<button
+								type="button"
 								onClick={() => handleSearchChange("")}
 								className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
 							>
@@ -854,6 +1053,63 @@ function WarehouseList() {
 				resourceId={accessDeniedState.recordId}
 				primaryLabel={accessDeniedState.label}
 			/>
+
+			<WarehouseManagementDialog
+				mode={managementModal.mode}
+				warehouse={managementModal.warehouse}
+				open={managementModal.open}
+				onOpenChange={(open) => setManagementModal((prev) => ({ ...prev, open }))}
+				onSuccess={(wh) => {
+					handleSectionChange(wh.code);
+				}}
+			/>
+
+			<AlertDialog
+				open={!!warehouseToDelete}
+				onOpenChange={(open) => {
+					if (!open) {
+						setWarehouseToDelete(null);
+						setDeleteError(null);
+					}
+				}}
+			>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {warehouseToDelete?.name}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Are you sure you want to delete this warehouse? This action cannot be undone.
+							{(warehouseToDelete?.recordCount ?? 0) > 0 && (
+								<span className="block mt-2 text-destructive font-medium">
+									Warning: This warehouse contains {warehouseToDelete?.recordCount} record(s).
+									You must delete or remove all records before this warehouse can be deleted.
+								</span>
+							)}
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					{deleteError && (
+						<div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive">
+							{deleteError}
+						</div>
+					)}
+					<AlertDialogFooter>
+						<AlertDialogCancel onClick={() => { setWarehouseToDelete(null); setDeleteError(null); }}>
+							Cancel
+						</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={(e) => {
+								e.preventDefault();
+								if (warehouseToDelete) {
+									deleteWarehouseMutation.mutate({ id: warehouseToDelete.id } as any);
+								}
+							}}
+							disabled={deleteWarehouseMutation.isPending || (warehouseToDelete?.recordCount ?? 0) > 0}
+							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+						>
+							{deleteWarehouseMutation.isPending ? "Deleting..." : "Delete Warehouse"}
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }

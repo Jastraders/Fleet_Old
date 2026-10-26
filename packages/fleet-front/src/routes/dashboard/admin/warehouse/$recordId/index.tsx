@@ -3,12 +3,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Suspense, useState } from "react";
 import {
 	Building2Icon,
-	BoxesIcon,
 	WarehouseIcon,
 	ArrowLeftIcon,
 	CalendarIcon,
 	UserIcon,
-	PencilIcon,
 	Trash2Icon,
 	InfoIcon,
 } from "lucide-react";
@@ -17,7 +15,6 @@ import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { useIsAdmin, useRowAccess, AccessDeniedDialog } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 export const Route = createFileRoute("/dashboard/admin/warehouse/$recordId/")({
@@ -55,11 +52,11 @@ function SectionBadge({ section }: { section: WarehouseSection }) {
 					JKM Warehouse
 				</Badge>
 			);
-		case "General":
+		default:
 			return (
-				<Badge className="bg-orange-600 text-white hover:bg-orange-700 gap-1.5 px-3 py-1 font-semibold">
-					<BoxesIcon className="h-4 w-4" />
-					General Warehouse
+				<Badge className="bg-emerald-600 text-white hover:bg-emerald-700 gap-1.5 px-3 py-1 font-semibold">
+					<WarehouseIcon className="h-4 w-4" />
+					{section} Warehouse
 				</Badge>
 			);
 	}
