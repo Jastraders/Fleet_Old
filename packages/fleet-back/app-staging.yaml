@@ -5,8 +5,7 @@ entrypoint: gunicorn -b :$PORT app:app
 instance_class: F1
 
 env_variables:
-  SUPABASE_DATABASE_URL: "postgresql://postgres:hamdan4040!@db.gpqkhbctrtvopqvxlahe.supabase.co:5432/postgres"
-  ALLOWED_ORIGINS: "https://staging.jasfleet.cloud,https://staging-api.jasfleet.cloud,https://fleet-staging.web.app,https://staging-dot-fleet-494408.uc.r.appspot.com,https://api.jasfleet.cloud,https://jasfleet.cloud,http://localhost:3000"
+  ALLOWED_ORIGINS: "https://staging.jasfleet.cloud,https://staging-api.jasfleet.cloud,https://fleet-staging.web.app,https://staging-dot-fleet-494408.el.r.appspot.com,http://localhost:3000"
 
 automatic_scaling:
   min_instances: 0
