@@ -3,7 +3,11 @@
 .gitignore
 .env
 venv/
+.venv/
 __pycache__/
 *.pyc
+*.db
+*.sqlite
+*.sqlite3
 .DS_Store
 node_modules/

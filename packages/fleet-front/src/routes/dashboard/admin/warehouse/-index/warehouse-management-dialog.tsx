@@ -94,8 +94,13 @@ export function WarehouseManagementDialog({
 				onSuccess(created);
 			}
 		},
-		onError: (err: { message?: string }) => {
-			setError(err?.message || "Failed to create warehouse");
+		onError: (err: { message?: string; data?: { message?: string }; response?: { data?: { message?: string } } }) => {
+			const errorMsg =
+				err?.data?.message ||
+				err?.response?.data?.message ||
+				err?.message ||
+				"Failed to create warehouse";
+			setError(errorMsg);
 		},
 	});
 
@@ -109,8 +114,13 @@ export function WarehouseManagementDialog({
 				onSuccess(updated);
 			}
 		},
-		onError: (err: { message?: string }) => {
-			setError(err?.message || "Failed to update warehouse");
+		onError: (err: { message?: string; data?: { message?: string }; response?: { data?: { message?: string } } }) => {
+			const errorMsg =
+				err?.data?.message ||
+				err?.response?.data?.message ||
+				err?.message ||
+				"Failed to update warehouse";
+			setError(errorMsg);
 		},
 	});
 
