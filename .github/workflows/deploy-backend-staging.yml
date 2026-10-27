@@ -29,11 +29,22 @@ jobs:
           fi
 
       - name: Deploy Staging to App Engine
-        run: gcloud app deploy app-staging.yaml --quiet
+        run: |
+          set -o pipefail
+          gcloud app deploy app-staging.yaml --quiet 2>&1 | tee /tmp/deploy.log
         working-directory: packages/fleet-back
+
+      - name: Diagnostic on Failure
+        if: failure()
+        run: |
+          ERROR_MSG=$(tail -n 20 /tmp/deploy.log | tr '\r\n' ' ')
+          echo "::error title=GCloud Deploy Error::${ERROR_MSG}"
+          cat /tmp/deploy.log
+          gcloud app logs read --service=staging --limit=50 || true
 
       - name: Deploy dispatch routing
         run: gcloud app deploy dispatch.yaml --quiet
+
 
 
 
