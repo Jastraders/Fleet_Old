@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { PlusIcon, Settings2Icon } from "lucide-react";
-import { orpc } from "@/orpc";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel, FieldError } from "@/components/ui/field";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { orpc } from "@/orpc";
 import { AccountingManageProductsDialog } from "./accounting-manage-products-dialog";
 
 interface AccountingProductFieldProps {
@@ -61,7 +61,9 @@ export function AccountingProductField({
 			return;
 		}
 
-		const duplicate = products.find((p) => p.toLowerCase() === trimmed.toLowerCase());
+		const duplicate = products.find(
+			(p) => p.toLowerCase() === trimmed.toLowerCase(),
+		);
 		if (duplicate) {
 			onChange(duplicate);
 			setIsAdding(false);
@@ -78,7 +80,12 @@ export function AccountingProductField({
 		<Field className="space-y-1.5">
 			<div className="flex items-center justify-between">
 				<FieldLabel htmlFor="accounting-product-select">
-					{label} {optional && <span className="text-muted-foreground font-normal">(Optional)</span>}
+					{label}{" "}
+					{optional && (
+						<span className="text-muted-foreground font-normal">
+							(Optional)
+						</span>
+					)}
 				</FieldLabel>
 				<div className="flex items-center gap-3">
 					{!isAdding && (
@@ -168,10 +175,13 @@ export function AccountingProductField({
 					}}
 					className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 				>
-					<option value="">{isLoading ? "Loading products..." : "Select a product..."}</option>
-					{value && !products.some((p) => p.toLowerCase() === value.toLowerCase()) && (
-						<option value={value}>{value} (Historical / Custom)</option>
-					)}
+					<option value="">
+						{isLoading ? "Loading products..." : "Select a product..."}
+					</option>
+					{value &&
+						!products.some((p) => p.toLowerCase() === value.toLowerCase()) && (
+							<option value={value}>{value} (Historical / Custom)</option>
+						)}
 					{products.map((p) => (
 						<option key={p} value={p}>
 							{p}

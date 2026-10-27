@@ -44,7 +44,11 @@ export const Route = createFileRoute(
 	"/dashboard/analyst/analytics/$vehicleId/",
 )({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { period, startDate, endDate } }) => ({ period, startDate, endDate }),
+	loaderDeps: ({ search: { period, startDate, endDate } }) => ({
+		period,
+		startDate,
+		endDate,
+	}),
 	loader: ({
 		context: { orpc: orpcClient, queryClient },
 		params: { vehicleId },
@@ -223,9 +227,7 @@ function VehicleTitleContent() {
 			</Button>
 			<div>
 				<h1 className="text-2xl font-bold tracking-tight">{vehicle.name}</h1>
-				<p className="text-muted-foreground text-sm">
-					{vehicle.licensePlate}
-				</p>
+				<p className="text-muted-foreground text-sm">{vehicle.licensePlate}</p>
 			</div>
 		</div>
 	);
@@ -237,14 +239,23 @@ function RouteComponent() {
 
 	return (
 		<>
-			<VehicleHeaderContent period={period} startDate={startDate} endDate={endDate} />
+			<VehicleHeaderContent
+				period={period}
+				startDate={startDate}
+				endDate={endDate}
+			/>
 			<div className="@container/main flex flex-1 flex-col gap-2">
 				<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
 					<Suspense fallback={<VehicleTitleSkeleton />}>
 						<VehicleTitleContent />
 					</Suspense>
 
-					<VehicleSummaryStatsCards vehicleId={vehicleId} period={period} startDate={startDate} endDate={endDate} />
+					<VehicleSummaryStatsCards
+						vehicleId={vehicleId}
+						period={period}
+						startDate={startDate}
+						endDate={endDate}
+					/>
 					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
 						<VehicleMonthlyTrendChart
 							vehicleId={vehicleId}

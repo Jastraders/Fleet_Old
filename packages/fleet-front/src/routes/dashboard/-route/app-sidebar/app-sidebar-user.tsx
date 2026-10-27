@@ -114,10 +114,18 @@ function AdminsSidebarUserContent() {
 								Account
 							</DropdownMenuItem>
 							{/* todo */}
-							<DropdownMenuItem onClick={() => void router.navigate({ to: "/dashboard/general/notifications" })}>
+							<DropdownMenuItem
+								onClick={() =>
+									void router.navigate({
+										to: "/dashboard/general/notifications",
+									})
+								}
+							>
 								<BellIcon />
 								Notifications
-								{notificationCount?.unread > 0 ? <span className="ml-auto h-2 w-2 rounded-full bg-red-500" /> : null}
+								{notificationCount?.unread > 0 ? (
+									<span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
+								) : null}
 							</DropdownMenuItem>
 						</DropdownMenuGroup>
 						<DropdownMenuSeparator />

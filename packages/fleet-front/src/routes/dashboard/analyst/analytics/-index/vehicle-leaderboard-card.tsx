@@ -13,7 +13,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+type Period =
+	| "all_time"
+	| "last_7d"
+	| "last_30d"
+	| "last_6m"
+	| "last_12m"
+	| "custom";
 
 interface VehicleLeaderboardCardProps extends ComponentProps<typeof Card> {
 	period: Period;

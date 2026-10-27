@@ -2,20 +2,26 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
 	ArrowLeftIcon,
+	BuildingIcon,
 	CalendarIcon,
 	CoinsIcon,
 	ExternalLinkIcon,
+	FileTextIcon,
+	InfoIcon,
+	MapPinIcon,
 	PackageIcon,
 	TruckIcon,
 	UserIcon,
-	MapPinIcon,
-	BuildingIcon,
-	FileTextIcon,
-	InfoIcon,
 } from "lucide-react";
 import { Suspense } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
@@ -43,7 +49,10 @@ interface RevenueDetailData {
 }
 
 export const Route = createFileRoute("/dashboard/admin/revenue/$revenueId/")({
-	loader: ({ context: { orpc: orpcClient, queryClient }, params: { revenueId } }) => {
+	loader: ({
+		context: { orpc: orpcClient, queryClient },
+		params: { revenueId },
+	}) => {
 		queryClient.prefetchQuery(
 			(orpcClient as any).admin.revenue.get.queryOptions({
 				input: { id: revenueId },
@@ -98,9 +107,13 @@ function RevenueDetail() {
 						<ArrowLeftIcon className="h-4 w-4" />
 					</Button>
 					<div>
-						<h1 className="text-2xl font-bold tracking-tight">Revenue Record</h1>
+						<h1 className="text-2xl font-bold tracking-tight">
+							Revenue Record
+						</h1>
 						<p className="text-xs text-muted-foreground">
-							{revenue.voucherId ? `Voucher #${revenue.voucherId}` : `ID: ${revenue.id.slice(0, 8)}...`}
+							{revenue.voucherId
+								? `Voucher #${revenue.voucherId}`
+								: `ID: ${revenue.id.slice(0, 8)}...`}
 						</p>
 					</div>
 				</div>
@@ -109,7 +122,11 @@ function RevenueDetail() {
 					<Button variant="outline" size="sm" asChild className="gap-1.5">
 						<Link
 							to="/dashboard/accountant/journal-entries"
-							search={{ search: revenue.voucherId ? String(revenue.voucherId) : revenue.journalEntryId }}
+							search={{
+								search: revenue.voucherId
+									? String(revenue.voucherId)
+									: revenue.journalEntryId,
+							}}
 						>
 							<ExternalLinkIcon className="h-4 w-4" />
 							View Original Journal Entry
@@ -122,7 +139,10 @@ function RevenueDetail() {
 			<div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200">
 				<InfoIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
 				<div className="text-xs leading-relaxed">
-					<span className="font-semibold">Derived from Journal Entry:</span> Revenue entries are strictly synchronized read-only representations of Journal credit items. To edit or adjust this revenue record, please modify the corresponding Journal entry.
+					<span className="font-semibold">Derived from Journal Entry:</span>{" "}
+					Revenue entries are strictly synchronized read-only representations of
+					Journal credit items. To edit or adjust this revenue record, please
+					modify the corresponding Journal entry.
 				</div>
 			</div>
 
@@ -139,7 +159,12 @@ function RevenueDetail() {
 				<CardContent className="pt-2 text-xs text-muted-foreground flex flex-wrap items-center gap-x-6 gap-y-2">
 					<div className="flex items-center gap-1.5">
 						<CalendarIcon className="h-4 w-4 text-muted-foreground" />
-						<span>Date: {revenue.revenueDate ? new Date(revenue.revenueDate).toLocaleDateString() : "—"}</span>
+						<span>
+							Date:{" "}
+							{revenue.revenueDate
+								? new Date(revenue.revenueDate).toLocaleDateString()
+								: "—"}
+						</span>
 					</div>
 					{revenue.voucherId && (
 						<div className="flex items-center gap-1.5">
@@ -166,23 +191,35 @@ function RevenueDetail() {
 					</CardHeader>
 					<CardContent className="space-y-4 text-sm">
 						<div className="flex justify-between items-start border-b pb-3">
-							<span className="text-muted-foreground text-xs font-medium">Vehicle</span>
+							<span className="text-muted-foreground text-xs font-medium">
+								Vehicle
+							</span>
 							<div className="text-right">
-								<div className="font-semibold">{revenue.vehicleName || "—"}</div>
+								<div className="font-semibold">
+									{revenue.vehicleName || "—"}
+								</div>
 								{revenue.vehicleLicensePlate && (
-									<div className="text-xs text-muted-foreground">{revenue.vehicleLicensePlate}</div>
+									<div className="text-xs text-muted-foreground">
+										{revenue.vehicleLicensePlate}
+									</div>
 								)}
 							</div>
 						</div>
 
 						<div className="flex justify-between items-center border-b pb-3">
-							<span className="text-muted-foreground text-xs font-medium">Driver</span>
+							<span className="text-muted-foreground text-xs font-medium">
+								Driver
+							</span>
 							<span className="font-semibold">{revenue.driverName || "—"}</span>
 						</div>
 
 						<div className="flex justify-between items-center">
-							<span className="text-muted-foreground text-xs font-medium">Journal Entry ID</span>
-							<span className="font-mono text-xs text-muted-foreground">{revenue.journalEntryId}</span>
+							<span className="text-muted-foreground text-xs font-medium">
+								Journal Entry ID
+							</span>
+							<span className="font-mono text-xs text-muted-foreground">
+								{revenue.journalEntryId}
+							</span>
 						</div>
 					</CardContent>
 				</Card>
@@ -201,7 +238,9 @@ function RevenueDetail() {
 								<PackageIcon className="h-3.5 w-3.5 text-muted-foreground" />
 								Product Name
 							</span>
-							<span className="font-semibold">{revenue.productName || "—"}</span>
+							<span className="font-semibold">
+								{revenue.productName || "—"}
+							</span>
 						</div>
 
 						<div className="flex justify-between items-center border-b pb-3">
@@ -217,20 +256,28 @@ function RevenueDetail() {
 								<MapPinIcon className="h-3.5 w-3.5 text-muted-foreground" />
 								Delivery Location
 							</span>
-							<span className="font-medium">{revenue.deliveryLocation || "—"}</span>
+							<span className="font-medium">
+								{revenue.deliveryLocation || "—"}
+							</span>
 						</div>
 
 						{revenue.revenueMode && (
 							<div className="flex justify-between items-center">
-								<span className="text-muted-foreground text-xs font-medium">Revenue Mode</span>
-								<span className="font-medium capitalize">{revenue.revenueMode}</span>
+								<span className="text-muted-foreground text-xs font-medium">
+									Revenue Mode
+								</span>
+								<span className="font-medium capitalize">
+									{revenue.revenueMode}
+								</span>
 							</div>
 						)}
 					</CardContent>
 				</Card>
 
 				{/* Breakdown Details if available */}
-				{(revenue.quantity !== null || revenue.perItemRate !== null || revenue.value !== null) && (
+				{(revenue.quantity !== null ||
+					revenue.perItemRate !== null ||
+					revenue.value !== null) && (
 					<Card className="md:col-span-2">
 						<CardHeader className="pb-3">
 							<CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -240,17 +287,25 @@ function RevenueDetail() {
 						</CardHeader>
 						<CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
 							<div className="rounded-lg border p-3 bg-muted/20">
-								<div className="text-xs text-muted-foreground font-medium">Quantity</div>
-								<div className="text-lg font-bold mt-1">{revenue.quantity ?? "—"}</div>
+								<div className="text-xs text-muted-foreground font-medium">
+									Quantity
+								</div>
+								<div className="text-lg font-bold mt-1">
+									{revenue.quantity ?? "—"}
+								</div>
 							</div>
 							<div className="rounded-lg border p-3 bg-muted/20">
-								<div className="text-xs text-muted-foreground font-medium">Per Item Rate</div>
+								<div className="text-xs text-muted-foreground font-medium">
+									Per Item Rate
+								</div>
 								<div className="text-lg font-bold mt-1">
 									{revenue.perItemRate ? formatINR(revenue.perItemRate) : "—"}
 								</div>
 							</div>
 							<div className="rounded-lg border p-3 bg-muted/20">
-								<div className="text-xs text-muted-foreground font-medium">Calculated Value</div>
+								<div className="text-xs text-muted-foreground font-medium">
+									Calculated Value
+								</div>
 								<div className="text-lg font-bold mt-1">
 									{revenue.value ? formatINR(revenue.value) : "—"}
 								</div>

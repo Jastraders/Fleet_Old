@@ -6,6 +6,13 @@ import * as v from "valibot";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
+	Combobox,
+	ComboboxContent,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@/components/ui/combobox";
+import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -13,13 +20,6 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import {
-	Combobox,
-	ComboboxContent,
-	ComboboxInput,
-	ComboboxItem,
-	ComboboxList,
-} from "@/components/ui/combobox";
 import {
 	Field,
 	FieldError,
@@ -33,14 +33,26 @@ import type { Vehicle } from "@/models/vehicle";
 import { orpc } from "@/orpc";
 
 const baseSchema = v.object({
-	name: v.pipe(v.string(), v.minLength(1, "Name is required"), v.maxLength(255)),
+	name: v.pipe(
+		v.string(),
+		v.minLength(1, "Name is required"),
+		v.maxLength(255),
+	),
 	licensePlate: v.pipe(
 		v.string(),
 		v.minLength(1, "License Plate is required"),
 		v.maxLength(255),
 	),
-	model: v.pipe(v.string(), v.minLength(1, "Model is required"), v.maxLength(255)),
-	year: v.pipe(v.number(), v.minValue(1900, "Enter valid year"), v.maxValue(3000)),
+	model: v.pipe(
+		v.string(),
+		v.minLength(1, "Model is required"),
+		v.maxLength(255),
+	),
+	year: v.pipe(
+		v.number(),
+		v.minValue(1900, "Enter valid year"),
+		v.maxValue(3000),
+	),
 	investmentMode: v.picklist(["full_amount", "full_loan", "flexible"]),
 	totalPrice: v.optional(v.nullable(v.number())),
 	monthlyEmi: v.optional(v.nullable(v.number())),
@@ -86,7 +98,10 @@ const parseNumber = (value: string): number | null => {
 	return Number.isNaN(parsed) ? null : parsed;
 };
 
-const investmentModeLabel: Record<"full_amount" | "full_loan" | "flexible", string> = {
+const investmentModeLabel: Record<
+	"full_amount" | "full_loan" | "flexible",
+	string
+> = {
 	full_amount: "Full Amount",
 	full_loan: "Full Loan",
 	flexible: "Flexible",
@@ -122,7 +137,9 @@ export function UpdateVehicleDialog({
 				investmentMode: vehicle.investmentMode,
 				totalPrice: vehicle.totalPrice ?? null,
 				monthlyEmi: vehicle.monthlyEmi ?? null,
-				emiStartDate: vehicle.emiStartDate ? vehicle.emiStartDate.slice(0, 10) : null,
+				emiStartDate: vehicle.emiStartDate
+					? vehicle.emiStartDate.slice(0, 10)
+					: null,
 				emiDurationMonths: vehicle.emiDurationMonths ?? null,
 				downPayment: vehicle.downPayment ?? null,
 				totalRevenue: vehicle.totalRevenue ?? 0,
@@ -193,31 +210,105 @@ export function UpdateVehicleDialog({
 						<FieldGroup className="my-4">
 							<FieldSet>
 								<FieldGroup>
-									<form.Field name="name">{(field) => <Field><FieldLabel>Vehicle Name<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
-									<form.Field name="licensePlate">{(field) => <Field><FieldLabel>License Plate<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
-									<form.Field name="model">{(field) => <Field><FieldLabel>Model<span className="text-destructive">*</span></FieldLabel><Input value={field.state.value} onChange={(e) => field.handleChange(e.target.value)} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
-									<form.Field name="year">{(field) => <Field><FieldLabel>Year<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value} onChange={(e) => field.handleChange(Number(e.target.value || 0))} /><FieldError errors={field.state.meta.errors} /></Field>}</form.Field>
+									<form.Field name="name">
+										{(field) => (
+											<Field>
+												<FieldLabel>
+													Vehicle Name
+													<span className="text-destructive">*</span>
+												</FieldLabel>
+												<Input
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value)}
+												/>
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="licensePlate">
+										{(field) => (
+											<Field>
+												<FieldLabel>
+													License Plate
+													<span className="text-destructive">*</span>
+												</FieldLabel>
+												<Input
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value)}
+												/>
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="model">
+										{(field) => (
+											<Field>
+												<FieldLabel>
+													Model<span className="text-destructive">*</span>
+												</FieldLabel>
+												<Input
+													value={field.state.value}
+													onChange={(e) => field.handleChange(e.target.value)}
+												/>
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
+									<form.Field name="year">
+										{(field) => (
+											<Field>
+												<FieldLabel>
+													Year<span className="text-destructive">*</span>
+												</FieldLabel>
+												<Input
+													type="number"
+													value={field.state.value}
+													onChange={(e) =>
+														field.handleChange(Number(e.target.value || 0))
+													}
+												/>
+												<FieldError errors={field.state.meta.errors} />
+											</Field>
+										)}
+									</form.Field>
 									<form.Field name="investmentMode">
 										{(field) => (
 											<Field>
-												<FieldLabel>Investment Mode<span className="text-destructive">*</span></FieldLabel>
+												<FieldLabel>
+													Investment Mode
+													<span className="text-destructive">*</span>
+												</FieldLabel>
 												<Combobox
 													value={field.state.value}
 													inputValue={investmentModeLabel[field.state.value]}
 													items={["full_amount", "full_loan", "flexible"]}
 													onValueChange={(value) =>
 														field.handleChange(
-															(value || "full_amount") as "full_amount" | "full_loan" | "flexible",
-														)}
+															(value || "full_amount") as
+																| "full_amount"
+																| "full_loan"
+																| "flexible",
+														)
+													}
 													onInputValueChange={() => {}}
 													filter={null}
 												>
-													<ComboboxInput onBlur={field.handleBlur} readOnly showTrigger />
+													<ComboboxInput
+														onBlur={field.handleBlur}
+														readOnly
+														showTrigger
+													/>
 													<ComboboxContent>
 														<ComboboxList>
-															<ComboboxItem value="full_amount">Full Amount</ComboboxItem>
-															<ComboboxItem value="full_loan">Full Loan</ComboboxItem>
-															<ComboboxItem value="flexible">Flexible</ComboboxItem>
+															<ComboboxItem value="full_amount">
+																Full Amount
+															</ComboboxItem>
+															<ComboboxItem value="full_loan">
+																Full Loan
+															</ComboboxItem>
+															<ComboboxItem value="flexible">
+																Flexible
+															</ComboboxItem>
 														</ComboboxList>
 													</ComboboxContent>
 												</Combobox>
@@ -227,13 +318,105 @@ export function UpdateVehicleDialog({
 									<form.Subscribe selector={(s) => s.values.investmentMode}>
 										{(mode) => (
 											<>
-												{mode === "full_amount" && <form.Field name="totalPrice">{(field) => <Field><FieldLabel>Total Price<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>}
-												{mode === "flexible" && <form.Field name="downPayment">{(field) => <Field><FieldLabel>Down Payment<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>}
+												{mode === "full_amount" && (
+													<form.Field name="totalPrice">
+														{(field) => (
+															<Field>
+																<FieldLabel>
+																	Total Price
+																	<span className="text-destructive">*</span>
+																</FieldLabel>
+																<Input
+																	type="number"
+																	value={field.state.value ?? ""}
+																	onChange={(e) =>
+																		field.handleChange(
+																			parseNumber(e.target.value),
+																		)
+																	}
+																/>
+															</Field>
+														)}
+													</form.Field>
+												)}
+												{mode === "flexible" && (
+													<form.Field name="downPayment">
+														{(field) => (
+															<Field>
+																<FieldLabel>
+																	Down Payment
+																	<span className="text-destructive">*</span>
+																</FieldLabel>
+																<Input
+																	type="number"
+																	value={field.state.value ?? ""}
+																	onChange={(e) =>
+																		field.handleChange(
+																			parseNumber(e.target.value),
+																		)
+																	}
+																/>
+															</Field>
+														)}
+													</form.Field>
+												)}
 												{["full_loan", "flexible"].includes(mode) && (
 													<>
-														<form.Field name="monthlyEmi">{(field) => <Field><FieldLabel>Monthly EMI<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>
-														<form.Field name="emiStartDate">{(field) => <Field><FieldLabel>Starting Date<span className="text-destructive">*</span></FieldLabel><Input type="date" value={field.state.value ?? ""} onChange={(e) => field.handleChange(e.target.value || null)} /></Field>}</form.Field>
-														<form.Field name="emiDurationMonths">{(field) => <Field><FieldLabel>Duration Months<span className="text-destructive">*</span></FieldLabel><Input type="number" value={field.state.value ?? ""} onChange={(e) => field.handleChange(parseNumber(e.target.value))} /></Field>}</form.Field>
+														<form.Field name="monthlyEmi">
+															{(field) => (
+																<Field>
+																	<FieldLabel>
+																		Monthly EMI
+																		<span className="text-destructive">*</span>
+																	</FieldLabel>
+																	<Input
+																		type="number"
+																		value={field.state.value ?? ""}
+																		onChange={(e) =>
+																			field.handleChange(
+																				parseNumber(e.target.value),
+																			)
+																		}
+																	/>
+																</Field>
+															)}
+														</form.Field>
+														<form.Field name="emiStartDate">
+															{(field) => (
+																<Field>
+																	<FieldLabel>
+																		Starting Date
+																		<span className="text-destructive">*</span>
+																	</FieldLabel>
+																	<Input
+																		type="date"
+																		value={field.state.value ?? ""}
+																		onChange={(e) =>
+																			field.handleChange(e.target.value || null)
+																		}
+																	/>
+																</Field>
+															)}
+														</form.Field>
+														<form.Field name="emiDurationMonths">
+															{(field) => (
+																<Field>
+																	<FieldLabel>
+																		Duration Months
+																		<span className="text-destructive">*</span>
+																	</FieldLabel>
+																	<Input
+																		type="number"
+																		value={field.state.value ?? ""}
+																		onChange={(e) =>
+																			field.handleChange(
+																				parseNumber(e.target.value),
+																			)
+																		}
+																	/>
+																</Field>
+															)}
+														</form.Field>
 													</>
 												)}
 											</>
@@ -245,14 +428,18 @@ export function UpdateVehicleDialog({
 							{updateVehicleMutation.error && (
 								<Alert>
 									<InfoIcon />
-									<AlertDescription>{updateVehicleMutation.error.message}</AlertDescription>
+									<AlertDescription>
+										{updateVehicleMutation.error.message}
+									</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>
 
 						<DialogFooter className="mt-8">
 							<Button type="submit" disabled={updateVehicleMutation.isPending}>
-								{updateVehicleMutation.isPending ? "Updating..." : "Update Vehicle"}
+								{updateVehicleMutation.isPending
+									? "Updating..."
+									: "Update Vehicle"}
 							</Button>
 						</DialogFooter>
 					</form>

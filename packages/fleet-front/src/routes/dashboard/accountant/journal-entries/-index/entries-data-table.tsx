@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
 	type ColumnDef,
@@ -6,13 +7,13 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import {
+	AlertCircleIcon,
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
-	PlusIcon,
 	CalendarIcon,
+	PlusIcon,
 	RotateCcwIcon,
-	AlertCircleIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { parseDateValue } from "@/lib/date";
 import { cn, formatINR } from "@/lib/utils";
+import { orpc } from "@/orpc";
 import {
 	AccountantDownloadButton,
 	downloadExcelCompatibleCsv,
@@ -230,9 +232,11 @@ const createColumns = (
 				),
 			cell: ({ row }) => {
 				const date = parseDateValue(
-					row.original.transactionDate ?? row.original.items?.[0]?.transactionDate,
+					row.original.transactionDate ??
+						row.original.items?.[0]?.transactionDate,
 				);
-				if (!date) return <div className="text-muted-foreground text-sm">-</div>;
+				if (!date)
+					return <div className="text-muted-foreground text-sm">-</div>;
 				return (
 					<div className="font-medium text-sm">
 						{date.toLocaleDateString("en-GB", {
@@ -318,7 +322,9 @@ const createColumns = (
 									})}
 								</time>
 							) : (
-								<span className="text-muted-foreground truncate text-xs">-</span>
+								<span className="text-muted-foreground truncate text-xs">
+									-
+								</span>
 							)}
 						</div>
 					</div>
@@ -344,7 +350,13 @@ export interface EntriesDataTableProps {
 	offset: number;
 	limit: number;
 	search?: string;
-	period?: "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+	period?:
+		| "all_time"
+		| "last_7d"
+		| "last_30d"
+		| "last_6m"
+		| "last_12m"
+		| "custom";
 	startDate?: string;
 	endDate?: string;
 	sortBy:
@@ -383,21 +395,26 @@ export function EntriesDataTable({
 	sortOrder,
 }: EntriesDataTableProps) {
 	const router = useRouter();
+	const queryClient = useQueryClient();
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.max(1, Math.ceil(total / limit));
 
 	const [searchValue, setSearchValue] = useState(search ?? "");
+	const [isDownloading, setIsDownloading] = useState(false);
 
-	const handleSearch = useCallback((value: string) => {
-		void router.navigate({
-			to: ".",
-			search: (prev: EntriesSearchState) => ({
-				...prev,
-				search: value || undefined,
-				offset: 0,
-			}),
-		});
-	}, [router]);
+	const handleSearch = useCallback(
+		(value: string) => {
+			void router.navigate({
+				to: ".",
+				search: (prev: EntriesSearchState) => ({
+					...prev,
+					search: value || undefined,
+					offset: 0,
+				}),
+			});
+		},
+		[router],
+	);
 
 	useEffect(() => {
 		setSearchValue(search ?? "");
@@ -499,6 +516,67 @@ export function EntriesDataTable({
 		});
 	};
 
+	const handleDownload = async () => {
+		if (total === 0) return;
+		setIsDownloading(true);
+		try {
+			const isDateRangeInvalid = Boolean(
+				period === "custom" && startDate && endDate && startDate > endDate,
+			);
+			let exportRecords = data;
+			if (total > data.length) {
+				const fullResult = await queryClient.fetchQuery(
+					orpc.accountant.journalEntries.list.queryOptions({
+						input: {
+							limit: 10000,
+							offset: 0,
+							search: search,
+							period: period,
+							startDate: isDateRangeInvalid ? undefined : startDate,
+							endDate: isDateRangeInvalid ? undefined : endDate,
+							sortBy: sortBy,
+							sortOrder: sortOrder,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data as JournalEntry[];
+				}
+			}
+
+			downloadExcelCompatibleCsv(
+				"journal-entries",
+				exportRecords.map((entry) => {
+					const txDate = parseDateValue(
+						entry.transactionDate ?? entry.items?.[0]?.transactionDate,
+					);
+					const vehicleLabel = entry.vehicle?.name
+						? `${entry.vehicle.name}${entry.vehicle.licensePlate ? ` (${entry.vehicle.licensePlate.toUpperCase()})` : ""}`
+						: (entry.vehicle?.licensePlate ?? "");
+
+					const row: Record<string, unknown> = {
+						Vehicle: vehicleLabel,
+					};
+					if (isAdmin) {
+						row.Revenue = getRevenue(entry.items);
+					}
+					row.Expenses = getExpenses(entry.items);
+					row.Date = txDate ? txDate.toISOString().slice(0, 10) : "";
+					if (isAdmin) {
+						row["Total Amount"] = getTotalAmount(entry.items);
+					}
+					row["Created By"] = entry.createdByUser?.name ?? "";
+					row["Created At"] = entry.createdAt
+						? parseDateValue(entry.createdAt)?.toISOString().slice(0, 10) || ""
+						: "";
+					return row;
+				}),
+			);
+		} finally {
+			setIsDownloading(false);
+		}
+	};
+
 	return (
 		<div className="w-full space-y-4">
 			<div className="flex flex-wrap justify-between gap-4">
@@ -510,36 +588,8 @@ export function EntriesDataTable({
 				</div>
 				<div className="flex gap-4 max-sm:w-full max-sm:flex-col">
 					<AccountantDownloadButton
-						onDownload={() =>
-							downloadExcelCompatibleCsv(
-								"journal-entries",
-								data.map((entry) => {
-									const txDate = parseDateValue(
-										entry.transactionDate ?? entry.items?.[0]?.transactionDate,
-									);
-									const row: Record<string, unknown> = {
-										Vehicle: entry.vehicle?.name ?? "",
-									};
-									if (isAdmin) {
-										row.Revenue = getRevenue(entry.items);
-									}
-									row.Expenses = getExpenses(entry.items);
-									row.Date = txDate
-										? txDate.toLocaleDateString("en-GB", {
-												day: "2-digit",
-												month: "2-digit",
-												year: "numeric",
-											})
-										: "";
-									if (isAdmin) {
-										row["Total Amount"] = getTotalAmount(entry.items);
-									}
-									row["Created By"] = entry.createdByUser?.name ?? "";
-									row["Created At"] = String(entry.createdAt);
-									return row;
-								}),
-							)
-						}
+						disabled={isDownloading || total === 0}
+						onDownload={handleDownload}
 					/>
 					<Input
 						placeholder="Search journal entries..."
@@ -575,7 +625,12 @@ export function EntriesDataTable({
 					</Select>
 
 					{(() => {
-						const isDateRangeInvalid = !!(period === "custom" && startDate && endDate && startDate > endDate);
+						const isDateRangeInvalid = !!(
+							period === "custom" &&
+							startDate &&
+							endDate &&
+							startDate > endDate
+						);
 						return period === "custom" ? (
 							<div className="flex flex-wrap items-center gap-1.5 max-sm:w-full">
 								<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
@@ -585,22 +640,30 @@ export function EntriesDataTable({
 										aria-label="Start date"
 										value={startDate || ""}
 										max={endDate || undefined}
-										onChange={(e) => handleDateChange("startDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("startDate", e.target.value)
+										}
 										className={cn(
 											"w-[130px] h-8 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
-									<span className="text-xs text-muted-foreground px-0.5">to</span>
+									<span className="text-xs text-muted-foreground px-0.5">
+										to
+									</span>
 									<Input
 										type="date"
 										aria-label="End date"
 										value={endDate || ""}
 										min={startDate || undefined}
-										onChange={(e) => handleDateChange("endDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("endDate", e.target.value)
+										}
 										className={cn(
 											"w-[130px] h-8 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
 									<Button
@@ -662,7 +725,10 @@ export function EntriesDataTable({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+								<TableCell
+									colSpan={columns.length}
+									className="h-24 text-center text-muted-foreground"
+								>
 									No entries found for the selected period or filter.
 								</TableCell>
 							</TableRow>

@@ -43,7 +43,10 @@ const querySchema = v.object({
 		),
 		"createdAt",
 	),
-	sortOrder: v.optional(v.fallback(v.picklist(["asc", "desc"]), "desc"), "desc"),
+	sortOrder: v.optional(
+		v.fallback(v.picklist(["asc", "desc"]), "desc"),
+		"desc",
+	),
 });
 
 interface ExpensesListResponse {
@@ -53,7 +56,18 @@ interface ExpensesListResponse {
 
 export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, period, startDate, endDate, sortBy, sortOrder } }) => ({
+	loaderDeps: ({
+		search: {
+			offset,
+			limit,
+			search,
+			period,
+			startDate,
+			endDate,
+			sortBy,
+			sortOrder,
+		},
+	}) => ({
 		offset,
 		limit,
 		search,
@@ -90,7 +104,11 @@ export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 
 function RouteComponent() {
 	return (
-		<Suspense fallback={<div className="text-sm text-muted-foreground">Loading expenses...</div>}>
+		<Suspense
+			fallback={
+				<div className="text-sm text-muted-foreground">Loading expenses...</div>
+			}
+		>
 			<ExpensesList />
 		</Suspense>
 	);
@@ -122,7 +140,8 @@ function ExpensesList() {
 		}),
 	});
 
-	const isFiltered = (query.period && query.period !== "all_time") || Boolean(query.search);
+	const isFiltered =
+		(query.period && query.period !== "all_time") || Boolean(query.search);
 	if ((!data || data.meta.total === 0) && !isFiltered) {
 		return <ExpensesEmptyState />;
 	}

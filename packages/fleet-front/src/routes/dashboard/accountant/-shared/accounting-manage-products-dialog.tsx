@@ -1,22 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
 import {
-	ArchiveIcon,
-	RotateCcwIcon,
-	Trash2Icon,
-	PlusIcon,
-	SearchIcon,
-	PackageIcon,
 	AlertTriangleIcon,
+	ArchiveIcon,
+	PackageIcon,
+	PlusIcon,
+	RotateCcwIcon,
+	SearchIcon,
+	Trash2Icon,
 } from "lucide-react";
-import { orpc } from "@/orpc";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-} from "@/components/ui/dialog";
+import { useMemo, useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -27,9 +19,17 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Table,
 	TableBody,
@@ -38,7 +38,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { orpc } from "@/orpc";
 
 interface ProductItem {
 	id: string;
@@ -62,11 +62,15 @@ export function AccountingManageProductsDialog({
 }: AccountingManageProductsDialogProps) {
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
-	const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
+	const [statusFilter, setStatusFilter] = useState<
+		"all" | "active" | "archived"
+	>("all");
 	const [newProductName, setNewProductName] = useState("");
 	const [addError, setAddError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
-	const [productToDelete, setProductToDelete] = useState<ProductItem | null>(null);
+	const [productToDelete, setProductToDelete] = useState<ProductItem | null>(
+		null,
+	);
 
 	const { data, isLoading } = useQuery({
 		...orpc.accountant.products.manage_list.queryOptions({
@@ -159,8 +163,14 @@ export function AccountingManageProductsDialog({
 		});
 	}, [products, statusFilter, search]);
 
-	const activeCount = useMemo(() => products.filter((p) => p.status === "active").length, [products]);
-	const archivedCount = useMemo(() => products.filter((p) => p.status === "archived").length, [products]);
+	const activeCount = useMemo(
+		() => products.filter((p) => p.status === "active").length,
+		[products],
+	);
+	const archivedCount = useMemo(
+		() => products.filter((p) => p.status === "archived").length,
+		[products],
+	);
 
 	return (
 		<>
@@ -170,10 +180,13 @@ export function AccountingManageProductsDialog({
 						<DialogHeader>
 							<div className="flex items-center gap-2">
 								<PackageIcon className="h-5 w-5 text-primary" />
-								<DialogTitle className="text-lg">Manage Accounting Products</DialogTitle>
+								<DialogTitle className="text-lg">
+									Manage Accounting Products
+								</DialogTitle>
 							</div>
 							<DialogDescription className="text-xs">
-								Manage active and archived product names for Journal and Expenses.
+								Manage active and archived product names for Journal and
+								Expenses.
 							</DialogDescription>
 						</DialogHeader>
 
@@ -208,7 +221,9 @@ export function AccountingManageProductsDialog({
 									{createMutation.isPending ? "Adding..." : "Add"}
 								</Button>
 							</div>
-							{addError && <p className="text-xs text-destructive">{addError}</p>}
+							{addError && (
+								<p className="text-xs text-destructive">{addError}</p>
+							)}
 						</div>
 
 						{/* Search and Status Tabs */}
@@ -265,21 +280,33 @@ export function AccountingManageProductsDialog({
 								<TableRow>
 									<TableHead className="text-xs">Product Name</TableHead>
 									<TableHead className="text-xs w-[100px]">Status</TableHead>
-									<TableHead className="text-xs w-[100px] text-center">Usage</TableHead>
-									<TableHead className="text-xs w-[140px] text-right">Actions</TableHead>
+									<TableHead className="text-xs w-[100px] text-center">
+										Usage
+									</TableHead>
+									<TableHead className="text-xs w-[140px] text-right">
+										Actions
+									</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{isLoading ? (
 									<TableRow>
-										<TableCell colSpan={4} className="text-center py-8 text-xs text-muted-foreground">
+										<TableCell
+											colSpan={4}
+											className="text-center py-8 text-xs text-muted-foreground"
+										>
 											Loading products...
 										</TableCell>
 									</TableRow>
 								) : filteredProducts.length === 0 ? (
 									<TableRow>
-										<TableCell colSpan={4} className="text-center py-8 text-xs text-muted-foreground">
-											{search ? "No products match your search." : "No products found."}
+										<TableCell
+											colSpan={4}
+											className="text-center py-8 text-xs text-muted-foreground"
+										>
+											{search
+												? "No products match your search."
+												: "No products found."}
 										</TableCell>
 									</TableRow>
 								) : (
@@ -315,9 +342,13 @@ export function AccountingManageProductsDialog({
 												</TableCell>
 												<TableCell className="text-xs text-center text-muted-foreground">
 													{p.recordCount > 0 ? (
-														<span className="font-medium text-foreground">{p.recordCount} entries</span>
+														<span className="font-medium text-foreground">
+															{p.recordCount} entries
+														</span>
 													) : (
-														<span className="text-muted-foreground/60">Unused</span>
+														<span className="text-muted-foreground/60">
+															Unused
+														</span>
 													)}
 												</TableCell>
 												<TableCell className="text-right">
@@ -329,7 +360,9 @@ export function AccountingManageProductsDialog({
 																title="Archive product (keeps historical records safe)"
 																disabled={archiveMutation.isPending}
 																// biome-ignore lint/suspicious/noExplicitAny: mutation input
-																onClick={() => archiveMutation.mutate({ id: p.id } as any)}
+																onClick={() =>
+																	archiveMutation.mutate({ id: p.id } as any)
+																}
 																className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
 															>
 																<ArchiveIcon className="h-3.5 w-3.5" />
@@ -341,7 +374,9 @@ export function AccountingManageProductsDialog({
 																title="Restore product to active list"
 																disabled={restoreMutation.isPending}
 																// biome-ignore lint/suspicious/noExplicitAny: mutation input
-																onClick={() => restoreMutation.mutate({ id: p.id } as any)}
+																onClick={() =>
+																	restoreMutation.mutate({ id: p.id } as any)
+																}
 																className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950/30"
 															>
 																<RotateCcwIcon className="h-3.5 w-3.5" />
@@ -370,8 +405,15 @@ export function AccountingManageProductsDialog({
 					</ScrollArea>
 
 					<div className="p-4 border-t bg-muted/20 flex justify-between items-center text-xs text-muted-foreground">
-						<span>Used products cannot be permanently deleted to protect ledger history.</span>
-						<Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>
+						<span>
+							Used products cannot be permanently deleted to protect ledger
+							history.
+						</span>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => onOpenChange(false)}
+						>
 							Close
 						</Button>
 					</div>
@@ -379,17 +421,25 @@ export function AccountingManageProductsDialog({
 			</Dialog>
 
 			{/* Delete Confirmation Alert */}
-			<AlertDialog open={!!productToDelete} onOpenChange={(open) => !open && setProductToDelete(null)}>
+			<AlertDialog
+				open={!!productToDelete}
+				onOpenChange={(open) => !open && setProductToDelete(null)}
+			>
 				<AlertDialogContent size="sm">
 					<AlertDialogHeader>
-						<AlertDialogTitle className="text-sm">Delete Product?</AlertDialogTitle>
+						<AlertDialogTitle className="text-sm">
+							Delete Product?
+						</AlertDialogTitle>
 						<AlertDialogDescription className="text-xs">
-							Are you sure you want to permanently delete <strong>{productToDelete?.name}</strong>?
-							This product has never been used in accounting records.
+							Are you sure you want to permanently delete{" "}
+							<strong>{productToDelete?.name}</strong>? This product has never
+							been used in accounting records.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel className="text-xs h-8">Cancel</AlertDialogCancel>
+						<AlertDialogCancel className="text-xs h-8">
+							Cancel
+						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
 								if (productToDelete) {

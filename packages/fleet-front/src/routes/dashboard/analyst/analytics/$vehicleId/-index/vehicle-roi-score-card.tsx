@@ -77,7 +77,11 @@ function VehicleRoiScoreCardContent({
 	const chartData = useMemo(
 		() => [
 			{ name: "Revenue", value: data.revenuePercentage, fill: COLORS.revenue },
-			{ name: "Vehicle impact expense", value: data.expensePercentage, fill: COLORS.expense },
+			{
+				name: "Vehicle impact expense",
+				value: data.expensePercentage,
+				fill: COLORS.expense,
+			},
 		],
 		[data],
 	);
@@ -117,7 +121,9 @@ function VehicleRoiScoreCardContent({
 						</PieChart>
 					</ChartContainer>
 					<div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-						<div className="text-4xl font-semibold text-[#072d54]">{roundedRoi}%</div>
+						<div className="text-4xl font-semibold text-[#072d54]">
+							{roundedRoi}%
+						</div>
 						<div className="text-xs text-muted-foreground">ROI</div>
 					</div>
 				</div>
@@ -151,7 +157,11 @@ export function VehicleRoiScoreCard({
 	...props
 }: VehicleRoiScoreCardProps) {
 	return (
-		<Suspense fallback={<VehicleRoiScoreCardSkeleton className={className} {...props} />}>
+		<Suspense
+			fallback={
+				<VehicleRoiScoreCardSkeleton className={className} {...props} />
+			}
+		>
 			<VehicleRoiScoreCardContent
 				vehicleId={vehicleId}
 				period={period}

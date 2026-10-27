@@ -176,7 +176,10 @@ const createColumns = (
 				return <div className="text-muted-foreground text-sm">-</div>;
 			}
 			return (
-				<time className="text-sm text-muted-foreground" dateTime={new Date(lastLogin).toISOString()}>
+				<time
+					className="text-sm text-muted-foreground"
+					dateTime={new Date(lastLogin).toISOString()}
+				>
 					{new Date(lastLogin).toLocaleString()}
 				</time>
 			);

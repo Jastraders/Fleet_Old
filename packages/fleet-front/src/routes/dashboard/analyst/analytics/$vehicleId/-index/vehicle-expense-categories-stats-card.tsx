@@ -184,12 +184,17 @@ function VehicleExpensesCategoryChartContent({
 				<div className="w-full max-h-36 overflow-y-auto pt-2.5 border-t border-border/40">
 					<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs">
 						{chartData.map((entry) => (
-							<div key={entry.category} className="flex items-center gap-1.5 shrink-0">
+							<div
+								key={entry.category}
+								className="flex items-center gap-1.5 shrink-0"
+							>
 								<div
 									className="h-2.5 w-2.5 rounded-xs shrink-0"
 									style={{ backgroundColor: entry.fill }}
 								/>
-								<span className="text-xs text-foreground font-medium">{entry.name}</span>
+								<span className="text-xs text-foreground font-medium">
+									{entry.name}
+								</span>
 							</div>
 						))}
 					</div>

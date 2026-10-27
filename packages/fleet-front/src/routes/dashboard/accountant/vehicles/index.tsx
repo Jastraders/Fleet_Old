@@ -1,17 +1,17 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense, useDeferredValue } from "react";
+import { Suspense, useDeferredValue, useState } from "react";
 import * as v from "valibot";
 import { orpc } from "@/orpc";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { CreateVehicleDialog } from "@/routes/dashboard/accountant/vehicles/-index/create-vehicle-dialog";
 import { VehiclesDataTable } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table";
 import { VehiclesDataTableSkeleton } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table-skeleton";
 import { VehiclesEmptyState } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-empty-state";
 import { VehiclesSearchInput } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-search-input";
-import {
-	AccountantDownloadButton,
-	downloadExcelCompatibleCsv,
-} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -73,6 +73,8 @@ function RouteComponent() {
 function VehiclesList() {
 	const _query = Route.useSearch();
 	const query = useDeferredValue(_query);
+	const queryClient = useQueryClient();
+	const [isDownloading, setIsDownloading] = useState(false);
 
 	const { data } = useSuspenseQuery({
 		...orpc.accountant.vehicles.list.queryOptions({
@@ -89,6 +91,59 @@ function VehiclesList() {
 	const hasSearch = !!query.search;
 	const isEmpty = !data || data.meta.total === 0;
 
+	const handleDownload = async () => {
+		if (!data || data.meta.total === 0) return;
+		setIsDownloading(true);
+		try {
+			let exportRecords = data.data;
+			if (data.meta.total > data.data.length) {
+				const fullResult = await queryClient.fetchQuery(
+					orpc.accountant.vehicles.list.queryOptions({
+						input: {
+							limit: 10000,
+							offset: 0,
+							search: query.search,
+							sortBy: query.sortBy,
+							sortOrder: query.sortOrder,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data;
+				}
+			}
+
+			const investmentModeLabels: Record<string, string> = {
+				full_amount: "Full Amount",
+				full_loan: "Full Loan",
+				flexible: "Flexible",
+			};
+
+			downloadExcelCompatibleCsv(
+				"vehicles",
+				exportRecords.map((vehicle: any) => ({
+					"Vehicle Name": vehicle.name || "",
+					"License Plate": vehicle.licensePlate ?? "",
+					Model: vehicle.model ?? "",
+					Year: vehicle.year ?? "",
+					"Investment Mode":
+						investmentModeLabels[vehicle.investmentMode] ||
+						vehicle.investmentMode ||
+						"",
+					"Investment Amount": vehicle.investmentCharge ?? 0,
+					"Total Revenue": vehicle.totalRevenue ?? 0,
+					"Total Expense": vehicle.totalExpense ?? 0,
+					"Created By": vehicle.createdByUser?.name ?? "",
+					"Created At": vehicle.createdAt
+						? String(vehicle.createdAt).slice(0, 10)
+						: "",
+				})),
+			);
+		} finally {
+			setIsDownloading(false);
+		}
+	};
+
 	return (
 		<div className="w-full space-y-4">
 			<div className="flex flex-wrap justify-between gap-4">
@@ -100,20 +155,8 @@ function VehiclesList() {
 				</div>
 				<div className="flex gap-4 max-sm:flex-col max-sm:w-full">
 					<AccountantDownloadButton
-						onDownload={() =>
-							downloadExcelCompatibleCsv(
-								"vehicles",
-								(data?.data ?? []).map((vehicle) => ({
-									Name: vehicle.name,
-									"License Plate": vehicle.licensePlate ?? "",
-									Model: vehicle.model ?? "",
-									Year: vehicle.year ?? "",
-									"Investment Mode": vehicle.investmentMode,
-									"Investment Amount": vehicle.investmentCharge ?? "",
-									"Created By": vehicle.createdByUser?.name ?? "",
-								})),
-							)
-						}
+						disabled={isDownloading || isEmpty}
+						onDownload={handleDownload}
 					/>
 					<VehiclesSearchInput initialValue={query.search ?? ""} />
 					<CreateVehicleDialog />

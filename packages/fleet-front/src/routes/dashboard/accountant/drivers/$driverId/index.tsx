@@ -1,19 +1,9 @@
 import { useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import {
-	ArrowLeft,
-	Calendar,
-	CheckSquare,
-	CheckSquare2,
-	Phone,
-	ReceiptText,
-	Square,
-	UserCheck,
-} from "lucide-react";
+import { ArrowLeft, Phone, ReceiptText, UserCheck } from "lucide-react";
 import { Suspense, useDeferredValue, useMemo, useState } from "react";
 import * as v from "valibot";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -68,7 +58,9 @@ export const Route = createFileRoute(
 	"/dashboard/accountant/drivers/$driverId/",
 )({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, period, startDate, endDate } }) => ({
+	loaderDeps: ({
+		search: { offset, limit, search, period, startDate, endDate },
+	}) => ({
 		offset,
 		limit,
 		search,
@@ -76,7 +68,11 @@ export const Route = createFileRoute(
 		startDate,
 		endDate,
 	}),
-	loader: ({ context: { orpc, queryClient }, params: { driverId }, deps: query }) => {
+	loader: ({
+		context: { orpc, queryClient },
+		params: { driverId },
+		deps: query,
+	}) => {
 		queryClient.prefetchQuery(
 			orpc.accountant.drivers.get.queryOptions({
 				input: { id: driverId },
@@ -101,7 +97,13 @@ export const Route = createFileRoute(
 
 function RouteComponent() {
 	return (
-		<Suspense fallback={<div className="p-4 text-sm text-muted-foreground">Loading driver details...</div>}>
+		<Suspense
+			fallback={
+				<div className="p-4 text-sm text-muted-foreground">
+					Loading driver details...
+				</div>
+			}
+		>
 			<DriverDetailsView />
 		</Suspense>
 	);
@@ -140,16 +142,26 @@ function DriverDetailsView() {
 	const filteredTotalAmount = expensesResponse?.meta?.totalAmount ?? 0;
 
 	// Expense selection state
-	const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(new Set());
+	const [selectedExpenseIds, setSelectedExpenseIds] = useState<Set<string>>(
+		new Set(),
+	);
 
 	// Calculate total amount of selected expenses
 	const selectedTotal = useMemo(() => {
 		return expenses
-			.filter((expense: { id: string; amount: string }) => selectedExpenseIds.has(expense.id))
-			.reduce((sum: number, expense: { amount: string }) => sum + (parseFloat(expense.amount) || 0), 0);
+			.filter((expense: { id: string; amount: string }) =>
+				selectedExpenseIds.has(expense.id),
+			)
+			.reduce(
+				(sum: number, expense: { amount: string }) =>
+					sum + (parseFloat(expense.amount) || 0),
+				0,
+			);
 	}, [expenses, selectedExpenseIds]);
 
-	const allVisibleSelected = expenses.length > 0 && expenses.every((exp: { id: string }) => selectedExpenseIds.has(exp.id));
+	const allVisibleSelected =
+		expenses.length > 0 &&
+		expenses.every((exp: { id: string }) => selectedExpenseIds.has(exp.id));
 	const isSomeSelected = selectedExpenseIds.size > 0;
 
 	const toggleSelectAll = () => {
@@ -227,7 +239,13 @@ function DriverDetailsView() {
 		created_at?: string | null;
 		createdAt?: string | null;
 	}) => {
-		const raw = exp.expense_date ?? exp.expenseDate ?? exp.transaction_date ?? exp.transactionDate ?? exp.created_at ?? exp.createdAt;
+		const raw =
+			exp.expense_date ??
+			exp.expenseDate ??
+			exp.transaction_date ??
+			exp.transactionDate ??
+			exp.created_at ??
+			exp.createdAt;
 		const parsed = parseDateValue(raw);
 		if (!parsed) return "-";
 		return parsed.toLocaleDateString("en-GB", {
@@ -241,7 +259,11 @@ function DriverDetailsView() {
 		<div className="w-full min-w-0 space-y-6">
 			{/* Top Bar / Back Navigation */}
 			<div className="flex items-center gap-4">
-				<Button variant="outline" size="sm" render={<Link to="/dashboard/accountant/drivers" />}>
+				<Button
+					variant="outline"
+					size="sm"
+					render={<Link to="/dashboard/accountant/drivers" />}
+				>
 					<ArrowLeft className="h-4 w-4 mr-2" />
 					Back to Drivers
 				</Button>
@@ -253,7 +275,11 @@ function DriverDetailsView() {
 					<div className="flex items-center gap-4">
 						<div
 							className="h-16 w-16 rounded-xl flex items-center justify-center text-white text-2xl font-bold shadow-xs"
-							style={{ backgroundColor: driver?.color ? `#${driver.color}` : "var(--primary)" }}
+							style={{
+								backgroundColor: driver?.color
+									? `#${driver.color}`
+									: "var(--primary)",
+							}}
 						>
 							{driver?.name?.[0]?.toUpperCase() || "D"}
 						</div>
@@ -280,7 +306,9 @@ function DriverDetailsView() {
 
 					<div className="flex items-center gap-4 max-sm:w-full max-sm:justify-between">
 						<div className="rounded-lg bg-muted/60 px-4 py-3 text-right max-sm:text-left max-sm:w-full">
-							<p className="text-xs font-medium text-muted-foreground">Total Driver Expense (All Time)</p>
+							<p className="text-xs font-medium text-muted-foreground">
+								Total Driver Expense (All Time)
+							</p>
 							<p className="text-xl font-bold text-foreground">
 								{formatINR(Number(driver?.totalExpense || 0))}
 							</p>
@@ -386,7 +414,8 @@ function DriverDetailsView() {
 						Driver Expenses
 					</h2>
 					<span className="text-xs text-muted-foreground">
-						Showing {expenses.length} expense item{expenses.length === 1 ? "" : "s"}
+						Showing {expenses.length} expense item
+						{expenses.length === 1 ? "" : "s"}
 					</span>
 				</div>
 
@@ -411,59 +440,70 @@ function DriverDetailsView() {
 						</TableHeader>
 						<TableBody>
 							{expenses.length > 0 ? (
-								expenses.map((expense: {
-									id: string;
-									expense_date: string | null;
-									category_name: string | null;
-									amount: string;
-									vehicle_name: string | null;
-									voucher_id: number | null;
-									handler: string | null;
-								}) => {
-									const isSelected = selectedExpenseIds.has(expense.id);
-									return (
-										<TableRow
-											key={expense.id}
-											className={cn(
-												"transition-colors cursor-pointer",
-												isSelected && "bg-primary/5 hover:bg-primary/10",
-											)}
-											onClick={() => toggleSelectExpense(expense.id)}
-										>
-											<TableCell className="w-12 text-center" onClick={(e) => e.stopPropagation()}>
-												<Checkbox
-													checked={isSelected}
-													onCheckedChange={() => toggleSelectExpense(expense.id)}
-													aria-label={`Select expense ${expense.category_name}`}
-												/>
-											</TableCell>
-											<TableCell className="font-medium text-sm">
-												{formatExpenseDate(expense)}
-											</TableCell>
-											<TableCell>
-												<span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
-													{expense.category_name || "Uncategorized"}
-												</span>
-											</TableCell>
-											<TableCell className="font-bold text-sm text-foreground">
-												{formatINR(parseFloat(expense.amount) || 0)}
-											</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{expense.vehicle_name || "-"}
-											</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{expense.voucher_id ? `#${expense.voucher_id}` : "-"}
-											</TableCell>
-											<TableCell className="text-sm text-muted-foreground">
-												{expense.handler || "-"}
-											</TableCell>
-										</TableRow>
-									);
-								})
+								expenses.map(
+									(expense: {
+										id: string;
+										expense_date: string | null;
+										category_name: string | null;
+										amount: string;
+										vehicle_name: string | null;
+										voucher_id: number | null;
+										handler: string | null;
+									}) => {
+										const isSelected = selectedExpenseIds.has(expense.id);
+										return (
+											<TableRow
+												key={expense.id}
+												className={cn(
+													"transition-colors cursor-pointer",
+													isSelected && "bg-primary/5 hover:bg-primary/10",
+												)}
+												onClick={() => toggleSelectExpense(expense.id)}
+											>
+												<TableCell
+													className="w-12 text-center"
+													onClick={(e) => e.stopPropagation()}
+												>
+													<Checkbox
+														checked={isSelected}
+														onCheckedChange={() =>
+															toggleSelectExpense(expense.id)
+														}
+														aria-label={`Select expense ${expense.category_name}`}
+													/>
+												</TableCell>
+												<TableCell className="font-medium text-sm">
+													{formatExpenseDate(expense)}
+												</TableCell>
+												<TableCell>
+													<span className="inline-flex items-center rounded-md bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">
+														{expense.category_name || "Uncategorized"}
+													</span>
+												</TableCell>
+												<TableCell className="font-bold text-sm text-foreground">
+													{formatINR(parseFloat(expense.amount) || 0)}
+												</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{expense.vehicle_name || "-"}
+												</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{expense.voucher_id ? `#${expense.voucher_id}` : "-"}
+												</TableCell>
+												<TableCell className="text-sm text-muted-foreground">
+													{expense.handler || "-"}
+												</TableCell>
+											</TableRow>
+										);
+									},
+								)
 							) : (
 								<TableRow>
-									<TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-										No expenses found for this driver in the selected date range.
+									<TableCell
+										colSpan={7}
+										className="h-32 text-center text-muted-foreground"
+									>
+										No expenses found for this driver in the selected date
+										range.
 									</TableCell>
 								</TableRow>
 							)}

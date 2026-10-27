@@ -459,7 +459,8 @@ function RevenueTableContent() {
 				{ header: "Vehicle", key: "vehicle", width: 140, align: "left" },
 				{ header: "Driver", key: "driver", width: 130, align: "left" },
 				{ header: "Date", key: "date", width: 100, align: "left" },
-				{ header: "Product", key: "product", width: 140, align: "left" },
+				{ header: "Revenue Amount", key: "amount", width: 120, align: "right" },
+				{ header: "Product Name", key: "product", width: 140, align: "left" },
 				{ header: "Depo", key: "depo", width: 100, align: "left" },
 				{
 					header: "Delivery Location",
@@ -467,41 +468,37 @@ function RevenueTableContent() {
 					width: 120,
 					align: "left",
 				},
-				{ header: "Amount", key: "amount", width: 120, align: "right" },
+				{ header: "Created By", key: "createdBy", width: 120, align: "left" },
 			];
 
 			const rows = exportRecords.map((item: any) => ({
 				vehicle: item.vehicleName
 					? `${item.vehicleName}${item.vehicleLicensePlate ? ` (${item.vehicleLicensePlate.toUpperCase()})` : ""}`
-					: item.vehicleLicensePlate || "—",
-				driver: item.driverName || "—",
-				date: item.revenueDate
-					? new Date(item.revenueDate).toLocaleDateString("en-IN", {
-							day: "2-digit",
-							month: "short",
-							year: "numeric",
-						})
-					: "—",
-				product: item.productName || "—",
-				depo: item.depo || "—",
-				location: item.deliveryLocation || "—",
+					: item.vehicleLicensePlate || "",
+				driver: item.driverName || "",
+				date: item.revenueDate ? String(item.revenueDate).slice(0, 10) : "",
 				amount: `Rs. ${Number(item.amount || 0).toLocaleString("en-IN", {
 					minimumFractionDigits: 2,
 					maximumFractionDigits: 2,
 				})}`,
+				product: item.productName || "",
+				depo: item.depo || "",
+				location: item.deliveryLocation || "",
+				createdBy: item.createdByName || "",
 			}));
 
 			const grandTotalRow = {
 				vehicle: "GRAND TOTAL",
-				driver: `${exportRecords.length} Records`,
-				date: "—",
-				product: "—",
-				depo: "—",
-				location: "—",
+				driver: "",
+				date: "",
 				amount: `Rs. ${grandTotalRevenue.toLocaleString("en-IN", {
 					minimumFractionDigits: 2,
 					maximumFractionDigits: 2,
 				})}`,
+				product: "",
+				depo: "",
+				location: "",
+				createdBy: "",
 			};
 
 			const periodLabel =

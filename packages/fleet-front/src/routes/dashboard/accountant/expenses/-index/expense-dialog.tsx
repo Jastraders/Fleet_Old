@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
 import { Loader2Icon, ReceiptTextIcon } from "lucide-react";
-import { orpc } from "@/orpc";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -19,11 +19,11 @@ import {
 	InputGroupInput,
 } from "@/components/ui/input-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CategorySelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/category-select-field";
-import { VehicleSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/vehicle-select-field";
-import { DriverSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/driver-select-field";
+import { orpc } from "@/orpc";
 import { AccountingProductField } from "@/routes/dashboard/accountant/-shared/accounting-product-field";
+import { CategorySelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/category-select-field";
+import { DriverSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/driver-select-field";
+import { VehicleSelectField } from "@/routes/dashboard/accountant/journal-entries/-index/select-fields/vehicle-select-field";
 
 interface ExpenseDialogProps {
 	isOpen: boolean;
@@ -46,7 +46,9 @@ export function ExpenseDialog({
 	const [driverId, setDriverId] = useState("");
 	const [handler, setHandler] = useState("Driver");
 	const [productName, setProductName] = useState("");
-	const [amountMode, setAmountMode] = useState<"direct" | "calculated">("direct");
+	const [amountMode, setAmountMode] = useState<"direct" | "calculated">(
+		"direct",
+	);
 	const [amount, setAmount] = useState("");
 	const [quantity, setQuantity] = useState("");
 	const [perItemRate, setPerItemRate] = useState("");
@@ -127,7 +129,8 @@ export function ExpenseDialog({
 			productName: productName.trim() || undefined,
 			amount: parsedAmount.toString(),
 			quantity: amountMode === "calculated" && quantity ? quantity : undefined,
-			perItemRate: amountMode === "calculated" && perItemRate ? perItemRate : undefined,
+			perItemRate:
+				amountMode === "calculated" && perItemRate ? perItemRate : undefined,
 			depo: depo.trim() || undefined,
 			deliveryLocation: deliveryLocation.trim() || undefined,
 			nextRenewalDate: nextRenewalDate || undefined,
@@ -136,7 +139,8 @@ export function ExpenseDialog({
 		} as any);
 	};
 
-	const calcValue = (parseFloat(quantity) || 0) * (parseFloat(perItemRate) || 0);
+	const calcValue =
+		(parseFloat(quantity) || 0) * (parseFloat(perItemRate) || 0);
 
 	return (
 		<Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -149,7 +153,8 @@ export function ExpenseDialog({
 						<DialogTitle className="text-lg">Add New Expense</DialogTitle>
 					</div>
 					<DialogDescription className="text-xs">
-						Record a standalone vehicle or company expense directly in the Expenses ledger.
+						Record a standalone vehicle or company expense directly in the
+						Expenses ledger.
 					</DialogDescription>
 				</DialogHeader>
 
@@ -252,7 +257,9 @@ export function ExpenseDialog({
 									className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 								>
 									<option value="direct">Direct Amount</option>
-									<option value="calculated">Calculated Amount (Qty × Rate)</option>
+									<option value="calculated">
+										Calculated Amount (Qty × Rate)
+									</option>
 								</select>
 							</Field>
 
@@ -302,7 +309,9 @@ export function ExpenseDialog({
 									/>
 								</Field>
 								<Field>
-									<FieldLabel htmlFor="expense-rate">Per Item Rate (₹)</FieldLabel>
+									<FieldLabel htmlFor="expense-rate">
+										Per Item Rate (₹)
+									</FieldLabel>
 									<Input
 										id="expense-rate"
 										type="number"
@@ -322,7 +331,9 @@ export function ExpenseDialog({
 								{calcValue > 0 && (
 									<div className="col-span-2 text-xs text-muted-foreground flex justify-between bg-muted/40 p-2 rounded">
 										<span>Calculated Value: ₹{calcValue.toFixed(2)}</span>
-										<span className="text-primary">Prefilled into Amount above (editable)</span>
+										<span className="text-primary">
+											Prefilled into Amount above (editable)
+										</span>
 									</div>
 								)}
 							</div>
@@ -343,7 +354,9 @@ export function ExpenseDialog({
 
 						{/* Next Renewal Date */}
 						<Field>
-							<FieldLabel htmlFor="expense-renewal">Next Renewal Date (Optional)</FieldLabel>
+							<FieldLabel htmlFor="expense-renewal">
+								Next Renewal Date (Optional)
+							</FieldLabel>
 							<Input
 								id="expense-renewal"
 								type="date"
@@ -367,7 +380,9 @@ export function ExpenseDialog({
 
 						{/* Delivery Location */}
 						<Field>
-							<FieldLabel htmlFor="expense-delivery">Delivery Location (Optional)</FieldLabel>
+							<FieldLabel htmlFor="expense-delivery">
+								Delivery Location (Optional)
+							</FieldLabel>
 							<Input
 								id="expense-delivery"
 								value={deliveryLocation}

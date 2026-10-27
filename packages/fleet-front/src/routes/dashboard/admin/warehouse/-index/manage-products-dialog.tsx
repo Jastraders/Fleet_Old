@@ -1,23 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
 import {
-	ArchiveIcon,
-	RotateCcwIcon,
-	Trash2Icon,
-	PlusIcon,
-	SearchIcon,
-	PackageIcon,
 	AlertTriangleIcon,
+	ArchiveIcon,
+	PackageIcon,
+	PlusIcon,
+	RotateCcwIcon,
+	SearchIcon,
+	Trash2Icon,
 } from "lucide-react";
-import { orpc } from "@/orpc";
-import type { WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogDescription,
-} from "@/components/ui/dialog";
+import { useMemo, useState } from "react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -28,9 +19,17 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
 	Table,
 	TableBody,
@@ -39,7 +38,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { orpc } from "@/orpc";
+import type { WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
 
 interface ProductItem {
 	id: string;
@@ -66,11 +66,15 @@ export function ManageProductsDialog({
 }: ManageProductsDialogProps) {
 	const queryClient = useQueryClient();
 	const [search, setSearch] = useState("");
-	const [statusFilter, setStatusFilter] = useState<"all" | "active" | "archived">("all");
+	const [statusFilter, setStatusFilter] = useState<
+		"all" | "active" | "archived"
+	>("all");
 	const [newProductName, setNewProductName] = useState("");
 	const [addError, setAddError] = useState<string | null>(null);
 	const [actionError, setActionError] = useState<string | null>(null);
-	const [productToDelete, setProductToDelete] = useState<ProductItem | null>(null);
+	const [productToDelete, setProductToDelete] = useState<ProductItem | null>(
+		null,
+	);
 
 	const { data, isLoading } = useQuery({
 		...orpc.admin.warehouse.products.manage_list.queryOptions({
@@ -157,8 +161,14 @@ export function ManageProductsDialog({
 		});
 	}, [products, statusFilter, search]);
 
-	const activeCount = useMemo(() => products.filter((p) => p.status === "active").length, [products]);
-	const archivedCount = useMemo(() => products.filter((p) => p.status === "archived").length, [products]);
+	const activeCount = useMemo(
+		() => products.filter((p) => p.status === "active").length,
+		[products],
+	);
+	const archivedCount = useMemo(
+		() => products.filter((p) => p.status === "archived").length,
+		[products],
+	);
 
 	return (
 		<>
@@ -168,10 +178,13 @@ export function ManageProductsDialog({
 						<DialogHeader>
 							<div className="flex items-center gap-2">
 								<PackageIcon className="h-5 w-5 text-primary" />
-								<DialogTitle className="text-lg">Manage {section} Products</DialogTitle>
+								<DialogTitle className="text-lg">
+									Manage {section} Products
+								</DialogTitle>
 							</div>
 							<DialogDescription className="text-xs">
-								Manage active and archived product names for {section} Warehouse.
+								Manage active and archived product names for {section}{" "}
+								Warehouse.
 							</DialogDescription>
 						</DialogHeader>
 
@@ -206,7 +219,9 @@ export function ManageProductsDialog({
 									{createMutation.isPending ? "Adding..." : "Add Product"}
 								</Button>
 							</div>
-							{addError && <p className="text-xs text-destructive">{addError}</p>}
+							{addError && (
+								<p className="text-xs text-destructive">{addError}</p>
+							)}
 						</div>
 
 						{actionError && (
@@ -284,7 +299,9 @@ export function ManageProductsDialog({
 											<TableHead className="text-xs">Product Name</TableHead>
 											<TableHead className="text-xs w-28">Status</TableHead>
 											<TableHead className="text-xs w-36">Usage</TableHead>
-											<TableHead className="text-xs text-right w-36">Actions</TableHead>
+											<TableHead className="text-xs text-right w-36">
+												Actions
+											</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
@@ -406,7 +423,8 @@ export function ManageProductsDialog({
 							<span className="font-semibold text-foreground">
 								&quot;{productToDelete?.name}&quot;
 							</span>{" "}
-							from {section} Warehouse? This product is unused and has no recorded transactions. This action cannot be undone.
+							from {section} Warehouse? This product is unused and has no
+							recorded transactions. This action cannot be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

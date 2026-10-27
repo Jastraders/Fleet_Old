@@ -1,21 +1,39 @@
-import { useSuspenseQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Suspense, useState } from "react";
 import {
-	Building2Icon,
-	WarehouseIcon,
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
 	ArrowLeftIcon,
+	Building2Icon,
 	CalendarIcon,
-	UserIcon,
-	Trash2Icon,
 	InfoIcon,
+	Trash2Icon,
+	UserIcon,
+	WarehouseIcon,
 } from "lucide-react";
-import { orpc } from "@/orpc";
-import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Suspense, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { useIsAdmin, useRowAccess, AccessDeniedDialog } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import { orpc } from "@/orpc";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	formatWarehouseCurrency,
+	WarehouseDialog,
+	type WarehouseSection,
+} from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
 
 export const Route = createFileRoute("/dashboard/admin/warehouse/$recordId/")({
 	loader: ({ context: { orpc, queryClient }, params }) => {
@@ -30,7 +48,9 @@ export const Route = createFileRoute("/dashboard/admin/warehouse/$recordId/")({
 
 function RouteComponent() {
 	return (
-		<Suspense fallback={<div className="p-6">Loading Warehouse record details...</div>}>
+		<Suspense
+			fallback={<div className="p-6">Loading Warehouse record details...</div>}
+		>
 			<WarehouseDetailView />
 		</Suspense>
 	);
@@ -41,7 +61,9 @@ function SectionBadge({ section }: { section: WarehouseSection }) {
 		case "JAS":
 			return (
 				<Badge className="bg-blue-600 text-white hover:bg-blue-700 gap-1.5 px-3 py-1 font-semibold">
-					<span className="flex h-5 w-5 items-center justify-center rounded bg-white/20 text-xs font-bold">J</span>
+					<span className="flex h-5 w-5 items-center justify-center rounded bg-white/20 text-xs font-bold">
+						J
+					</span>
 					JAS Warehouse (Primary)
 				</Badge>
 			);
@@ -127,11 +149,16 @@ function WarehouseDetailView() {
 					</Button>
 					<div>
 						<div className="flex items-center gap-2">
-							<h1 className="text-2xl font-bold tracking-tight">Warehouse Record Detail</h1>
+							<h1 className="text-2xl font-bold tracking-tight">
+								Warehouse Record Detail
+							</h1>
 							<SectionBadge section={section} />
 						</div>
 						<p className="text-sm text-muted-foreground">
-							Record Date: {record.recordDate} | Added on {record.createdAt ? new Date(record.createdAt).toLocaleDateString() : "N/A"}
+							Record Date: {record.recordDate} | Added on{" "}
+							{record.createdAt
+								? new Date(record.createdAt).toLocaleDateString()
+								: "N/A"}
 						</p>
 					</div>
 				</div>
@@ -177,7 +204,8 @@ function WarehouseDetailView() {
 						</CardTitle>
 					</CardHeader>
 					<CardContent className="text-xs text-muted-foreground">
-						Rate: {formatWarehouseCurrency(record.ratePerUnload)} × {record.totalUnloads} unloads
+						Rate: {formatWarehouseCurrency(record.ratePerUnload)} ×{" "}
+						{record.totalUnloads} unloads
 					</CardContent>
 				</Card>
 
@@ -223,10 +251,14 @@ function WarehouseDetailView() {
 						</div>
 						<div className="flex justify-between border-b pb-2">
 							<span className="text-muted-foreground">Product Name:</span>
-							<span className="font-semibold">{record.productName || "N/A"}</span>
+							<span className="font-semibold">
+								{record.productName || "N/A"}
+							</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Regular Worker Count:</span>
+							<span className="text-muted-foreground">
+								Regular Worker Count:
+							</span>
 							<span className="font-semibold">{record.workersCount}</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
@@ -234,8 +266,12 @@ function WarehouseDetailView() {
 							<span className="font-semibold">{record.unionCount}</span>
 						</div>
 						<div className="flex justify-between pb-1">
-							<span className="text-muted-foreground font-semibold">Total Labours:</span>
-							<span className="font-bold text-primary">{record.totalLabours}</span>
+							<span className="text-muted-foreground font-semibold">
+								Total Labours:
+							</span>
+							<span className="font-bold text-primary">
+								{record.totalLabours}
+							</span>
 						</div>
 					</CardContent>
 				</Card>
@@ -246,8 +282,12 @@ function WarehouseDetailView() {
 					</CardHeader>
 					<CardContent className="space-y-4 text-sm">
 						<div className="flex justify-between border-b pb-2">
-							<span className="text-muted-foreground">Per Bag Price / Rate:</span>
-							<span className="font-semibold">{formatWarehouseCurrency(record.ratePerUnload)}</span>
+							<span className="text-muted-foreground">
+								Per Bag Price / Rate:
+							</span>
+							<span className="font-semibold">
+								{formatWarehouseCurrency(record.ratePerUnload)}
+							</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
 							<span className="text-muted-foreground">Quantity (Unloads):</span>
@@ -255,15 +295,21 @@ function WarehouseDetailView() {
 						</div>
 						<div className="flex justify-between border-b pb-2">
 							<span className="text-muted-foreground">Total Value:</span>
-							<span className="font-bold text-foreground">{formatWarehouseCurrency(record.totalValue)}</span>
+							<span className="font-bold text-foreground">
+								{formatWarehouseCurrency(record.totalValue)}
+							</span>
 						</div>
 						<div className="flex justify-between border-b pb-2">
 							<span className="text-muted-foreground">Own Staff Salary:</span>
-							<span className="font-bold text-primary">{formatWarehouseCurrency(record.totalWorkersSalary)}</span>
+							<span className="font-bold text-primary">
+								{formatWarehouseCurrency(record.totalWorkersSalary)}
+							</span>
 						</div>
 						<div className="flex justify-between pb-1">
 							<span className="text-muted-foreground">Union Salary:</span>
-							<span className="font-bold text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(record.totalUnionSalary)}</span>
+							<span className="font-bold text-purple-600 dark:text-purple-400">
+								{formatWarehouseCurrency(record.totalUnionSalary)}
+							</span>
 						</div>
 					</CardContent>
 				</Card>
@@ -278,13 +324,17 @@ function WarehouseDetailView() {
 							<div className="flex items-center gap-2 text-muted-foreground">
 								<UserIcon className="h-4 w-4" />
 								<span>Created By:</span>
-								<strong className="text-foreground">{record.createdByUser?.name || "System"}</strong>
+								<strong className="text-foreground">
+									{record.createdByUser?.name || "System"}
+								</strong>
 							</div>
 							<div className="flex items-center gap-2 text-muted-foreground">
 								<CalendarIcon className="h-4 w-4" />
 								<span>Created At:</span>
 								<strong className="text-foreground">
-									{record.createdAt ? new Date(record.createdAt).toLocaleString() : "N/A"}
+									{record.createdAt
+										? new Date(record.createdAt).toLocaleString()
+										: "N/A"}
 								</strong>
 							</div>
 						</div>
@@ -295,7 +345,9 @@ function WarehouseDetailView() {
 									<InfoIcon className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
 									<div>
 										<span>Last Edit Reason:</span>
-										<p className="text-foreground font-medium italic mt-0.5">{record.reason}</p>
+										<p className="text-foreground font-medium italic mt-0.5">
+											{record.reason}
+										</p>
 									</div>
 								</div>
 							) : (

@@ -10,7 +10,11 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteEntryAlertDialog } from "@/routes/dashboard/accountant/journal-entries/-index/entries-data-table/entries-data-table-action-cell/delete-entry-alert-dialog";
 
 interface JournalEntryItem {
@@ -48,7 +52,15 @@ export function EntriesDataTableActionCell({ entry }: { entry: JournalEntry }) {
 	const { canAccess } = useRowAccess();
 
 	const handleEdit = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Journal Entries", resourceType: "journal_entry", resourceId: entry.id, action: "edit" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Journal Entries",
+				resourceType: "journal_entry",
+				resourceId: entry.id,
+				action: "edit",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
@@ -59,7 +71,15 @@ export function EntriesDataTableActionCell({ entry }: { entry: JournalEntry }) {
 	}, [entry.id, router, isAdmin, canAccess]);
 
 	const handleDeleteClick = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Journal Entries", resourceType: "journal_entry", resourceId: entry.id, action: "delete" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Journal Entries",
+				resourceType: "journal_entry",
+				resourceId: entry.id,
+				action: "delete",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}

@@ -6,9 +6,7 @@ interface DriversSearchInputProps {
 	initialValue: string;
 }
 
-export function DriversSearchInput({
-	initialValue,
-}: DriversSearchInputProps) {
+export function DriversSearchInput({ initialValue }: DriversSearchInputProps) {
 	const router = useRouter();
 	const [value, setValue] = useState(initialValue);
 

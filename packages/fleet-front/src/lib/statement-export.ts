@@ -23,48 +23,86 @@ export interface StatementExportOptions {
 }
 
 /**
- * Download Excel-compatible CSV file with UTF-8 BOM and metadata header.
+ * Clean cell value for Excel CSV export.
+ * Formats numbers, dates, and strips currency text so Excel can calculate with them.
+ */
+export function formatCellValueForExcel(val: any): string {
+	if (val === null || val === undefined) {
+		return '""';
+	}
+	if (typeof val === "number") {
+		return Number.isNaN(val) ? '""' : String(val);
+	}
+	const str = String(val).trim();
+	if (str === "" || str === "—" || str === "-") {
+		return '""';
+	}
+	// Extract clean numeric string from currency formats like "Rs. 1,234.56", "₹1,234.56", or "-₹500"
+	const currencyMatch =
+		str.match(/^([+-]?)\s*(?:Rs\.?|₹)\s*([\d,]+(?:\.\d+)?)$/i) ||
+		str.match(/^(?:Rs\.?|₹)\s*([+-]?)\s*([\d,]+(?:\.\d+)?)$/i);
+	if (currencyMatch) {
+		const sign = currencyMatch[1] === "-" ? "-" : "";
+		const cleanNum = currencyMatch[2].replace(/,/g, "");
+		if (!Number.isNaN(Number(cleanNum))) {
+			return `${sign}${cleanNum}`;
+		}
+	}
+	// Extract numbers formatted with commas like "1,234.56" or "-1,234.56"
+	const numberCommaMatch = str.match(/^([+-]?[\d,]+(?:\.\d+)?)$/);
+	if (numberCommaMatch?.[1] && str.includes(",")) {
+		const cleanNum = numberCommaMatch[1].replace(/,/g, "");
+		if (!Number.isNaN(Number(cleanNum))) {
+			return cleanNum;
+		}
+	}
+	return `"${str.replaceAll('"', '""')}"`;
+}
+
+/**
+ * Download Excel-compatible CSV file with UTF-8 BOM, perfect column headers on Row 1,
+ * and clean data rows.
  */
 export function exportStatementToExcel(options: StatementExportOptions): void {
 	const lines: string[] = [];
 
-	// Title & Metadata Header
-	lines.push(`"${options.title.replaceAll('"', '""')}"`);
-	if (options.subtitle) {
-		lines.push(`"${options.subtitle.replaceAll('"', '""')}"`);
-	}
-	for (const [key, val] of Object.entries(options.metadata)) {
-		if (val) {
-			lines.push(`"${key.replaceAll('"', '""')}","${val.replaceAll('"', '""')}"`);
-		}
-	}
-	lines.push(""); // blank separator
-
-	// Column Headers
-	const headers = options.columns.map((c) => `"${c.header.replaceAll('"', '""')}"`);
+	// Row 1: Column Headers (Guarantees 100% alignment in Excel/Sheets without row shifting)
+	const headers = options.columns.map(
+		(c) => `"${c.header.replaceAll('"', '""')}"`,
+	);
 	lines.push(headers.join(","));
 
 	// Data Rows
 	for (const row of options.rows) {
 		const rowValues = options.columns.map((c) => {
 			const val = row[c.key];
-			if (val === null || val === undefined) return '""';
-			const str = String(val).replaceAll('"', '""');
-			return `"${str}"`;
+			return formatCellValueForExcel(val);
 		});
 		lines.push(rowValues.join(","));
 	}
 
-	// Grand Total Row
+	// Grand Total Row immediately after data rows (no blank gap to keep range contiguous)
 	if (options.grandTotalRow) {
-		lines.push(""); // blank separator
 		const totalValues = options.columns.map((c) => {
 			const val = options.grandTotalRow![c.key];
-			if (val === null || val === undefined) return '""';
-			const str = String(val).replaceAll('"', '""');
-			return `"${str}"`;
+			return formatCellValueForExcel(val);
 		});
 		lines.push(totalValues.join(","));
+	}
+
+	// Optional Statement Metadata at the bottom for audit trail
+	lines.push("");
+	lines.push(`"# --- Statement Summary & Filter Metadata ---"`);
+	lines.push(`"# Title:","${options.title.replaceAll('"', '""')}"`);
+	if (options.subtitle) {
+		lines.push(`"# Subtitle:","${options.subtitle.replaceAll('"', '""')}"`);
+	}
+	for (const [key, val] of Object.entries(options.metadata)) {
+		if (val) {
+			lines.push(
+				`"# ${key.replaceAll('"', '""')}:","${val.replaceAll('"', '""')}"`,
+			);
+		}
 	}
 
 	const csvContent = lines.join("\r\n");
@@ -72,7 +110,9 @@ export function exportStatementToExcel(options: StatementExportOptions): void {
 		type: "text/csv;charset=utf-8;",
 	});
 
-	const filename = options.filename.endsWith(".csv") ? options.filename : `${options.filename}.csv`;
+	const filename = options.filename.endsWith(".csv")
+		? options.filename
+		: `${options.filename}.csv`;
 	triggerDownload(blob, filename);
 }
 
@@ -116,8 +156,13 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 	const theme = options.themeColor || { r: 0.145, g: 0.388, b: 0.921 }; // #2563EB default blue
 
 	// Calculate column widths proportional to requested or auto-fit
-	const totalSpecifiedWidth = options.columns.reduce((sum, c) => sum + (c.width || 75), 0);
-	const colWidths = options.columns.map((c) => Math.floor(((c.width || 75) / totalSpecifiedWidth) * usableWidth));
+	const totalSpecifiedWidth = options.columns.reduce(
+		(sum, c) => sum + (c.width || 75),
+		0,
+	);
+	const colWidths = options.columns.map((c) =>
+		Math.floor(((c.width || 75) / totalSpecifiedWidth) * usableWidth),
+	);
 	// Adjust last column to fill exactly usableWidth
 	const allocated = colWidths.reduce((a, b) => a + b, 0);
 	colWidths[colWidths.length - 1] += usableWidth - allocated;
@@ -127,9 +172,13 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 
 	// Calculate how many rows fit per page
 	// First page has title block (~95 pt) + table header (22 pt)
-	const firstPageMaxRows = Math.floor((pageHeight - marginTop - marginBottom - 120) / rowHeight);
+	const firstPageMaxRows = Math.floor(
+		(pageHeight - marginTop - marginBottom - 120) / rowHeight,
+	);
 	// Subsequent pages have mini title block (~35 pt) + table header (22 pt)
-	const subsequentPageMaxRows = Math.floor((pageHeight - marginTop - marginBottom - 65) / rowHeight);
+	const subsequentPageMaxRows = Math.floor(
+		(pageHeight - marginTop - marginBottom - 65) / rowHeight,
+	);
 
 	// Split rows across pages
 	const pagesRows: Array<Array<Record<string, any>>> = [];
@@ -198,7 +247,9 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 			}
 
 			// Metadata Box
-			const metaItems = Object.entries(options.metadata).filter(([_, v]) => Boolean(v));
+			const metaItems = Object.entries(options.metadata).filter(([_, v]) =>
+				Boolean(v),
+			);
 			const metaY = y - 48;
 
 			stream += "0.95 0.96 0.98 rg\n";
@@ -280,7 +331,8 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 				const colW = colWidths[cIdx];
 				const align = col.align || "left";
 				const rawVal = row[col.key];
-				let text = rawVal === null || rawVal === undefined ? "—" : String(rawVal);
+				let text =
+					rawVal === null || rawVal === undefined ? "—" : String(rawVal);
 				const maxChars = Math.max(3, Math.floor(colW / 4.6));
 				if (text.length > maxChars) {
 					text = text.slice(0, maxChars - 1) + "…";
@@ -326,7 +378,8 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 				const colW = colWidths[cIdx];
 				const align = col.align || "left";
 				const rawVal = options.grandTotalRow![col.key];
-				const text = rawVal === null || rawVal === undefined ? "" : String(rawVal);
+				const text =
+					rawVal === null || rawVal === undefined ? "" : String(rawVal);
 
 				const textW = text.length * 4.8;
 				let tx = cellX + 4;
@@ -359,7 +412,8 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 		stream += "/F2 8 Tf\n";
 		stream += "0.55 0.60 0.65 rg\n";
 		stream += `${marginX} ${marginBottom - 16} Td\n`;
-		stream += "(Generated by Fleet Management System   |   Confidential Statement) Tj\n";
+		stream +=
+			"(Generated by Fleet Management System   |   Confidential Statement) Tj\n";
 		stream += `${usableWidth - 60} 0 Td\n`;
 		stream += `(Page ${pageNumber} of ${totalPages}) Tj\n`;
 		stream += "ET\n";
@@ -370,15 +424,19 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 
 		pageObjRefs.push(`${pageObjId} 0 R`);
 
-		pdfObjects[pageObjId] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${contentObjId} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`;
-		pdfObjects[contentObjId] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+		pdfObjects[pageObjId] =
+			`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents ${contentObjId} 0 R /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> >>`;
+		pdfObjects[contentObjId] =
+			`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
 	});
 
 	// Object 2: Pages
 	pdfObjects[2] = `<< /Type /Pages /Kids [${pageObjRefs.join(" ")}] /Count ${totalPages} >>`;
 	// Object 3 & 4: Standard Fonts
-	pdfObjects[3] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
-	pdfObjects[4] = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+	pdfObjects[3] =
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>";
+	pdfObjects[4] =
+		"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
 
 	// Build xref and assembly
 	let output = "%PDF-1.4\n";
@@ -407,6 +465,8 @@ export function exportStatementToPdf(options: StatementExportOptions): void {
 	}
 
 	const blob = new Blob([bytes], { type: "application/pdf" });
-	const filename = options.filename.endsWith(".pdf") ? options.filename : `${options.filename}.pdf`;
+	const filename = options.filename.endsWith(".pdf")
+		? options.filename
+		: `${options.filename}.pdf`;
 	triggerDownload(blob, filename);
 }

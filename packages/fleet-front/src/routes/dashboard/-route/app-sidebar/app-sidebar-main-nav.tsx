@@ -2,12 +2,12 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import {
 	BanknoteArrowDownIcon,
+	BellIcon,
 	ChartPieIcon,
 	CircleUserRoundIcon,
 	CoinsIcon,
 	FileBarChart2Icon,
 	LifeBuoyIcon,
-	BellIcon,
 	ReceiptTextIcon,
 	SettingsIcon,
 	TagIcon,
@@ -40,7 +40,9 @@ function hasRole(user: unknown, role: string): boolean {
 
 export function AppSidebarMainNav() {
 	const { data: user } = useSuspenseQuery(orpc.user.auth.getMe.queryOptions());
-	const { data: notificationCount } = useSuspenseQuery(orpc.general.notifications.count.queryOptions());
+	const { data: notificationCount } = useSuspenseQuery(
+		orpc.general.notifications.count.queryOptions(),
+	);
 
 	return (
 		<>
@@ -221,8 +223,6 @@ export function AppSidebarMainNav() {
 							Warehouse
 						</SidebarMenuButton>
 					</SidebarMenuItem>
-
-
 				</SidebarGroup>
 			)}
 			<SidebarSeparator />
@@ -231,19 +231,40 @@ export function AppSidebarMainNav() {
 				<SidebarMenuItem>
 					<SidebarMenuButton
 						render={
-							<Link to="/dashboard/general/notifications" activeProps={{ "data-active": true }}>
+							<Link
+								to="/dashboard/general/notifications"
+								activeProps={{ "data-active": true }}
+							>
 								<BellIcon />
 								Notifications
-								{notificationCount?.unread > 0 ? <span className="ml-auto h-2 w-2 rounded-full bg-red-500" /> : null}
+								{notificationCount?.unread > 0 ? (
+									<span className="ml-auto h-2 w-2 rounded-full bg-red-500" />
+								) : null}
 							</Link>
 						}
 					/>
 				</SidebarMenuItem>
 				<SidebarMenuItem>
-					<SidebarMenuButton disabled render={<Link to="/"><SettingsIcon />Settings</Link>} />
+					<SidebarMenuButton
+						disabled
+						render={
+							<Link to="/">
+								<SettingsIcon />
+								Settings
+							</Link>
+						}
+					/>
 				</SidebarMenuItem>
 				<SidebarMenuItem>
-					<SidebarMenuButton disabled render={<Link to="/"><LifeBuoyIcon />Support</Link>} />
+					<SidebarMenuButton
+						disabled
+						render={
+							<Link to="/">
+								<LifeBuoyIcon />
+								Support
+							</Link>
+						}
+					/>
 				</SidebarMenuItem>
 			</SidebarGroup>
 		</>

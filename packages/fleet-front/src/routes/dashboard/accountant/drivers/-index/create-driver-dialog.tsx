@@ -116,15 +116,15 @@ export function CreateDriverDialog() {
 														value={field.state.value}
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="e.g., Raj Kumar"
-													aria-invalid={isInvalid}
-												/>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
+														placeholder="e.g., Raj Kumar"
+														aria-invalid={isInvalid}
+													/>
+													{isInvalid && (
+														<FieldError errors={field.state.meta.errors} />
+													)}
+												</Field>
+											);
+										}}
 									</form.Field>
 									<form.Field name="phoneNumber">
 										{(field) => {
@@ -143,8 +143,8 @@ export function CreateDriverDialog() {
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
 														placeholder="e.g., +91 9876543210"
-													aria-invalid={isInvalid}
-												/>
+														aria-invalid={isInvalid}
+													/>
 													{isInvalid && (
 														<FieldError errors={field.state.meta.errors} />
 													)}

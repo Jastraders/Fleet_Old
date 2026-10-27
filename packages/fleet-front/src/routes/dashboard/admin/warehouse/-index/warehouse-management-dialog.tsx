@@ -1,19 +1,19 @@
-import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon, WarehouseIcon, CheckIcon, Loader2Icon } from "lucide-react";
-import { orpc } from "@/orpc";
+import { CheckIcon, Loader2Icon, PlusIcon, WarehouseIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogHeader,
-	DialogTitle,
 	DialogDescription,
 	DialogFooter,
+	DialogHeader,
+	DialogTitle,
 	DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { orpc } from "@/orpc";
 
 export interface WarehouseItem {
 	id: string;
@@ -60,7 +60,9 @@ export function WarehouseManagementDialog({
 	const [internalOpen, setInternalOpen] = useState(false);
 	const isControlled = controlledOpen !== undefined;
 	const isOpen = isControlled ? controlledOpen : internalOpen;
-	const setIsOpen = isControlled ? (setControlledOpen ?? (() => {})) : setInternalOpen;
+	const setIsOpen = isControlled
+		? (setControlledOpen ?? (() => {}))
+		: setInternalOpen;
 
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
@@ -94,7 +96,11 @@ export function WarehouseManagementDialog({
 				onSuccess(created);
 			}
 		},
-		onError: (err: { message?: string; data?: { message?: string }; response?: { data?: { message?: string } } }) => {
+		onError: (err: {
+			message?: string;
+			data?: { message?: string };
+			response?: { data?: { message?: string } };
+		}) => {
 			const errorMsg =
 				err?.data?.message ||
 				err?.response?.data?.message ||
@@ -114,7 +120,11 @@ export function WarehouseManagementDialog({
 				onSuccess(updated);
 			}
 		},
-		onError: (err: { message?: string; data?: { message?: string }; response?: { data?: { message?: string } } }) => {
+		onError: (err: {
+			message?: string;
+			data?: { message?: string };
+			response?: { data?: { message?: string } };
+		}) => {
 			const errorMsg =
 				err?.data?.message ||
 				err?.response?.data?.message ||
@@ -178,7 +188,9 @@ export function WarehouseManagementDialog({
 								<WarehouseIcon className="h-4 w-4" />
 							</div>
 							<DialogTitle>
-								{mode === "create" ? "Add New Warehouse" : `Edit ${warehouse?.name || "Warehouse"}`}
+								{mode === "create"
+									? "Add New Warehouse"
+									: `Edit ${warehouse?.name || "Warehouse"}`}
 							</DialogTitle>
 						</div>
 						<DialogDescription>
@@ -214,7 +226,8 @@ export function WarehouseManagementDialog({
 							<FieldLabel>Theme Accent Color</FieldLabel>
 							<div className="grid grid-cols-5 gap-2 pt-1">
 								{PRESET_COLORS.map((c) => {
-									const isSelected = color.toLowerCase() === c.hex.toLowerCase();
+									const isSelected =
+										color.toLowerCase() === c.hex.toLowerCase();
 									return (
 										<button
 											key={c.hex}
@@ -230,7 +243,9 @@ export function WarehouseManagementDialog({
 												className="h-6 w-6 rounded-full flex items-center justify-center shadow-2xs"
 												style={{ backgroundColor: c.hex }}
 											>
-												{isSelected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+												{isSelected && (
+													<CheckIcon className="h-3.5 w-3.5 text-white" />
+												)}
 											</div>
 											<span className="text-[10px] text-muted-foreground group-hover:text-foreground">
 												{c.name}
@@ -257,8 +272,14 @@ export function WarehouseManagementDialog({
 						>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={isLoading} style={{ backgroundColor: color }}>
-							{isLoading && <Loader2Icon className="h-4 w-4 mr-1.5 animate-spin" />}
+						<Button
+							type="submit"
+							disabled={isLoading}
+							style={{ backgroundColor: color }}
+						>
+							{isLoading && (
+								<Loader2Icon className="h-4 w-4 mr-1.5 animate-spin" />
+							)}
 							{mode === "create" ? "Create Warehouse" : "Save Changes"}
 						</Button>
 					</DialogFooter>

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as v from "valibot";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
 	Dialog,
 	DialogContent,
@@ -18,11 +19,10 @@ import {
 	Field,
 	FieldError,
 	FieldGroup,
-	FieldLegend,
 	FieldLabel,
+	FieldLegend,
 	FieldSet,
 } from "@/components/ui/field";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
@@ -152,52 +152,56 @@ export function UpdateCategoryDialog({
 													{isInvalid && (
 														<FieldError errors={field.state.meta.errors} />
 													)}
-								</Field>
-							);
-						}}
-					</form.Field>
-					<form.Field name="impact">
-						{(field) => {
-							const isInvalid =
-								field.state.meta.isTouched && !field.state.meta.isValid;
-							const impacts = field.state.value;
-							const toggleImpact = (impact: ImpactOption) => {
-								if (impacts.includes(impact)) {
-									field.handleChange(impacts.filter((item) => item !== impact));
-								} else {
-									field.handleChange([...impacts, impact]);
-								}
-							};
-							return (
-								<FieldSet data-invalid={isInvalid}>
-									<FieldLegend variant="label">
-										Impact
-										<span className="text-destructive">*</span>
-									</FieldLegend>
-									<FieldGroup className="gap-3">
-										{impactOptions.map((impact) => (
-											<Field key={impact} orientation="horizontal">
-												<Checkbox
-													id={`impact-${category.id}-${impact}`}
-													checked={impacts.includes(impact)}
-													onCheckedChange={() => toggleImpact(impact)}
-													onBlur={field.handleBlur}
-												/>
-												<FieldLabel
-													htmlFor={`impact-${category.id}-${impact}`}
-													className="font-normal capitalize"
-												>
-													{impact}
-												</FieldLabel>
-											</Field>
-										))}
-									</FieldGroup>
-									{isInvalid && <FieldError errors={field.state.meta.errors} />}
-								</FieldSet>
-							);
-						}}
-					</form.Field>
-				</FieldGroup>
+												</Field>
+											);
+										}}
+									</form.Field>
+									<form.Field name="impact">
+										{(field) => {
+											const isInvalid =
+												field.state.meta.isTouched && !field.state.meta.isValid;
+											const impacts = field.state.value;
+											const toggleImpact = (impact: ImpactOption) => {
+												if (impacts.includes(impact)) {
+													field.handleChange(
+														impacts.filter((item) => item !== impact),
+													);
+												} else {
+													field.handleChange([...impacts, impact]);
+												}
+											};
+											return (
+												<FieldSet data-invalid={isInvalid}>
+													<FieldLegend variant="label">
+														Impact
+														<span className="text-destructive">*</span>
+													</FieldLegend>
+													<FieldGroup className="gap-3">
+														{impactOptions.map((impact) => (
+															<Field key={impact} orientation="horizontal">
+																<Checkbox
+																	id={`impact-${category.id}-${impact}`}
+																	checked={impacts.includes(impact)}
+																	onCheckedChange={() => toggleImpact(impact)}
+																	onBlur={field.handleBlur}
+																/>
+																<FieldLabel
+																	htmlFor={`impact-${category.id}-${impact}`}
+																	className="font-normal capitalize"
+																>
+																	{impact}
+																</FieldLabel>
+															</Field>
+														))}
+													</FieldGroup>
+													{isInvalid && (
+														<FieldError errors={field.state.meta.errors} />
+													)}
+												</FieldSet>
+											);
+										}}
+									</form.Field>
+								</FieldGroup>
 							</FieldSet>
 
 							{updateCategoryMutation.error && (

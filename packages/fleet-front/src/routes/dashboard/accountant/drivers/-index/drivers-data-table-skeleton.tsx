@@ -14,9 +14,7 @@ export function DriversDataTableSkeleton() {
 			<div className="flex justify-between">
 				<div className="space-y-1">
 					<h1 className="text-2xl font-bold tracking-tight">Drivers</h1>
-					<p className="text-muted-foreground text-sm">
-						Manage your drivers
-					</p>
+					<p className="text-muted-foreground text-sm">Manage your drivers</p>
 				</div>
 				<Skeleton className="h-9 w-32" />
 			</div>

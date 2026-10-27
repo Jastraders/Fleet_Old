@@ -715,24 +715,19 @@ function BataList() {
 			];
 
 			const rows = exportRecords.map((item) => {
-				const dateVal = parseDateValue(item.transaction_date);
-				const formattedDate = dateVal
-					? dateVal.toLocaleDateString("en-IN", {
-							day: "2-digit",
-							month: "short",
-							year: "numeric",
-						})
-					: item.transaction_date || "—";
+				const dateStr = item.transaction_date
+					? String(item.transaction_date).slice(0, 10)
+					: "";
 
 				const vehicleLabel = item.vehicle_name
 					? `${item.vehicle_name}${item.vehicle_license_plate ? ` (${item.vehicle_license_plate.toUpperCase()})` : ""}`
-					: item.vehicle_license_plate || "—";
+					: item.vehicle_license_plate || "";
 
 				return {
 					driverName: item.driver_name || "Unassigned",
 					vehicleName: vehicleLabel,
-					transactionDate: formattedDate,
-					productName: item.product_name || "—",
+					transactionDate: dateStr,
+					productName: item.product_name || "",
 					bataAmount: `Rs. ${Number(item.bata_amount || 0).toLocaleString(
 						"en-IN",
 						{
@@ -745,9 +740,9 @@ function BataList() {
 
 			const grandTotalRow = {
 				driverName: "GRAND TOTAL",
-				vehicleName: `${exportRecords.length} Records`,
-				transactionDate: "—",
-				productName: "—",
+				vehicleName: "",
+				transactionDate: "",
+				productName: "",
 				bataAmount: `Rs. ${grandTotalBata.toLocaleString("en-IN", {
 					minimumFractionDigits: 2,
 					maximumFractionDigits: 2,

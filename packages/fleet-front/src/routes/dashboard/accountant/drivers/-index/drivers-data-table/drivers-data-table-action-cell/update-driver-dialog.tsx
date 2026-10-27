@@ -25,8 +25,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
 
-type Driver =
-	InferRouterOutputs<AppRouter>["accountant"]["drivers"]["get"];
+type Driver = InferRouterOutputs<AppRouter>["accountant"]["drivers"]["get"];
 
 const updateDriverFormSchema = v.object({
 	name: v.pipe(v.string(), v.minLength(1, "Name is required")),
@@ -114,9 +113,7 @@ export function UpdateDriverDialog({
 					>
 						<DialogHeader>
 							<DialogTitle>Update Driver</DialogTitle>
-							<DialogDescription>
-								Update your driver details.
-							</DialogDescription>
+							<DialogDescription>Update your driver details.</DialogDescription>
 						</DialogHeader>
 
 						<FieldGroup className="my-4">
@@ -138,15 +135,15 @@ export function UpdateDriverDialog({
 														value={field.state.value}
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
-													placeholder="e.g., Raj Kumar"
-													aria-invalid={isInvalid}
-												/>
-												{isInvalid && (
-													<FieldError errors={field.state.meta.errors} />
-												)}
-											</Field>
-										);
-									}}
+														placeholder="e.g., Raj Kumar"
+														aria-invalid={isInvalid}
+													/>
+													{isInvalid && (
+														<FieldError errors={field.state.meta.errors} />
+													)}
+												</Field>
+											);
+										}}
 									</form.Field>
 									<form.Field name="phoneNumber">
 										{(field) => {
@@ -165,8 +162,8 @@ export function UpdateDriverDialog({
 														onBlur={field.handleBlur}
 														onChange={(e) => field.handleChange(e.target.value)}
 														placeholder="e.g., +91 9876543210"
-													aria-invalid={isInvalid}
-												/>
+														aria-invalid={isInvalid}
+													/>
 													{isInvalid && (
 														<FieldError errors={field.state.meta.errors} />
 													)}

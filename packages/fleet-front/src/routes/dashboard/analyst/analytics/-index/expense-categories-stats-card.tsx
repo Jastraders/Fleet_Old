@@ -28,7 +28,13 @@ import useSvgExport from "@/hooks/use-svg-export";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+type Period =
+	| "all_time"
+	| "last_7d"
+	| "last_30d"
+	| "last_6m"
+	| "last_12m"
+	| "custom";
 
 interface ExpenseCategoriesStatsCardProps extends ComponentProps<typeof Card> {
 	period: Period;
@@ -265,12 +271,17 @@ function ExpenseCategoryChartContent({
 				<div className="w-full max-h-36 overflow-y-auto pt-2.5 border-t border-border/40">
 					<div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs">
 						{chartData.map((entry) => (
-							<div key={entry.category} className="flex items-center gap-1.5 shrink-0">
+							<div
+								key={entry.category}
+								className="flex items-center gap-1.5 shrink-0"
+							>
 								<div
 									className="h-2.5 w-2.5 rounded-xs shrink-0"
 									style={{ backgroundColor: entry.fill }}
 								/>
-								<span className="text-xs text-foreground font-medium">{entry.name}</span>
+								<span className="text-xs text-foreground font-medium">
+									{entry.name}
+								</span>
 							</div>
 						))}
 					</div>
@@ -280,16 +291,16 @@ function ExpenseCategoryChartContent({
 	);
 }
 
-export function ExpenseCategoriesStatsCard(props: ExpenseCategoriesStatsCardProps) {
+export function ExpenseCategoriesStatsCard(
+	props: ExpenseCategoriesStatsCardProps,
+) {
 	return (
 		<Suspense
 			fallback={
 				<ExpenseCategoryChartSkeleton className={props.className} {...props} />
 			}
 		>
-			<ExpenseCategoryChartContent
-				{...props}
-			/>
+			<ExpenseCategoryChartContent {...props} />
 		</Suspense>
 	);
 }

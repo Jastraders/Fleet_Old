@@ -17,7 +17,10 @@ import { Separator } from "@/components/ui/separator";
 import { parseDateValue } from "@/lib/date";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
-import { AccessDeniedDialog, useIsAdmin } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 interface BataDetailData {
 	id: string;
@@ -89,7 +92,9 @@ function BataDetail() {
 		}),
 	});
 
-	const formattedTxDate = parseDateValue(bata.transaction_date)?.toLocaleDateString("en-IN", {
+	const formattedTxDate = parseDateValue(
+		bata.transaction_date,
+	)?.toLocaleDateString("en-IN", {
 		day: "2-digit",
 		month: "long",
 		year: "numeric",
@@ -99,7 +104,11 @@ function BataDetail() {
 		<div className="space-y-6 max-w-4xl">
 			{/* Top Navigation */}
 			<div className="flex items-center justify-between">
-				<Button variant="ghost" className="gap-2" onClick={() => navigate({ to: "/dashboard/accountant/bata" })}>
+				<Button
+					variant="ghost"
+					className="gap-2"
+					onClick={() => navigate({ to: "/dashboard/accountant/bata" })}
+				>
 					<ArrowLeftIcon className="h-4 w-4" />
 					Back to Bata List
 				</Button>
@@ -107,7 +116,12 @@ function BataDetail() {
 				<Button
 					variant="outline"
 					className="gap-2"
-					onClick={() => navigate({ to: `/dashboard/accountant/journal-entries/$entryId`, params: { entryId: bata.journal_entry_id } })}
+					onClick={() =>
+						navigate({
+							to: `/dashboard/accountant/journal-entries/$entryId`,
+							params: { entryId: bata.journal_entry_id },
+						})
+					}
 				>
 					<EditIcon className="h-4 w-4" />
 					Edit Journal Entry
@@ -132,7 +146,10 @@ function BataDetail() {
 					<div className="flex flex-wrap items-center justify-between gap-4">
 						<div className="text-sm text-muted-foreground flex items-center gap-2">
 							<CalendarIcon className="h-4 w-4" />
-							Journal Entry Date: <span className="font-semibold text-foreground">{formattedTxDate || "N/A"}</span>
+							Journal Entry Date:{" "}
+							<span className="font-semibold text-foreground">
+								{formattedTxDate || "N/A"}
+							</span>
 						</div>
 					</div>
 				</CardContent>
@@ -152,7 +169,9 @@ function BataDetail() {
 						<div className="flex items-start justify-between">
 							<span className="text-sm text-muted-foreground">Driver:</span>
 							<div className="text-right">
-								<span className="font-semibold text-sm">{bata.driver_name || "Unassigned"}</span>
+								<span className="font-semibold text-sm">
+									{bata.driver_name || "Unassigned"}
+								</span>
 								{bata.driver_phone_number && (
 									<div className="text-xs text-muted-foreground flex items-center justify-end gap-1 mt-0.5">
 										<PhoneIcon className="h-3 w-3" />
@@ -191,7 +210,9 @@ function BataDetail() {
 					</CardHeader>
 					<CardContent className="space-y-4">
 						<div className="flex items-center justify-between">
-							<span className="text-sm text-muted-foreground">Gross Revenue:</span>
+							<span className="text-sm text-muted-foreground">
+								Gross Revenue:
+							</span>
 							<span className="font-bold text-sm text-emerald-600 dark:text-emerald-400">
 								{formatINR(bata.gross_revenue ?? 0)}
 							</span>
@@ -201,7 +222,8 @@ function BataDetail() {
 							<div className="flex items-center justify-between text-xs text-muted-foreground">
 								<span>Calculation Mode:</span>
 								<span>
-									{bata.quantity ?? 0} qty × {formatINR(bata.per_item_rate ?? 0)}/unit
+									{bata.quantity ?? 0} qty ×{" "}
+									{formatINR(bata.per_item_rate ?? 0)}/unit
 								</span>
 							</div>
 						)}
@@ -213,7 +235,9 @@ function BataDetail() {
 								<PackageIcon className="h-4 w-4 text-muted-foreground" />
 								Product Name:
 							</span>
-							<span className="font-semibold text-sm">{bata.product_name || "—"}</span>
+							<span className="font-semibold text-sm">
+								{bata.product_name || "—"}
+							</span>
 						</div>
 					</CardContent>
 				</Card>

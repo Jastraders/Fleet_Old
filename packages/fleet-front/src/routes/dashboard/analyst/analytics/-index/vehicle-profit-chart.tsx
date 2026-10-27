@@ -2,13 +2,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { DownloadIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { Suspense, useRef } from "react";
-import {
-	Bar,
-	BarChart,
-	CartesianGrid,
-	XAxis,
-	YAxis,
-} from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -37,7 +31,13 @@ import useSvgExport from "@/hooks/use-svg-export";
 import { cn, formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+type Period =
+	| "all_time"
+	| "last_7d"
+	| "last_30d"
+	| "last_6m"
+	| "last_12m"
+	| "custom";
 
 interface VehicleProfitChartProps extends ComponentProps<typeof Card> {
 	period: Period;
@@ -195,14 +195,16 @@ function VehicleProfitChartContent({
 											formatter={(_value, name, item) => {
 												const payload =
 													typeof item === "object" &&
-														item !== null &&
-														"payload" in item
-														? (item as {
-															payload?: {
-																originalDebit?: number;
-																originalProfit?: number;
-															};
-														}).payload
+													item !== null &&
+													"payload" in item
+														? (
+																item as {
+																	payload?: {
+																		originalDebit?: number;
+																		originalProfit?: number;
+																	};
+																}
+															).payload
 														: undefined;
 
 												return (
@@ -215,8 +217,8 @@ function VehicleProfitChartContent({
 																} as React.CSSProperties
 															}
 														/>
-														{chartConfig[name as keyof typeof chartConfig]?.label ||
-															name}
+														{chartConfig[name as keyof typeof chartConfig]
+															?.label || name}
 														<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
 															{name === "debit" && payload?.originalDebit}
 															{name === "profit" && payload?.originalProfit}

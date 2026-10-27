@@ -19,7 +19,10 @@ function resolveApiUrl() {
 		return toAbsoluteUrl(defaultPath);
 	}
 
-	if (configuredUrl.startsWith("http://") || configuredUrl.startsWith("https://")) {
+	if (
+		configuredUrl.startsWith("http://") ||
+		configuredUrl.startsWith("https://")
+	) {
 		return configuredUrl;
 	}
 

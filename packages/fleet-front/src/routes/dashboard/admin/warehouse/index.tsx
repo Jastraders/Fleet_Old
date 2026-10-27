@@ -1,29 +1,28 @@
-import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Suspense, useDeferredValue, useState, useMemo } from "react";
-import * as v from "valibot";
 import {
-	Building2Icon,
-	Trash2Icon,
-	CalendarIcon,
-	SearchIcon,
-	XIcon,
-	PackageIcon,
-	RotateCcwIcon,
+	useMutation,
+	useQuery,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
 	AlertCircleIcon,
+	Building2Icon,
+	CalendarIcon,
+	CheckIcon,
 	DownloadIcon,
-	FileTextIcon,
 	FileSpreadsheetIcon,
+	FileTextIcon,
+	PackageIcon,
 	PencilIcon,
 	PlusIcon,
-	CheckIcon,
+	RotateCcwIcon,
+	SearchIcon,
+	Trash2Icon,
+	XIcon,
 } from "lucide-react";
-import { orpc } from "@/orpc";
-import { WarehouseDialog, formatWarehouseCurrency, type WarehouseSection } from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
-import {
-	WarehouseManagementDialog,
-	type WarehouseItem,
-} from "@/routes/dashboard/admin/warehouse/-index/warehouse-management-dialog";
+import { Suspense, useDeferredValue, useMemo, useState } from "react";
+import * as v from "valibot";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -35,14 +34,21 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -59,18 +65,38 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { useIsAdmin, useRowAccess, AccessDeniedDialog } from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import {
-	exportStatementToPdf,
-	exportStatementToExcel,
 	type ExportColumn,
+	exportStatementToExcel,
+	exportStatementToPdf,
 	type StatementExportOptions,
 } from "@/lib/statement-export";
+import { cn } from "@/lib/utils";
+import { orpc } from "@/orpc";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	formatWarehouseCurrency,
+	WarehouseDialog,
+	type WarehouseSection,
+} from "@/routes/dashboard/admin/warehouse/-index/warehouse-dialog";
+import {
+	type WarehouseItem,
+	WarehouseManagementDialog,
+} from "@/routes/dashboard/admin/warehouse/-index/warehouse-management-dialog";
 
 const periodSchema = v.fallback(
-	v.picklist(["all_time", "last_7d", "last_30d", "last_6m", "last_12m", "custom"]),
+	v.picklist([
+		"all_time",
+		"last_7d",
+		"last_30d",
+		"last_6m",
+		"last_12m",
+		"custom",
+	]),
 	"all_time",
 );
 
@@ -85,7 +111,10 @@ const periodOptions = [
 
 const querySchema = v.object({
 	section: v.optional(v.fallback(v.string(), "JAS"), "JAS"),
-	status: v.optional(v.fallback(v.picklist(["all", "paid", "unpaid"]), "all"), "all"),
+	status: v.optional(
+		v.fallback(v.picklist(["all", "paid", "unpaid"]), "all"),
+		"all",
+	),
 	product: v.optional(v.string()),
 	period: v.optional(periodSchema, "all_time"),
 	startDate: v.optional(v.string()),
@@ -97,7 +126,19 @@ const querySchema = v.object({
 
 export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { section, status, product, period, startDate, endDate, search, offset, limit } }) => ({
+	loaderDeps: ({
+		search: {
+			section,
+			status,
+			product,
+			period,
+			startDate,
+			endDate,
+			search,
+			offset,
+			limit,
+		},
+	}) => ({
 		section,
 		status,
 		product,
@@ -139,7 +180,9 @@ export const Route = createFileRoute("/dashboard/admin/warehouse/")({
 
 function RouteComponent() {
 	return (
-		<Suspense fallback={<div className="p-6">Loading Warehouse records...</div>}>
+		<Suspense
+			fallback={<div className="p-6">Loading Warehouse records...</div>}
+		>
 			<WarehouseList />
 		</Suspense>
 	);
@@ -153,7 +196,8 @@ function WarehouseList() {
 	const isAdmin = useIsAdmin();
 	const { canAccess } = useRowAccess();
 
-	const activeSection: WarehouseSection = (query.section as WarehouseSection) || "JAS";
+	const activeSection: WarehouseSection =
+		(query.section as WarehouseSection) || "JAS";
 	const activeStatus = query.status || "all";
 	const activeProduct = query.product || "all";
 	const period = query.period || "all_time";
@@ -169,7 +213,11 @@ function WarehouseList() {
 	);
 
 	const [selectedIds, setSelectedIds] = useState<string[]>([]);
-	const [accessDeniedState, setAccessDeniedState] = useState<{ open: boolean; recordId: string; label: string }>({
+	const [accessDeniedState, setAccessDeniedState] = useState<{
+		open: boolean;
+		recordId: string;
+		label: string;
+	}>({
 		open: false,
 		recordId: "",
 		label: "",
@@ -179,8 +227,24 @@ function WarehouseList() {
 		...orpc.admin.warehouse.warehouses.list.queryOptions({}),
 	});
 	const warehouses: WarehouseItem[] = warehousesData?.warehouses || [
-		{ id: "jas", name: "JAS Warehouse", code: "JAS", description: "Owner's Business (Primary)", color: "#2563EB", isSystem: true, status: "active" },
-		{ id: "jkm", name: "JKM Warehouse", code: "JKM", description: "Secondary Warehouse", color: "#7C3AED", isSystem: true, status: "active" },
+		{
+			id: "jas",
+			name: "JAS Warehouse",
+			code: "JAS",
+			description: "Owner's Business (Primary)",
+			color: "#2563EB",
+			isSystem: true,
+			status: "active",
+		},
+		{
+			id: "jkm",
+			name: "JKM Warehouse",
+			code: "JKM",
+			description: "Secondary Warehouse",
+			color: "#7C3AED",
+			isSystem: true,
+			status: "active",
+		},
 	];
 
 	const [warehouseSearch, setWarehouseSearch] = useState("");
@@ -194,14 +258,18 @@ function WarehouseList() {
 		warehouse: null,
 	});
 
-	const [warehouseToDelete, setWarehouseToDelete] = useState<WarehouseItem | null>(null);
+	const [warehouseToDelete, setWarehouseToDelete] =
+		useState<WarehouseItem | null>(null);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
 
 	const deleteWarehouseMutation = useMutation({
 		...orpc.admin.warehouse.warehouses.delete.mutationOptions(),
 		onSuccess: () => {
 			queryClient.invalidateQueries();
-			if (warehouseToDelete && activeSection.toLowerCase() === warehouseToDelete.code.toLowerCase()) {
+			if (
+				warehouseToDelete &&
+				activeSection.toLowerCase() === warehouseToDelete.code.toLowerCase()
+			) {
 				handleSectionChange("JAS");
 			}
 			setWarehouseToDelete(null);
@@ -225,7 +293,9 @@ function WarehouseList() {
 
 	const activeWarehouse = useMemo(() => {
 		return (
-			warehouses.find((w) => w.code.toLowerCase() === activeSection.toLowerCase()) ||
+			warehouses.find(
+				(w) => w.code.toLowerCase() === activeSection.toLowerCase(),
+			) ||
 			warehouses[0] || {
 				id: "jas",
 				name: "JAS Warehouse",
@@ -381,7 +451,9 @@ function WarehouseList() {
 			}
 		}
 
-		const reason = prompt("Please enter a reason for deleting this warehouse record:");
+		const reason = prompt(
+			"Please enter a reason for deleting this warehouse record:",
+		);
 		if (reason === null) return; // cancelled
 		if (!reason.trim()) {
 			alert("Reason is required to delete a warehouse record.");
@@ -408,7 +480,9 @@ function WarehouseList() {
 							status: "all",
 							product: deferredQuery.product,
 							period: deferredQuery.period,
-							startDate: isDateRangeInvalid ? undefined : deferredQuery.startDate,
+							startDate: isDateRangeInvalid
+								? undefined
+								: deferredQuery.startDate,
 							endDate: isDateRangeInvalid ? undefined : deferredQuery.endDate,
 							search: deferredQuery.search,
 							limit: 10000,
@@ -443,14 +517,54 @@ function WarehouseList() {
 
 			const columns: ExportColumn[] = [
 				{ header: "Date", key: "recordDate", width: 70, align: "left" },
-				{ header: "Product Name", key: "productName", width: 100, align: "left" },
-				{ header: "Total Worker", key: "totalWorker", width: 65, align: "right" },
-				{ header: "Regular Worker", key: "regularWorker", width: 70, align: "right" },
-				{ header: "Union Worker", key: "unionWorker", width: 65, align: "right" },
-				{ header: "Per Bag Price", key: "ratePerUnload", width: 70, align: "right" },
-				{ header: "Quantity (Unloads)", key: "totalUnloads", width: 85, align: "right" },
-				{ header: "Own Staff Salary", key: "ownStaffSalary", width: 85, align: "right" },
-				{ header: "Union Salary", key: "unionSalary", width: 80, align: "right" },
+				{
+					header: "Product Name",
+					key: "productName",
+					width: 100,
+					align: "left",
+				},
+				{
+					header: "Total Worker",
+					key: "totalWorker",
+					width: 65,
+					align: "right",
+				},
+				{
+					header: "Regular Worker",
+					key: "regularWorker",
+					width: 70,
+					align: "right",
+				},
+				{
+					header: "Union Worker",
+					key: "unionWorker",
+					width: 65,
+					align: "right",
+				},
+				{
+					header: "Per Bag Price",
+					key: "ratePerUnload",
+					width: 70,
+					align: "right",
+				},
+				{
+					header: "Quantity (Unloads)",
+					key: "totalUnloads",
+					width: 85,
+					align: "right",
+				},
+				{
+					header: "Own Staff Salary",
+					key: "ownStaffSalary",
+					width: 85,
+					align: "right",
+				},
+				{
+					header: "Union Salary",
+					key: "unionSalary",
+					width: 80,
+					align: "right",
+				},
 				{ header: "Total Value", key: "totalValue", width: 80, align: "right" },
 			];
 
@@ -469,11 +583,11 @@ function WarehouseList() {
 
 			const grandTotalRow = {
 				recordDate: "GRAND TOTAL",
-				productName: `${exportRecords.length} Records`,
+				productName: "",
 				totalWorker: grandTotalRegularWorkers + grandTotalUnionWorkers,
 				regularWorker: grandTotalRegularWorkers,
 				unionWorker: grandTotalUnionWorkers,
-				ratePerUnload: "—",
+				ratePerUnload: "",
 				totalUnloads: grandTotalUnloads,
 				ownStaffSalary: formatCurrency(grandTotalOwnSalary),
 				unionSalary: formatCurrency(grandTotalUnionSalary),
@@ -491,11 +605,11 @@ function WarehouseList() {
 				subtitle: "Labor Wages, Unload Logs and Financial Summary",
 				themeColor: hexToRgb(activeTheme.colorHex),
 				metadata: {
-					"Section": activeTheme.label,
+					Section: activeTheme.label,
 					"Date Range": periodLabel,
-					"Product": activeProduct === "all" ? "All Products" : activeProduct,
-					"Search": search || "All",
-					"Generated": new Date().toLocaleString("en-IN"),
+					Product: activeProduct === "all" ? "All Products" : activeProduct,
+					Search: search || "All",
+					Generated: new Date().toLocaleString("en-IN"),
 					"Total Entries": `${exportRecords.length} records`,
 				},
 				columns,
@@ -533,7 +647,10 @@ function WarehouseList() {
 	};
 
 	const handleRowClick = (id: string) => {
-		navigate({ to: "/dashboard/admin/warehouse/$recordId", params: { recordId: id } });
+		navigate({
+			to: "/dashboard/admin/warehouse/$recordId",
+			params: { recordId: id },
+		});
 	};
 
 	const isEmpty = !data || data.meta.total === 0;
@@ -600,7 +717,9 @@ function WarehouseList() {
 				<div className="space-y-1">
 					<div className="flex items-center gap-3">
 						{activeTheme.icon}
-						<h1 className="text-2xl font-bold tracking-tight">{activeTheme.label}</h1>
+						<h1 className="text-2xl font-bold tracking-tight">
+							{activeTheme.label}
+						</h1>
 					</div>
 					<p className="text-muted-foreground text-sm">
 						Independent warehouse records, labour wages, and unloading logs.
@@ -627,7 +746,11 @@ function WarehouseList() {
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
-					<WarehouseDialog key={activeSection} mode="create" defaultSection={activeSection} />
+					<WarehouseDialog
+						key={activeSection}
+						mode="create"
+						defaultSection={activeSection}
+					/>
 				</div>
 			</div>
 
@@ -668,7 +791,8 @@ function WarehouseList() {
 				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 					{filteredWarehouses.map((wh) => {
 						const cfg = getThemeConfig(wh);
-						const isSelected = activeSection.toLowerCase() === wh.code.toLowerCase();
+						const isSelected =
+							activeSection.toLowerCase() === wh.code.toLowerCase();
 						return (
 							<div
 								key={wh.id}
@@ -676,7 +800,7 @@ function WarehouseList() {
 									"group relative flex flex-col justify-between p-4 rounded-xl border text-left transition-all shadow-2xs hover:shadow-md",
 									isSelected
 										? "border-2 shadow-sm bg-card ring-1 ring-offset-1"
-										: "bg-card hover:border-muted-foreground/40 text-muted-foreground"
+										: "bg-card hover:border-muted-foreground/40 text-muted-foreground",
 								)}
 								style={{
 									borderColor: isSelected ? cfg.colorHex : undefined,
@@ -704,7 +828,9 @@ function WarehouseList() {
 													</span>
 												)}
 											</div>
-											<div className="text-xs text-muted-foreground line-clamp-1">{cfg.sub}</div>
+											<div className="text-xs text-muted-foreground line-clamp-1">
+												{cfg.sub}
+											</div>
 										</div>
 									</button>
 
@@ -715,7 +841,13 @@ function WarehouseList() {
 												variant="ghost"
 												size="icon"
 												className="h-7 w-7 text-muted-foreground hover:text-foreground"
-												onClick={() => setManagementModal({ open: true, mode: "edit", warehouse: wh })}
+												onClick={() =>
+													setManagementModal({
+														open: true,
+														mode: "edit",
+														warehouse: wh,
+													})
+												}
 												title="Edit Warehouse"
 											>
 												<PencilIcon className="h-3.5 w-3.5" />
@@ -738,9 +870,15 @@ function WarehouseList() {
 									onClick={() => handleSectionChange(wh.code)}
 									className="mt-3 pt-2 border-t flex items-center justify-between text-xs text-muted-foreground w-full cursor-pointer outline-none"
 								>
-									<span>{wh.recordCount ?? 0} record{(wh.recordCount ?? 0) === 1 ? "" : "s"}</span>
+									<span>
+										{wh.recordCount ?? 0} record
+										{(wh.recordCount ?? 0) === 1 ? "" : "s"}
+									</span>
 									{isSelected && (
-										<span className="font-semibold text-[11px] flex items-center gap-1" style={{ color: cfg.colorHex }}>
+										<span
+											className="font-semibold text-[11px] flex items-center gap-1"
+											style={{ color: cfg.colorHex }}
+										>
 											<CheckIcon className="h-3 w-3" /> Active
 										</span>
 									)}
@@ -766,7 +904,11 @@ function WarehouseList() {
 
 				{filteredWarehouses.length === 0 && warehouseSearch && (
 					<div className="p-6 text-center text-sm text-muted-foreground rounded-xl border border-dashed">
-						No warehouses matching "<span className="font-semibold text-foreground">{warehouseSearch}</span>" found.
+						No warehouses matching "
+						<span className="font-semibold text-foreground">
+							{warehouseSearch}
+						</span>
+						" found.
 					</div>
 				)}
 			</div>
@@ -862,7 +1004,11 @@ function WarehouseList() {
 							<SelectContent>
 								<SelectGroup>
 									{periodOptions.map((option) => (
-										<SelectItem key={option.value} value={option.value} className="text-xs">
+										<SelectItem
+											key={option.value}
+											value={option.value}
+											className="text-xs"
+										>
 											{option.label}
 										</SelectItem>
 									))}
@@ -879,22 +1025,30 @@ function WarehouseList() {
 										aria-label="Start date"
 										value={startDate}
 										max={endDate || undefined}
-										onChange={(e) => handleDateChange("startDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("startDate", e.target.value)
+										}
 										className={cn(
 											"h-8 w-32 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive"
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
-									<span className="text-muted-foreground text-xs px-0.5">to</span>
+									<span className="text-muted-foreground text-xs px-0.5">
+										to
+									</span>
 									<Input
 										type="date"
 										aria-label="End date"
 										value={endDate}
 										min={startDate || undefined}
-										onChange={(e) => handleDateChange("endDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("endDate", e.target.value)
+										}
 										className={cn(
 											"h-8 w-32 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive"
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
 									<Button
@@ -927,14 +1081,38 @@ function WarehouseList() {
 							{selectedStats.count} {activeSection} entry(s) selected
 						</div>
 						<div className="text-xs text-muted-foreground flex flex-wrap gap-x-4">
-							<span>Total Quantity: <strong className="text-foreground">{selectedStats.totalUnloads}</strong></span>
-							<span>Total Value: <strong className="text-foreground">{formatWarehouseCurrency(selectedStats.totalValue)}</strong></span>
-							<span>Own Staff Salary: <strong className="text-primary">{formatWarehouseCurrency(selectedStats.totalWorkersSalary)}</strong></span>
-							<span>Union Salary: <strong className="text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(selectedStats.totalUnionSalary)}</strong></span>
+							<span>
+								Total Quantity:{" "}
+								<strong className="text-foreground">
+									{selectedStats.totalUnloads}
+								</strong>
+							</span>
+							<span>
+								Total Value:{" "}
+								<strong className="text-foreground">
+									{formatWarehouseCurrency(selectedStats.totalValue)}
+								</strong>
+							</span>
+							<span>
+								Own Staff Salary:{" "}
+								<strong className="text-primary">
+									{formatWarehouseCurrency(selectedStats.totalWorkersSalary)}
+								</strong>
+							</span>
+							<span>
+								Union Salary:{" "}
+								<strong className="text-purple-600 dark:text-purple-400">
+									{formatWarehouseCurrency(selectedStats.totalUnionSalary)}
+								</strong>
+							</span>
 						</div>
 					</div>
 					<div className="flex gap-2">
-						<Button size="sm" variant="outline" onClick={() => setSelectedIds([])}>
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => setSelectedIds([])}
+						>
 							Clear Selection
 						</Button>
 					</div>
@@ -944,9 +1122,13 @@ function WarehouseList() {
 			{/* Records Table */}
 			{isEmpty ? (
 				<div className="flex flex-col items-center justify-center p-12 border rounded-lg bg-card text-center space-y-2">
-					<p className="text-muted-foreground text-sm">No {activeTheme.label} records found.</p>
+					<p className="text-muted-foreground text-sm">
+						No {activeTheme.label} records found.
+					</p>
 					{(startDate || endDate || search) && (
-						<p className="text-xs text-muted-foreground">Try clearing date or search filters.</p>
+						<p className="text-xs text-muted-foreground">
+							Try clearing date or search filters.
+						</p>
 					)}
 				</div>
 			) : (
@@ -956,7 +1138,10 @@ function WarehouseList() {
 							<TableRow className="bg-muted/50">
 								<TableHead className="w-10">
 									<Checkbox
-										checked={data.data.length > 0 && selectedIds.length === data.data.length}
+										checked={
+											data.data.length > 0 &&
+											selectedIds.length === data.data.length
+										}
 										onCheckedChange={(checked) => handleSelectAll(!!checked)}
 									/>
 								</TableHead>
@@ -982,13 +1167,15 @@ function WarehouseList() {
 										onClick={() => handleRowClick(record.id)}
 										className={cn(
 											"cursor-pointer transition-colors hover:bg-muted/60",
-											isSelected && "bg-muted/40"
+											isSelected && "bg-muted/40",
 										)}
 									>
 										<TableCell onClick={(e) => e.stopPropagation()}>
 											<Checkbox
 												checked={isSelected}
-												onCheckedChange={(checked) => handleSelectRow(record.id, !!checked)}
+												onCheckedChange={(checked) =>
+													handleSelectRow(record.id, !!checked)
+												}
 											/>
 										</TableCell>
 										<TableCell className="font-medium whitespace-nowrap">
@@ -997,16 +1184,37 @@ function WarehouseList() {
 												{record.recordDate}
 											</div>
 										</TableCell>
-										<TableCell className="font-medium">{record.productName || "—"}</TableCell>
-										<TableCell className="text-right font-semibold">{record.workersCount + record.unionCount}</TableCell>
-										<TableCell className="text-right font-medium">{record.workersCount}</TableCell>
-										<TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">{record.unionCount}</TableCell>
-										<TableCell className="text-right">{formatWarehouseCurrency(record.ratePerUnload)}</TableCell>
-										<TableCell className="text-right font-semibold">{record.totalUnloads}</TableCell>
-										<TableCell className="text-right font-bold text-primary">{formatWarehouseCurrency(record.totalWorkersSalary)}</TableCell>
-										<TableCell className="text-right text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(record.totalUnionSalary)}</TableCell>
-										<TableCell className="text-right font-bold text-foreground">{formatWarehouseCurrency(record.totalValue)}</TableCell>
-										<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+										<TableCell className="font-medium">
+											{record.productName || "—"}
+										</TableCell>
+										<TableCell className="text-right font-semibold">
+											{record.workersCount + record.unionCount}
+										</TableCell>
+										<TableCell className="text-right font-medium">
+											{record.workersCount}
+										</TableCell>
+										<TableCell className="text-right text-purple-600 dark:text-purple-400 font-medium">
+											{record.unionCount}
+										</TableCell>
+										<TableCell className="text-right">
+											{formatWarehouseCurrency(record.ratePerUnload)}
+										</TableCell>
+										<TableCell className="text-right font-semibold">
+											{record.totalUnloads}
+										</TableCell>
+										<TableCell className="text-right font-bold text-primary">
+											{formatWarehouseCurrency(record.totalWorkersSalary)}
+										</TableCell>
+										<TableCell className="text-right text-purple-600 dark:text-purple-400">
+											{formatWarehouseCurrency(record.totalUnionSalary)}
+										</TableCell>
+										<TableCell className="text-right font-bold text-foreground">
+											{formatWarehouseCurrency(record.totalValue)}
+										</TableCell>
+										<TableCell
+											className="text-right"
+											onClick={(e) => e.stopPropagation()}
+										>
 											<div className="flex items-center justify-end gap-1">
 												<WarehouseDialog
 													key={`${record.id}-${record.updatedAt || ""}`}
@@ -1030,7 +1238,12 @@ function WarehouseList() {
 												<Button
 													variant="ghost"
 													size="icon"
-													onClick={() => handleDelete(record.id, `${record.section} Record (${record.recordDate})`)}
+													onClick={() =>
+														handleDelete(
+															record.id,
+															`${record.section} Record (${record.recordDate})`,
+														)
+													}
 													className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
 												>
 													<Trash2Icon className="h-4 w-4" />
@@ -1047,7 +1260,9 @@ function WarehouseList() {
 
 			<AccessDeniedDialog
 				open={accessDeniedState.open}
-				onOpenChange={(open) => setAccessDeniedState((prev) => ({ ...prev, open }))}
+				onOpenChange={(open) =>
+					setAccessDeniedState((prev) => ({ ...prev, open }))
+				}
 				pageName="warehouse"
 				resourceType="warehouse_record"
 				resourceId={accessDeniedState.recordId}
@@ -1058,7 +1273,9 @@ function WarehouseList() {
 				mode={managementModal.mode}
 				warehouse={managementModal.warehouse}
 				open={managementModal.open}
-				onOpenChange={(open) => setManagementModal((prev) => ({ ...prev, open }))}
+				onOpenChange={(open) =>
+					setManagementModal((prev) => ({ ...prev, open }))
+				}
 				onSuccess={(wh) => {
 					handleSectionChange(wh.code);
 				}}
@@ -1075,13 +1292,17 @@ function WarehouseList() {
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete {warehouseToDelete?.name}?</AlertDialogTitle>
+						<AlertDialogTitle>
+							Delete {warehouseToDelete?.name}?
+						</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to delete this warehouse? This action cannot be undone.
+							Are you sure you want to delete this warehouse? This action cannot
+							be undone.
 							{(warehouseToDelete?.recordCount ?? 0) > 0 && (
 								<span className="block mt-2 text-destructive font-medium">
-									Warning: This warehouse contains {warehouseToDelete?.recordCount} record(s).
-									You must delete or remove all records before this warehouse can be deleted.
+									Warning: This warehouse contains{" "}
+									{warehouseToDelete?.recordCount} record(s). You must delete or
+									remove all records before this warehouse can be deleted.
 								</span>
 							)}
 						</AlertDialogDescription>
@@ -1092,20 +1313,32 @@ function WarehouseList() {
 						</div>
 					)}
 					<AlertDialogFooter>
-						<AlertDialogCancel onClick={() => { setWarehouseToDelete(null); setDeleteError(null); }}>
+						<AlertDialogCancel
+							onClick={() => {
+								setWarehouseToDelete(null);
+								setDeleteError(null);
+							}}
+						>
 							Cancel
 						</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={(e) => {
 								e.preventDefault();
 								if (warehouseToDelete) {
-									deleteWarehouseMutation.mutate({ id: warehouseToDelete.id } as any);
+									deleteWarehouseMutation.mutate({
+										id: warehouseToDelete.id,
+									} as any);
 								}
 							}}
-							disabled={deleteWarehouseMutation.isPending || (warehouseToDelete?.recordCount ?? 0) > 0}
+							disabled={
+								deleteWarehouseMutation.isPending ||
+								(warehouseToDelete?.recordCount ?? 0) > 0
+							}
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
-							{deleteWarehouseMutation.isPending ? "Deleting..." : "Delete Warehouse"}
+							{deleteWarehouseMutation.isPending
+								? "Deleting..."
+								: "Delete Warehouse"}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

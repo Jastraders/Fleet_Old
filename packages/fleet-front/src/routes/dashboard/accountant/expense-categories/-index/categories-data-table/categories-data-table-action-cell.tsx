@@ -9,7 +9,11 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteCategoryAlertDialog } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table/categories-data-table-action-cell/delete-category-alert-dialog";
 import { UpdateCategoryDialog } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table/categories-data-table-action-cell/update-category-dialog";
 import type { ExpenseCategory } from "@/routes/dashboard/accountant/expense-categories/-route/types";
@@ -28,7 +32,15 @@ export function CategoriesDataTableActionCell({
 	const { canAccess } = useRowAccess();
 
 	const handleEdit = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Expense Categories", resourceType: "expense_category", resourceId: category.id, action: "edit" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Expense Categories",
+				resourceType: "expense_category",
+				resourceId: category.id,
+				action: "edit",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
@@ -37,7 +49,15 @@ export function CategoriesDataTableActionCell({
 	}, [category, isAdmin, canAccess]);
 
 	const handleDeleteClick = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Expense Categories", resourceType: "expense_category", resourceId: category.id, action: "delete" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Expense Categories",
+				resourceType: "expense_category",
+				resourceId: category.id,
+				action: "delete",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}

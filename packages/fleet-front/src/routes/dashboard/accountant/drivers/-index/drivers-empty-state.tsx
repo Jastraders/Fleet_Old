@@ -38,8 +38,7 @@ export function DriversEmptyState({ search }: DriversEmptyStateProps) {
 				</EmptyMedia>
 				<EmptyTitle>No drivers yet</EmptyTitle>
 				<EmptyDescription>
-					Get started by creating your first driver to organize your
-					expenses.
+					Get started by creating your first driver to organize your expenses.
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>

@@ -1,18 +1,23 @@
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+	useMutation,
+	useQueryClient,
+	useSuspenseQuery,
+} from "@tanstack/react-query";
 import { AlertTriangleIcon, DownloadIcon } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import {
 	AlertDialog,
 	AlertDialogAction,
+	AlertDialogCancel,
 	AlertDialogContent,
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
 	AlertDialogMedia,
 	AlertDialogTitle,
-	AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { formatCellValueForExcel } from "@/lib/statement-export";
 import { orpc } from "@/orpc";
 
 function hasRole(user: unknown, role: string): boolean {
@@ -36,13 +41,18 @@ export function useIsAdmin() {
 
 interface AccountantDownloadButtonProps {
 	onDownload: () => void;
+	disabled?: boolean;
 }
 
-export function AccountantDownloadButton({ onDownload }: AccountantDownloadButtonProps) {
+export function AccountantDownloadButton({
+	onDownload,
+	disabled,
+}: AccountantDownloadButtonProps) {
 	const isAdmin = useIsAdmin();
 	const [isBlockedDialogOpen, setIsBlockedDialogOpen] = useState(false);
 
 	const handleClick = () => {
+		if (disabled) return;
 		if (!isAdmin) {
 			setIsBlockedDialogOpen(true);
 			return;
@@ -53,10 +63,20 @@ export function AccountantDownloadButton({ onDownload }: AccountantDownloadButto
 
 	return (
 		<>
-			<Button type="button" variant="outline" size="icon" onClick={handleClick} aria-label="Download current table data">
+			<Button
+				type="button"
+				variant="outline"
+				size="icon"
+				disabled={disabled}
+				onClick={handleClick}
+				aria-label="Download current table data"
+			>
 				<DownloadIcon className="h-4 w-4" />
 			</Button>
-			<AlertDialog open={isBlockedDialogOpen} onOpenChange={setIsBlockedDialogOpen}>
+			<AlertDialog
+				open={isBlockedDialogOpen}
+				onOpenChange={setIsBlockedDialogOpen}
+			>
 				<AlertDialogContent size="sm">
 					<AlertDialogHeader>
 						<AlertDialogMedia>
@@ -68,7 +88,10 @@ export function AccountantDownloadButton({ onDownload }: AccountantDownloadButto
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogAction type="button" onClick={() => setIsBlockedDialogOpen(false)}>
+						<AlertDialogAction
+							type="button"
+							onClick={() => setIsBlockedDialogOpen(false)}
+						>
 							OK
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -78,25 +101,26 @@ export function AccountantDownloadButton({ onDownload }: AccountantDownloadButto
 	);
 }
 
-export function downloadExcelCompatibleCsv(filename: string, rows: Array<Record<string, unknown>>) {
+export function downloadExcelCompatibleCsv(
+	filename: string,
+	rows: Array<Record<string, unknown>>,
+) {
 	if (rows.length === 0) {
 		return;
 	}
 
 	const headers = Object.keys(rows[0] ?? {});
 	const csv = [
-		headers.join(","),
+		headers.map((h) => `"${h.replaceAll('"', '""')}"`).join(","),
 		...rows.map((row) =>
 			headers
 				.map((header) => {
 					const rawValue = row[header];
-					const value = rawValue == null ? "" : String(rawValue);
-					const escaped = value.replaceAll("\"", "\"\"");
-					return `"${escaped}"`;
+					return formatCellValueForExcel(rawValue);
 				})
 				.join(","),
 		),
-	].join("\n");
+	].join("\r\n");
 
 	const blob = new Blob([`\uFEFF${csv}`], {
 		type: "text/csv;charset=utf-8;",
@@ -104,11 +128,12 @@ export function downloadExcelCompatibleCsv(filename: string, rows: Array<Record<
 	const link = document.createElement("a");
 	const url = URL.createObjectURL(blob);
 	link.href = url;
-	link.download = `${filename}.csv`;
+	const safeFilename = filename.endsWith(".csv") ? filename : `${filename}.csv`;
+	link.download = safeFilename;
 	document.body.appendChild(link);
 	link.click();
 	document.body.removeChild(link);
-	URL.revokeObjectURL(url);
+	setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function useRowAccess() {
@@ -158,7 +183,9 @@ export function AccessDeniedDialog({
 						<AlertTriangleIcon className="text-amber-600" />
 					</AlertDialogMedia>
 					<AlertDialogTitle>Access denied</AlertDialogTitle>
-					<AlertDialogDescription>Only admin can edit or delete.</AlertDialogDescription>
+					<AlertDialogDescription>
+						Only admin can edit or delete.
+					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
 					<AlertDialogCancel type="button" onClick={() => onOpenChange(false)}>

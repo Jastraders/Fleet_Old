@@ -211,31 +211,33 @@ function VehicleMonthlyTrendChartContent({
 											typeof item === "object" &&
 											item !== null &&
 											"payload" in item
-												? (item as {
-														payload?: {
-															originalDebit?: number;
-															originalProfit?: number;
-														};
-													}).payload
+												? (
+														item as {
+															payload?: {
+																originalDebit?: number;
+																originalProfit?: number;
+															};
+														}
+													).payload
 												: undefined;
 
 										return (
 											<>
-											<div
-												className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
-												style={
-													{
-														"--color-bg": `var(--color-${name})`,
-													} as React.CSSProperties
-												}
-											/>
-											{chartConfig[name as keyof typeof chartConfig]?.label ||
-												name}
-											<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
-												{name === "debit" && payload?.originalDebit}
-												{name === "profit" && payload?.originalProfit}
-											</div>
-										</>
+												<div
+													className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
+													style={
+														{
+															"--color-bg": `var(--color-${name})`,
+														} as React.CSSProperties
+													}
+												/>
+												{chartConfig[name as keyof typeof chartConfig]?.label ||
+													name}
+												<div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+													{name === "debit" && payload?.originalDebit}
+													{name === "profit" && payload?.originalProfit}
+												</div>
+											</>
 										);
 									}}
 								/>

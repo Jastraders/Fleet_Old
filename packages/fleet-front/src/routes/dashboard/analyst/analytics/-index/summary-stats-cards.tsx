@@ -14,7 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatINR } from "@/lib/utils";
 import { orpc } from "@/orpc";
 
-type Period = "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+type Period =
+	| "all_time"
+	| "last_7d"
+	| "last_30d"
+	| "last_6m"
+	| "last_12m"
+	| "custom";
 
 interface SummaryStatsCardsProps {
 	period: Period;
@@ -80,7 +86,11 @@ function SummaryStatsCardsSkeleton() {
 	);
 }
 
-function SummaryStatsCardsContent({ period, startDate, endDate }: SummaryStatsCardsProps) {
+function SummaryStatsCardsContent({
+	period,
+	startDate,
+	endDate,
+}: SummaryStatsCardsProps) {
 	const { data } = useSuspenseQuery<SummaryStatsData>({
 		...orpc.analyst.analytics.summaryStats.queryOptions({
 			input: { period, startDate, endDate },

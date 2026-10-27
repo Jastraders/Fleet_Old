@@ -9,18 +9,17 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteDriverAlertDialog } from "@/routes/dashboard/accountant/drivers/-index/drivers-data-table/drivers-data-table-action-cell/delete-driver-alert-dialog";
 import { UpdateDriverDialog } from "@/routes/dashboard/accountant/drivers/-index/drivers-data-table/drivers-data-table-action-cell/update-driver-dialog";
 import type { Driver } from "@/routes/dashboard/accountant/drivers/-route/types";
 
-export function DriversDataTableActionCell({
-	driver,
-}: {
-	driver: Driver;
-}) {
-	const [selectedDriver, setSelectedDriver] =
-		useState<Driver | null>(null);
+export function DriversDataTableActionCell({ driver }: { driver: Driver }) {
+	const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
 	const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 	const [isBlockedDialogOpen, setIsBlockedDialogOpen] = useState(false);
@@ -28,7 +27,15 @@ export function DriversDataTableActionCell({
 	const { canAccess } = useRowAccess();
 
 	const handleEdit = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Drivers", resourceType: "driver", resourceId: driver.id, action: "edit" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Drivers",
+				resourceType: "driver",
+				resourceId: driver.id,
+				action: "edit",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
@@ -37,7 +44,15 @@ export function DriversDataTableActionCell({
 	}, [driver, isAdmin, canAccess]);
 
 	const handleDeleteClick = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Drivers", resourceType: "driver", resourceId: driver.id, action: "delete" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Drivers",
+				resourceType: "driver",
+				resourceId: driver.id,
+				action: "delete",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}

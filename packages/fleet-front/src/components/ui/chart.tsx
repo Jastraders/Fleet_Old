@@ -294,9 +294,9 @@ function ChartLegendContent({
 }: React.ComponentProps<"div"> & {
 	payload?: ChartLegendPayloadItem[];
 	verticalAlign?: "top" | "bottom" | "middle";
-		hideIcon?: boolean;
-		nameKey?: string;
-	}) {
+	hideIcon?: boolean;
+	nameKey?: string;
+}) {
 	const { config } = useChart();
 
 	if (!payload?.length) {

@@ -26,9 +26,7 @@ function RouteComponent() {
 						<BreadcrumbList>
 							<BreadcrumbItem className="hidden md:block">
 								<BreadcrumbLink
-									render={
-										<Link to="/dashboard/accountant/bata">Bata</Link>
-									}
+									render={<Link to="/dashboard/accountant/bata">Bata</Link>}
 								/>
 							</BreadcrumbItem>
 						</BreadcrumbList>

@@ -43,9 +43,19 @@ const createSortHeader = (
 				: ArrowUpDown;
 
 	return (
-		<Button variant="ghost" size="sm" className="gap-2 px-0" onClick={() => onSort(sortKey, nextOrder)}>
+		<Button
+			variant="ghost"
+			size="sm"
+			className="gap-2 px-0"
+			onClick={() => onSort(sortKey, nextOrder)}
+		>
 			{label}
-			<Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-foreground" : "text-muted-foreground")} />
+			<Icon
+				className={cn(
+					"h-4 w-4 transition-colors",
+					isActive ? "text-foreground" : "text-muted-foreground",
+				)}
+			/>
 		</Button>
 	);
 };
@@ -57,15 +67,29 @@ const createColumns = (
 ): ColumnDef<Vehicle>[] => [
 	{
 		accessorKey: "name",
-		header: () => createSortHeader("Vehicle", "vehicleName", currentSortBy, currentSortOrder, onSort),
+		header: () =>
+			createSortHeader(
+				"Vehicle",
+				"vehicleName",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const vehicle = row.original;
 			return (
 				<div className="flex items-center gap-3">
-					{vehicle.color && <div className="h-8 w-8 rounded" style={{ backgroundColor: `#${vehicle.color}` }} />}
+					{vehicle.color && (
+						<div
+							className="h-8 w-8 rounded"
+							style={{ backgroundColor: `#${vehicle.color}` }}
+						/>
+					)}
 					<div>
 						<div className="font-medium">{vehicle.name}</div>
-						<div className="text-muted-foreground text-xs">{vehicle.licensePlate}</div>
+						<div className="text-muted-foreground text-xs">
+							{vehicle.licensePlate}
+						</div>
 					</div>
 				</div>
 			);
@@ -73,7 +97,14 @@ const createColumns = (
 	},
 	{
 		accessorKey: "model",
-		header: () => createSortHeader("Model / Year", "model", currentSortBy, currentSortOrder, onSort),
+		header: () =>
+			createSortHeader(
+				"Model / Year",
+				"model",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => (
 			<div className="text-sm">
 				<div>{row.original.model || "-"}</div>
@@ -83,7 +114,14 @@ const createColumns = (
 	},
 	{
 		accessorKey: "investmentMode",
-		header: () => createSortHeader("Investment Mode", "investmentMode", currentSortBy, currentSortOrder, onSort),
+		header: () =>
+			createSortHeader(
+				"Investment Mode",
+				"investmentMode",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const labels: Record<Vehicle["investmentMode"], string> = {
 				full_amount: "Full Amount",
@@ -95,12 +133,28 @@ const createColumns = (
 	},
 	{
 		accessorKey: "investmentCharge",
-		header: () => createSortHeader("Investment Amount", "investmentAmount", currentSortBy, currentSortOrder, onSort),
-		cell: ({ row }) => <span>{formatINR(row.original.investmentCharge || 0)}</span>,
+		header: () =>
+			createSortHeader(
+				"Investment Amount",
+				"investmentAmount",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => (
+			<span>{formatINR(row.original.investmentCharge || 0)}</span>
+		),
 	},
 	{
 		accessorKey: "createdByUser",
-		header: () => createSortHeader("Created By", "createdBy", currentSortBy, currentSortOrder, onSort),
+		header: () =>
+			createSortHeader(
+				"Created By",
+				"createdBy",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
 		cell: ({ row }) => {
 			const user = row.original.createdByUser;
 			if (!user) {
@@ -144,7 +198,14 @@ export interface VehiclesDataTableProps {
 	sortOrder: "asc" | "desc";
 }
 
-export function VehiclesDataTable({ data, total, offset, limit, sortBy, sortOrder }: VehiclesDataTableProps) {
+export function VehiclesDataTable({
+	data,
+	total,
+	offset,
+	limit,
+	sortBy,
+	sortOrder,
+}: VehiclesDataTableProps) {
 	const router = useRouter();
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.ceil(total / limit);
@@ -162,7 +223,11 @@ export function VehiclesDataTable({ data, total, offset, limit, sortBy, sortOrde
 	};
 
 	const columns = createColumns(sortBy, sortOrder, handleSort);
-	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
+	const table = useReactTable({
+		data,
+		columns,
+		getCoreRowModel: getCoreRowModel(),
+	});
 
 	return (
 		<>
@@ -173,7 +238,12 @@ export function VehiclesDataTable({ data, total, offset, limit, sortBy, sortOrde
 							<TableRow key={headerGroup.id}>
 								{headerGroup.headers.map((header) => (
 									<TableHead key={header.id} className={cn("last:w-0")}>
-										{header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+										{header.isPlaceholder
+											? null
+											: flexRender(
+													header.column.columnDef.header,
+													header.getContext(),
+												)}
 									</TableHead>
 								))}
 							</TableRow>
@@ -182,25 +252,67 @@ export function VehiclesDataTable({ data, total, offset, limit, sortBy, sortOrde
 					<TableBody>
 						{table.getRowModel().rows?.length ? (
 							table.getRowModel().rows.map((row) => (
-								<TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+								<TableRow
+									key={row.id}
+									data-state={row.getIsSelected() && "selected"}
+								>
 									{row.getVisibleCells().map((cell) => (
-										<TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+										<TableCell key={cell.id}>
+											{flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext(),
+											)}
+										</TableCell>
 									))}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-24 text-center">No vehicles found.</TableCell>
+								<TableCell
+									colSpan={columns.length}
+									className="h-24 text-center"
+								>
+									No vehicles found.
+								</TableCell>
 							</TableRow>
 						)}
 					</TableBody>
 				</Table>
 			</div>
 			<div className="flex items-center justify-end gap-4">
-				<div className="text-muted-foreground text-sm">Page {currentPage} of {totalPages}</div>
+				<div className="text-muted-foreground text-sm">
+					Page {currentPage} of {totalPages}
+				</div>
 				<div className="flex items-center gap-2">
-					<button type="button" onClick={() => void router.navigate({ to: ".", search: (prev) => ({ ...prev, offset: Math.max(0, offset - limit) }) })} disabled={offset === 0} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2">Previous</button>
-					<button type="button" onClick={() => void router.navigate({ to: ".", search: (prev) => ({ ...prev, offset: offset + limit }) })} disabled={offset + limit >= total} className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2">Next</button>
+					<button
+						type="button"
+						onClick={() =>
+							void router.navigate({
+								to: ".",
+								search: (prev) => ({
+									...prev,
+									offset: Math.max(0, offset - limit),
+								}),
+							})
+						}
+						disabled={offset === 0}
+						className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2"
+					>
+						Previous
+					</button>
+					<button
+						type="button"
+						onClick={() =>
+							void router.navigate({
+								to: ".",
+								search: (prev) => ({ ...prev, offset: offset + limit }),
+							})
+						}
+						disabled={offset + limit >= total}
+						className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground h-8 px-4 py-2"
+					>
+						Next
+					</button>
 				</div>
 			</div>
 		</>

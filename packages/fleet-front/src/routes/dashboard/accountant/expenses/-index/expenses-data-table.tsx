@@ -1,5 +1,5 @@
-import { useRouter } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 import {
 	type ColumnDef,
 	flexRender,
@@ -7,15 +7,15 @@ import {
 	useReactTable,
 } from "@tanstack/react-table";
 import {
+	AlertCircleIcon,
 	ArrowDown,
 	ArrowUp,
 	ArrowUpDown,
+	CalendarIcon,
 	MoreHorizontalIcon,
 	PlusIcon,
 	ReceiptTextIcon,
-	CalendarIcon,
 	RotateCcwIcon,
-	AlertCircleIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -76,7 +76,13 @@ export interface ExpensesDataTableProps {
 	offset: number;
 	limit: number;
 	search?: string;
-	period?: "all_time" | "last_7d" | "last_30d" | "last_6m" | "last_12m" | "custom";
+	period?:
+		| "all_time"
+		| "last_7d"
+		| "last_30d"
+		| "last_6m"
+		| "last_12m"
+		| "custom";
 	startDate?: string;
 	endDate?: string;
 	sortBy:
@@ -130,9 +136,19 @@ const createSortHeader = (
 				: ArrowUpDown;
 
 	return (
-		<Button variant="ghost" size="sm" className="gap-2 px-0" onClick={() => onSort(sortKey, nextOrder)}>
+		<Button
+			variant="ghost"
+			size="sm"
+			className="gap-2 px-0"
+			onClick={() => onSort(sortKey, nextOrder)}
+		>
 			{label}
-			<Icon className={cn("h-4 w-4", isActive ? "text-foreground" : "text-muted-foreground")} />
+			<Icon
+				className={cn(
+					"h-4 w-4",
+					isActive ? "text-foreground" : "text-muted-foreground",
+				)}
+			/>
 		</Button>
 	);
 };
@@ -140,10 +156,10 @@ const createSortHeader = (
 const formatExpenseDate = (value: string | null) =>
 	value
 		? new Intl.DateTimeFormat("en-GB", {
-			day: "2-digit",
-			month: "2-digit",
-			year: "numeric",
-		}).format(new Date(value))
+				day: "2-digit",
+				month: "2-digit",
+				year: "numeric",
+			}).format(new Date(value))
 		: "-";
 
 const createColumns = (
@@ -153,25 +169,145 @@ const createColumns = (
 	onEditRow: (row: ExpenseRow) => void,
 	onDeleteRow: (row: ExpenseRow) => void,
 ): ColumnDef<ExpenseRow>[] => [
-	{ accessorKey: "voucher_id", header: () => createSortHeader("Voucher", "voucherId", currentSortBy, currentSortOrder, onSort) },
-	{ accessorKey: "category_name", header: () => createSortHeader("Expense", "expenseCategory", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_name || "-" },
-	{ accessorKey: "expense_date", header: () => createSortHeader("Date", "createdAt", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatExpenseDate(row.original.expense_date) },
-	{ accessorKey: "amount", header: () => createSortHeader("Amount", "amount", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatINR(parseFloat(row.original.amount) || 0) },
-	{ accessorKey: "handler", header: () => createSortHeader("Handler", "handler", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.handler || "-" },
-	{ accessorKey: "next_renewal_date", header: () => createSortHeader("Next Renewal", "nextRenewalDate", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => formatExpenseDate(row.original.next_renewal_date) },
-	{ accessorKey: "category_impact", header: () => createSortHeader("Expense Impact", "expenseImpact", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.category_impact || "-" },
-	{ accessorKey: "vehicle_name", header: () => createSortHeader("Vehicle", "vehicle", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.vehicle_name || "-" },
-	{ accessorKey: "driver_name", header: () => createSortHeader("Driver Name", "driver", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.driver_name || "-" },
-	{ accessorKey: "created_by_name", header: () => createSortHeader("Created By", "createdBy", currentSortBy, currentSortOrder, onSort), cell: ({ row }) => row.original.created_by_name || "-" },
+	{
+		accessorKey: "voucher_id",
+		header: () =>
+			createSortHeader(
+				"Voucher",
+				"voucherId",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+	},
+	{
+		accessorKey: "category_name",
+		header: () =>
+			createSortHeader(
+				"Expense",
+				"expenseCategory",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.category_name || "-",
+	},
+	{
+		accessorKey: "expense_date",
+		header: () =>
+			createSortHeader(
+				"Date",
+				"createdAt",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => formatExpenseDate(row.original.expense_date),
+	},
+	{
+		accessorKey: "amount",
+		header: () =>
+			createSortHeader(
+				"Amount",
+				"amount",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => formatINR(parseFloat(row.original.amount) || 0),
+	},
+	{
+		accessorKey: "handler",
+		header: () =>
+			createSortHeader(
+				"Handler",
+				"handler",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.handler || "-",
+	},
+	{
+		accessorKey: "next_renewal_date",
+		header: () =>
+			createSortHeader(
+				"Next Renewal",
+				"nextRenewalDate",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => formatExpenseDate(row.original.next_renewal_date),
+	},
+	{
+		accessorKey: "category_impact",
+		header: () =>
+			createSortHeader(
+				"Expense Impact",
+				"expenseImpact",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.category_impact || "-",
+	},
+	{
+		accessorKey: "vehicle_name",
+		header: () =>
+			createSortHeader(
+				"Vehicle",
+				"vehicle",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.vehicle_name || "-",
+	},
+	{
+		accessorKey: "driver_name",
+		header: () =>
+			createSortHeader(
+				"Driver Name",
+				"driver",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.driver_name || "-",
+	},
+	{
+		accessorKey: "created_by_name",
+		header: () =>
+			createSortHeader(
+				"Created By",
+				"createdBy",
+				currentSortBy,
+				currentSortOrder,
+				onSort,
+			),
+		cell: ({ row }) => row.original.created_by_name || "-",
+	},
 	{
 		id: "actions",
 		header: "Actions",
 		cell: ({ row }) => (
 			<DropdownMenu>
-				<DropdownMenuTrigger render={<Button variant="ghost" size="icon"><MoreHorizontalIcon className="h-4 w-4" /></Button>} />
+				<DropdownMenuTrigger
+					render={
+						<Button variant="ghost" size="icon">
+							<MoreHorizontalIcon className="h-4 w-4" />
+						</Button>
+					}
+				/>
 				<DropdownMenuContent align="end">
-					<DropdownMenuItem onClick={() => onEditRow(row.original)}>Edit</DropdownMenuItem>
-					<DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => onDeleteRow(row.original)}>
+					<DropdownMenuItem onClick={() => onEditRow(row.original)}>
+						Edit
+					</DropdownMenuItem>
+					<DropdownMenuItem
+						className="text-destructive focus:text-destructive"
+						onClick={() => onDeleteRow(row.original)}
+					>
 						Delete
 					</DropdownMenuItem>
 				</DropdownMenuContent>
@@ -200,6 +336,7 @@ export function ExpensesDataTable({
 	const [searchValue, setSearchValue] = useState(search ?? "");
 	const [blockedRow, setBlockedRow] = useState<ExpenseRow | null>(null);
 	const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+	const [isDownloading, setIsDownloading] = useState(false);
 	const currentPage = Math.floor(offset / limit) + 1;
 	const totalPages = Math.max(1, Math.ceil(total / limit));
 	const deleteEntryMutation = useMutation({
@@ -208,15 +345,34 @@ export function ExpensesDataTable({
 	});
 
 	const onEditRow = async (row: ExpenseRow) => {
-		if (!isAdmin && !(await canAccess({ pageName: "Expenses", resourceType: "journal_entry", resourceId: row.journal_entry_id, action: "edit" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Expenses",
+				resourceType: "journal_entry",
+				resourceId: row.journal_entry_id,
+				action: "edit",
+			}))
+		) {
 			setBlockedRow(row);
 			return;
 		}
-		void router.navigate({ to: "/dashboard/accountant/journal-entries/$entryId", params: { entryId: row.journal_entry_id } });
+		void router.navigate({
+			to: "/dashboard/accountant/journal-entries/$entryId",
+			params: { entryId: row.journal_entry_id },
+		});
 	};
 
 	const onDeleteRow = async (row: ExpenseRow) => {
-		if (!isAdmin && !(await canAccess({ pageName: "Expenses", resourceType: "journal_entry", resourceId: row.journal_entry_id, action: "delete" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Expenses",
+				resourceType: "journal_entry",
+				resourceId: row.journal_entry_id,
+				action: "delete",
+			}))
+		) {
 			setBlockedRow(row);
 			return;
 		}
@@ -294,39 +450,99 @@ export function ExpensesDataTable({
 		});
 	};
 
-	const columns = createColumns(sortBy, sortOrder, handleSort, onEditRow, onDeleteRow);
-	const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() });
+	const handleDownload = async () => {
+		if (total === 0) return;
+		setIsDownloading(true);
+		try {
+			const isDateRangeInvalid = Boolean(
+				period === "custom" && startDate && endDate && startDate > endDate,
+			);
+			let exportRecords = data;
+			if (total > data.length) {
+				const fullResult = await queryClient.fetchQuery(
+					orpc.accountant.expenses.list.queryOptions({
+						input: {
+							limit: 10000,
+							offset: 0,
+							search: search,
+							period: period,
+							startDate: isDateRangeInvalid ? undefined : startDate,
+							endDate: isDateRangeInvalid ? undefined : endDate,
+							sortBy: sortBy,
+							sortOrder: sortOrder,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data;
+				}
+			}
+
+			downloadExcelCompatibleCsv(
+				"expenses",
+				exportRecords.map((item) => ({
+					Voucher: item.voucher_id ?? "",
+					Expense: item.category_name ?? "",
+					Date: item.expense_date ? String(item.expense_date).slice(0, 10) : "",
+					Amount: parseFloat(item.amount) || 0,
+					Handler: item.handler ?? "",
+					"Next Renewal": item.next_renewal_date
+						? String(item.next_renewal_date).slice(0, 10)
+						: "",
+					"Expense Impact": item.category_impact
+						? item.category_impact.charAt(0).toUpperCase() +
+							item.category_impact.slice(1)
+						: "",
+					Vehicle: item.vehicle_name ?? "",
+					"Driver Name": item.driver_name ?? "",
+					"Created By": item.created_by_name ?? "",
+					"Created At": item.created_at
+						? String(item.created_at).slice(0, 10)
+						: "",
+				})),
+			);
+		} finally {
+			setIsDownloading(false);
+		}
+	};
+
+	const columns = createColumns(
+		sortBy,
+		sortOrder,
+		handleSort,
+		onEditRow,
+		onDeleteRow,
+	);
+	const table = useReactTable({
+		data,
+		columns,
+		getCoreRowModel: getCoreRowModel(),
+	});
 
 	return (
 		<div className="w-full min-w-0 space-y-4">
 			<div className="flex flex-wrap items-center justify-between gap-4">
 				<div className="space-y-1">
 					<h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
-					<p className="text-muted-foreground text-sm">Expense register with voucher-level tracking</p>
+					<p className="text-muted-foreground text-sm">
+						Expense register with voucher-level tracking
+					</p>
 				</div>
 				<div className="flex items-center gap-3 flex-wrap max-sm:w-full">
 					<AccountantDownloadButton
-						onDownload={() =>
-							downloadExcelCompatibleCsv(
-								"expenses",
-								data.map((item) => ({
-									Voucher: item.voucher_id ?? "",
-									Expense: item.category_name ?? "",
-									Date: item.expense_date ?? "",
-									Amount: item.amount,
-									Handler: item.handler ?? "",
-									"Next Renewal": item.next_renewal_date ?? "",
-									"Expense Impact": item.category_impact ?? "",
-									Vehicle: item.vehicle_name ?? "",
-									"Driver Name": item.driver_name ?? "",
-									"Created By": item.created_by_name ?? "",
-									"Created At": item.created_at,
-								})),
-							)
-						}
+						disabled={isDownloading || total === 0}
+						onDownload={handleDownload}
 					/>
-					<Input placeholder="Search expenses..." value={searchValue} onChange={(e) => setSearchValue(e.currentTarget.value)} className="w-[200px] max-sm:w-full" />
-					<Button onClick={() => setIsExpenseDialogOpen(true)}><PlusIcon className="h-4 w-4" />Add Expense</Button>
+					<Input
+						placeholder="Search expenses..."
+						value={searchValue}
+						onChange={(e) => setSearchValue(e.currentTarget.value)}
+						className="w-[200px] max-sm:w-full"
+					/>
+					<Button onClick={() => setIsExpenseDialogOpen(true)}>
+						<PlusIcon className="h-4 w-4" />
+						Add Expense
+					</Button>
 				</div>
 			</div>
 
@@ -337,7 +553,9 @@ export function ExpensesDataTable({
 					</div>
 					<div>
 						<p className="text-xs font-medium text-muted-foreground">
-							{!period || period === "all_time" ? "Total Expense (All Time)" : "Total Expense (Selected Period)"}
+							{!period || period === "all_time"
+								? "Total Expense (All Time)"
+								: "Total Expense (Selected Period)"}
 						</p>
 						<p className="text-lg font-bold text-foreground">
 							{formatINR(totalAmount)}
@@ -366,7 +584,12 @@ export function ExpensesDataTable({
 					</Select>
 
 					{(() => {
-						const isDateRangeInvalid = !!(period === "custom" && startDate && endDate && startDate > endDate);
+						const isDateRangeInvalid = !!(
+							period === "custom" &&
+							startDate &&
+							endDate &&
+							startDate > endDate
+						);
 						return period === "custom" ? (
 							<div className="flex flex-wrap items-center gap-1.5 max-sm:w-full">
 								<div className="flex items-center gap-1.5 bg-muted/40 p-1 rounded-md border border-border">
@@ -376,22 +599,30 @@ export function ExpensesDataTable({
 										aria-label="Start date"
 										value={startDate || ""}
 										max={endDate || undefined}
-										onChange={(e) => handleDateChange("startDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("startDate", e.target.value)
+										}
 										className={cn(
 											"w-[130px] h-8 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
-									<span className="text-xs text-muted-foreground px-0.5">to</span>
+									<span className="text-xs text-muted-foreground px-0.5">
+										to
+									</span>
 									<Input
 										type="date"
 										aria-label="End date"
 										value={endDate || ""}
 										min={startDate || undefined}
-										onChange={(e) => handleDateChange("endDate", e.target.value)}
+										onChange={(e) =>
+											handleDateChange("endDate", e.target.value)
+										}
 										className={cn(
 											"w-[130px] h-8 text-xs bg-background",
-											isDateRangeInvalid && "border-destructive focus-visible:ring-destructive text-destructive",
+											isDateRangeInvalid &&
+												"border-destructive focus-visible:ring-destructive text-destructive",
 										)}
 									/>
 									<Button
@@ -419,7 +650,17 @@ export function ExpensesDataTable({
 			<div className="max-w-full overflow-x-auto rounded-lg border">
 				<Table className="min-w-[1320px]">
 					<TableHeader className="bg-muted sticky top-0 z-10">
-						{table.getHeaderGroups().map((hg) => <TableRow key={hg.id}>{hg.headers.map((h) => <TableHead key={h.id}>{h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}</TableHead>)}</TableRow>)}
+						{table.getHeaderGroups().map((hg) => (
+							<TableRow key={hg.id}>
+								{hg.headers.map((h) => (
+									<TableHead key={h.id}>
+										{h.isPlaceholder
+											? null
+											: flexRender(h.column.columnDef.header, h.getContext())}
+									</TableHead>
+								))}
+							</TableRow>
+						))}
 					</TableHeader>
 					<TableBody>
 						{table.getRowModel().rows.length ? (
@@ -427,14 +668,20 @@ export function ExpensesDataTable({
 								<TableRow key={row.id}>
 									{row.getVisibleCells().map((cell) => (
 										<TableCell key={cell.id}>
-											{flexRender(cell.column.columnDef.cell, cell.getContext())}
+											{flexRender(
+												cell.column.columnDef.cell,
+												cell.getContext(),
+											)}
 										</TableCell>
 									))}
 								</TableRow>
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={columns.length} className="h-28 text-center text-muted-foreground">
+								<TableCell
+									colSpan={columns.length}
+									className="h-28 text-center text-muted-foreground"
+								>
 									No expenses found for the selected period or filter.
 								</TableCell>
 							</TableRow>
@@ -489,7 +736,11 @@ export function ExpensesDataTable({
 				pageName="Expenses"
 				resourceType="journal_entry"
 				resourceId={blockedRow?.journal_entry_id ?? ""}
-				primaryLabel={blockedRow?.voucher_id ? String(blockedRow.voucher_id) : blockedRow?.journal_entry_id ?? ""}
+				primaryLabel={
+					blockedRow?.voucher_id
+						? String(blockedRow.voucher_id)
+						: (blockedRow?.journal_entry_id ?? "")
+				}
 			/>
 			<ExpenseDialog
 				isOpen={isExpenseDialogOpen}

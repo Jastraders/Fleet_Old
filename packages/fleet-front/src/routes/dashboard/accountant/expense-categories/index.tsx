@@ -1,17 +1,17 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense, useDeferredValue } from "react";
+import { Suspense, useDeferredValue, useState } from "react";
 import * as v from "valibot";
 import { orpc } from "@/orpc";
+import {
+	AccountantDownloadButton,
+	downloadExcelCompatibleCsv,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { CategoriesDataTable } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table";
 import { CategoriesDataTableSkeleton } from "@/routes/dashboard/accountant/expense-categories/-index/categories-data-table-skeleton";
 import { CategoriesEmptyState } from "@/routes/dashboard/accountant/expense-categories/-index/categories-empty-state";
 import { CategoriesSearchInput } from "@/routes/dashboard/accountant/expense-categories/-index/categories-search-input";
 import { CreateCategoryDialog } from "@/routes/dashboard/accountant/expense-categories/-index/create-category-dialog";
-import {
-	AccountantDownloadButton,
-	downloadExcelCompatibleCsv,
-} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 
 const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
@@ -68,6 +68,8 @@ function RouteComponent() {
 function CategoriesList() {
 	const _query = Route.useSearch();
 	const query = useDeferredValue(_query);
+	const queryClient = useQueryClient();
+	const [isDownloading, setIsDownloading] = useState(false);
 
 	const { data } = useSuspenseQuery({
 		...orpc.accountant.expenseCategories.list.queryOptions({
@@ -84,6 +86,49 @@ function CategoriesList() {
 	const hasSearch = !!query.search;
 	const isEmpty = !data || data.meta.total === 0;
 
+	const handleDownload = async () => {
+		if (!data || data.meta.total === 0) return;
+		setIsDownloading(true);
+		try {
+			let exportRecords = data.data;
+			if (data.meta.total > data.data.length) {
+				const fullResult = await queryClient.fetchQuery(
+					orpc.accountant.expenseCategories.list.queryOptions({
+						input: {
+							limit: 10000,
+							offset: 0,
+							search: query.search,
+							sortBy: query.sortBy,
+							sortOrder: query.sortOrder,
+						},
+					}),
+				);
+				if (fullResult?.data) {
+					exportRecords = fullResult.data;
+				}
+			}
+
+			downloadExcelCompatibleCsv(
+				"expense-categories",
+				exportRecords.map((category: any) => ({
+					"Category Name": category.name || "",
+					"Expense Impact": Array.isArray(category.impact)
+						? category.impact
+								.map((s: string) => s.charAt(0).toUpperCase() + s.slice(1))
+								.join(", ")
+						: (category.impact ?? ""),
+					Color: category.color ? `#${category.color}` : "",
+					"Created By": category.createdByUser?.name ?? "",
+					"Created At": category.createdAt
+						? String(category.createdAt).slice(0, 10)
+						: "",
+				})),
+			);
+		} finally {
+			setIsDownloading(false);
+		}
+	};
+
 	return (
 		<div className="w-full space-y-4">
 			<div className="flex flex-wrap justify-between gap-4">
@@ -97,17 +142,8 @@ function CategoriesList() {
 				</div>
 				<div className="flex gap-4 max-sm:flex-col max-sm:w-full">
 					<AccountantDownloadButton
-						onDownload={() =>
-							downloadExcelCompatibleCsv(
-								"expense-categories",
-								(data?.data ?? []).map((category) => ({
-									Name: category.name,
-									Color: category.color ?? "",
-									"Created At": String(category.createdAt),
-									"Created By": category.createdByUser?.name ?? "",
-								})),
-							)
-						}
+						disabled={isDownloading || isEmpty}
+						onDownload={handleDownload}
 					/>
 					<CategoriesSearchInput initialValue={query.search ?? ""} />
 					<CreateCategoryDialog />

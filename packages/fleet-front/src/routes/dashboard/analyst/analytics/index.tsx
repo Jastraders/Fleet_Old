@@ -1,5 +1,5 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { BellIcon } from "lucide-react";
 import * as v from "valibot";
 import {
@@ -8,6 +8,16 @@ import {
 	BreadcrumbLink,
 	BreadcrumbList,
 } from "@/components/ui/breadcrumb";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
 	Select,
 	SelectContent,
@@ -18,16 +28,6 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuSeparator,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { orpc } from "@/orpc";
 import { ExpenseCategoriesStatsCard } from "@/routes/dashboard/analyst/analytics/-index/expense-categories-stats-card";
 import { SummaryStatsCards } from "@/routes/dashboard/analyst/analytics/-index/summary-stats-cards";
@@ -51,8 +51,15 @@ const querySchema = v.object({
 
 export const Route = createFileRoute("/dashboard/analyst/analytics/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { period, startDate, endDate } }) => ({ period, startDate, endDate }),
-	loader: ({ context: { orpc, queryClient }, deps: { period, startDate, endDate } }) => {
+	loaderDeps: ({ search: { period, startDate, endDate } }) => ({
+		period,
+		startDate,
+		endDate,
+	}),
+	loader: ({
+		context: { orpc, queryClient },
+		deps: { period, startDate, endDate },
+	}) => {
 		queryClient.prefetchQuery(
 			orpc.analyst.analytics.summaryStats.queryOptions({
 				input: { period, startDate, endDate },
@@ -88,7 +95,9 @@ function RouteComponent() {
 		orpc.general.notifications.count.queryOptions(),
 	);
 	const { data: unreadNotifications } = useSuspenseQuery(
-		orpc.general.notifications.list.queryOptions({ input: { filter: "unread" } }),
+		orpc.general.notifications.list.queryOptions({
+			input: { filter: "unread" },
+		}),
 	);
 
 	function handlePeriodChange(value: typeof period | null) {
@@ -137,7 +146,9 @@ function RouteComponent() {
 							render={
 								<Button variant="outline" size="icon" className="relative">
 									<BellIcon className="h-4 w-4" />
-									{notificationCount?.unread > 0 ? <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" /> : null}
+									{notificationCount?.unread > 0 ? (
+										<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
+									) : null}
 								</Button>
 							}
 						/>
@@ -145,7 +156,9 @@ function RouteComponent() {
 							<DropdownMenuLabel>Notifications</DropdownMenuLabel>
 							<DropdownMenuSeparator />
 							{unreadNotifications.length === 0 ? (
-								<div className="px-2 py-3 text-sm text-muted-foreground">No new notifications.</div>
+								<div className="px-2 py-3 text-sm text-muted-foreground">
+									No new notifications.
+								</div>
 							) : (
 								unreadNotifications.slice(0, 5).map((item: any) => {
 									const meta = (() => {
@@ -158,10 +171,14 @@ function RouteComponent() {
 									return (
 										<DropdownMenuItem
 											key={item.id}
-											onClick={() => navigate({ to: "/dashboard/general/notifications" })}
+											onClick={() =>
+												navigate({ to: "/dashboard/general/notifications" })
+											}
 											className="items-start whitespace-normal"
 										>
-											{meta.renewalType ?? "Renewal"} for {meta.vehicleName ?? "vehicle"} is due in {meta.daysRemaining ?? "-"} day(s).
+											{meta.renewalType ?? "Renewal"} for{" "}
+											{meta.vehicleName ?? "vehicle"} is due in{" "}
+											{meta.daysRemaining ?? "-"} day(s).
 										</DropdownMenuItem>
 									);
 								})
@@ -196,7 +213,10 @@ function RouteComponent() {
 									value={startDate || ""}
 									onChange={(e) =>
 										navigate({
-											search: (prev) => ({ ...prev, startDate: e.target.value }),
+											search: (prev) => ({
+												...prev,
+												startDate: e.target.value,
+											}),
 										})
 									}
 									className="w-[140px] h-9"
@@ -219,12 +239,26 @@ function RouteComponent() {
 			</header>
 			<div className="@container/main flex flex-1 flex-col gap-2">
 				<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-					<SummaryStatsCards period={period} startDate={startDate} endDate={endDate} />
+					<SummaryStatsCards
+						period={period}
+						startDate={startDate}
+						endDate={endDate}
+					/>
 					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-						<VehicleProfitChart period={period} startDate={startDate} endDate={endDate} className="col-span-4" />
+						<VehicleProfitChart
+							period={period}
+							startDate={startDate}
+							endDate={endDate}
+							className="col-span-4"
+						/>
 					</div>
 					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-						<VehicleLeaderboardCard period={period} startDate={startDate} endDate={endDate} className="col-span-2" />
+						<VehicleLeaderboardCard
+							period={period}
+							startDate={startDate}
+							endDate={endDate}
+							className="col-span-2"
+						/>
 						<ExpenseCategoriesStatsCard
 							period={period}
 							startDate={startDate}

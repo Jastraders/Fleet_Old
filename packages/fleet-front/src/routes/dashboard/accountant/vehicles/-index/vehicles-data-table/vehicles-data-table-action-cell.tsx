@@ -10,7 +10,11 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Vehicle } from "@/models/vehicle";
-import { AccessDeniedDialog, useIsAdmin, useRowAccess } from "@/routes/dashboard/accountant/-shared/admin-helpers";
+import {
+	AccessDeniedDialog,
+	useIsAdmin,
+	useRowAccess,
+} from "@/routes/dashboard/accountant/-shared/admin-helpers";
 import { DeleteVehicleAlertDialog } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell/delete-vehicle-alert-dialog";
 import { UpdateVehicleDialog } from "@/routes/dashboard/accountant/vehicles/-index/vehicles-data-table/vehicles-data-table-action-cell/update-vehicle-dialog";
 
@@ -23,7 +27,15 @@ export function VehiclesDataTableActionCell({ vehicle }: { vehicle: Vehicle }) {
 	const { canAccess } = useRowAccess();
 
 	const handleEdit = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Vehicles", resourceType: "vehicle", resourceId: vehicle.id, action: "edit" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Vehicles",
+				resourceType: "vehicle",
+				resourceId: vehicle.id,
+				action: "edit",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}
@@ -32,7 +44,15 @@ export function VehiclesDataTableActionCell({ vehicle }: { vehicle: Vehicle }) {
 	}, [vehicle, isAdmin, canAccess]);
 
 	const handleDeleteClick = useCallback(async () => {
-		if (!isAdmin && !(await canAccess({ pageName: "Vehicles", resourceType: "vehicle", resourceId: vehicle.id, action: "delete" }))) {
+		if (
+			!isAdmin &&
+			!(await canAccess({
+				pageName: "Vehicles",
+				resourceType: "vehicle",
+				resourceId: vehicle.id,
+				action: "delete",
+			}))
+		) {
 			setIsBlockedDialogOpen(true);
 			return;
 		}

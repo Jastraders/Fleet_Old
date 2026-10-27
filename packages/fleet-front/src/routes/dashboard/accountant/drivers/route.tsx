@@ -8,9 +8,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
-export const Route = createFileRoute(
-	"/dashboard/accountant/drivers",
-)({
+export const Route = createFileRoute("/dashboard/accountant/drivers")({
 	component: RouteComponent,
 });
 
@@ -28,7 +26,9 @@ function RouteComponent() {
 						<BreadcrumbList>
 							<BreadcrumbItem className="hidden md:block">
 								<BreadcrumbLink
-									render={<Link to="/dashboard/accountant/drivers">Drivers</Link>}
+									render={
+										<Link to="/dashboard/accountant/drivers">Drivers</Link>
+									}
 								/>
 							</BreadcrumbItem>
 						</BreadcrumbList>

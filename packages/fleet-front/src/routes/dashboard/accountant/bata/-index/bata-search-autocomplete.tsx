@@ -15,7 +15,10 @@ import { orpc } from "@/orpc";
 export interface BataSearchAutocompleteProps {
 	initialSearch?: string;
 	initialDriverId?: string;
-	onSearchChange: (search: string | undefined, driverId: string | undefined) => void;
+	onSearchChange: (
+		search: string | undefined,
+		driverId: string | undefined,
+	) => void;
 	placeholder?: string;
 	className?: string;
 }
@@ -39,7 +42,9 @@ export function BataSearchAutocomplete({
 	const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
 	const [inputValue, setInputValue] = useState(initialSearch);
-	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(initialDriverId);
+	const [selectedDriverId, setSelectedDriverId] = useState<string | undefined>(
+		initialDriverId,
+	);
 	const [isOpen, setIsOpen] = useState(false);
 	const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
@@ -74,7 +79,9 @@ export function BataSearchAutocomplete({
 		}
 		return drivers.filter((driver) => {
 			const nameMatch = driver.name.toLowerCase().includes(query);
-			const phoneMatch = driver.phoneNumber ? driver.phoneNumber.toLowerCase().includes(query) : false;
+			const phoneMatch = driver.phoneNumber
+				? driver.phoneNumber.toLowerCase().includes(query)
+				: false;
 			return nameMatch || phoneMatch;
 		});
 	}, [drivers, inputValue]);
@@ -82,7 +89,8 @@ export function BataSearchAutocomplete({
 	// Scroll highlighted suggestion into view
 	useEffect(() => {
 		if (highlightedIndex >= 0 && listRef.current) {
-			const items = listRef.current.querySelectorAll<HTMLDivElement>("[data-item-index]");
+			const items =
+				listRef.current.querySelectorAll<HTMLDivElement>("[data-item-index]");
 			const activeItem = items[highlightedIndex];
 			if (activeItem) {
 				activeItem.scrollIntoView({ block: "nearest" });
@@ -93,7 +101,10 @@ export function BataSearchAutocomplete({
 	// Close dropdown when clicking outside
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent | TouchEvent) => {
-			if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+			if (
+				containerRef.current &&
+				!containerRef.current.contains(event.target as Node)
+			) {
 				setIsOpen(false);
 				setHighlightedIndex(-1);
 			}
@@ -117,7 +128,11 @@ export function BataSearchAutocomplete({
 	}, []);
 
 	// Trigger search updates
-	const triggerSearch = (search: string | undefined, driverId: string | undefined, debounceMs = 200) => {
+	const triggerSearch = (
+		search: string | undefined,
+		driverId: string | undefined,
+		debounceMs = 200,
+	) => {
 		if (debounceTimerRef.current) {
 			clearTimeout(debounceTimerRef.current);
 			debounceTimerRef.current = null;
@@ -186,7 +201,9 @@ export function BataSearchAutocomplete({
 				return;
 			}
 			if (suggestions.length > 0) {
-				setHighlightedIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : 0));
+				setHighlightedIndex((prev) =>
+					prev < suggestions.length - 1 ? prev + 1 : 0,
+				);
 			}
 		} else if (e.key === "ArrowUp") {
 			e.preventDefault();
@@ -196,7 +213,9 @@ export function BataSearchAutocomplete({
 				return;
 			}
 			if (suggestions.length > 0) {
-				setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : suggestions.length - 1));
+				setHighlightedIndex((prev) =>
+					prev > 0 ? prev - 1 : suggestions.length - 1,
+				);
 			}
 		} else if (e.key === "Enter") {
 			e.preventDefault();
@@ -225,7 +244,10 @@ export function BataSearchAutocomplete({
 	};
 
 	return (
-		<div ref={containerRef} className={cn("relative w-full md:w-80", className)}>
+		<div
+			ref={containerRef}
+			className={cn("relative w-full md:w-80", className)}
+		>
 			<div className="relative flex items-center">
 				<SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
 				<input
@@ -264,7 +286,12 @@ export function BataSearchAutocomplete({
 						onClick={() => setIsOpen((prev) => !prev)}
 						className="p-1 text-muted-foreground hover:text-foreground transition-colors"
 					>
-						<ChevronDownIcon className={cn("h-4 w-4 transition-transform duration-200", isOpen && "rotate-180")} />
+						<ChevronDownIcon
+							className={cn(
+								"h-4 w-4 transition-transform duration-200",
+								isOpen && "rotate-180",
+							)}
+						/>
 					</button>
 				</div>
 			</div>
@@ -277,7 +304,9 @@ export function BataSearchAutocomplete({
 					role="listbox"
 				>
 					{isLoadingDrivers ? (
-						<div className="p-4 text-center text-xs text-muted-foreground">Loading drivers...</div>
+						<div className="p-4 text-center text-xs text-muted-foreground">
+							Loading drivers...
+						</div>
 					) : suggestions.length > 0 ? (
 						<div className="p-1 space-y-0.5">
 							<div className="px-2.5 py-1 text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
@@ -300,7 +329,8 @@ export function BataSearchAutocomplete({
 											isHighlighted
 												? "bg-accent text-accent-foreground"
 												: "hover:bg-accent/60 text-foreground",
-											isSelected && "font-medium bg-primary/10 text-primary hover:bg-primary/15",
+											isSelected &&
+												"font-medium bg-primary/10 text-primary hover:bg-primary/15",
 										)}
 									>
 										<div className="flex items-center gap-2.5 min-w-0">
@@ -312,10 +342,16 @@ export function BataSearchAutocomplete({
 														: "bg-primary/10 text-primary",
 												)}
 											>
-												{driver.name ? driver.name.charAt(0).toUpperCase() : <UserIcon className="h-3.5 w-3.5" />}
+												{driver.name ? (
+													driver.name.charAt(0).toUpperCase()
+												) : (
+													<UserIcon className="h-3.5 w-3.5" />
+												)}
 											</div>
 											<div className="truncate">
-												<div className="truncate text-sm font-medium leading-none">{driver.name}</div>
+												<div className="truncate text-sm font-medium leading-none">
+													{driver.name}
+												</div>
 												{driver.phoneNumber ? (
 													<div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
 														<PhoneIcon className="h-2.5 w-2.5 shrink-0 opacity-70" />
@@ -335,9 +371,13 @@ export function BataSearchAutocomplete({
 					) : (
 						<div className="py-6 px-4 text-center">
 							<UserXIcon className="mx-auto h-6 w-6 text-muted-foreground/60 mb-1.5" />
-							<p className="text-sm font-medium text-foreground">No matching results</p>
+							<p className="text-sm font-medium text-foreground">
+								No matching results
+							</p>
 							<p className="text-xs text-muted-foreground mt-0.5">
-								Press <span className="font-semibold text-foreground">Enter</span> to search vehicles or products for "{inputValue}"
+								Press{" "}
+								<span className="font-semibold text-foreground">Enter</span> to
+								search vehicles or products for "{inputValue}"
 							</p>
 						</div>
 					)}

@@ -39,7 +39,10 @@ const querySchema = v.object({
 		),
 		"createdAt",
 	),
-	sortOrder: v.optional(v.fallback(v.picklist(["asc", "desc"]), "desc"), "desc"),
+	sortOrder: v.optional(
+		v.fallback(v.picklist(["asc", "desc"]), "desc"),
+		"desc",
+	),
 });
 
 interface JournalEntriesListResponse {
@@ -52,7 +55,18 @@ interface JournalEntriesListResponse {
 
 export const Route = createFileRoute("/dashboard/accountant/journal-entries/")({
 	validateSearch: querySchema,
-	loaderDeps: ({ search: { offset, limit, search, period, startDate, endDate, sortBy, sortOrder } }) => ({
+	loaderDeps: ({
+		search: {
+			offset,
+			limit,
+			search,
+			period,
+			startDate,
+			endDate,
+			sortBy,
+			sortOrder,
+		},
+	}) => ({
 		offset,
 		limit,
 		search,
@@ -121,7 +135,8 @@ function EntriesList() {
 		}),
 	});
 
-	const isFiltered = (query.period && query.period !== "all_time") || Boolean(query.search);
+	const isFiltered =
+		(query.period && query.period !== "all_time") || Boolean(query.search);
 	if ((!data || data.meta.total === 0) && !isFiltered) {
 		return <EntriesEmptyState />;
 	}

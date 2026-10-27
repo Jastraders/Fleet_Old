@@ -1,9 +1,8 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PlusIcon, PencilIcon, InfoIcon, Settings2Icon } from "lucide-react";
+import { InfoIcon, PencilIcon, PlusIcon, Settings2Icon } from "lucide-react";
 import { useCallback, useState } from "react";
 import * as v from "valibot";
-import { ManageProductsDialog } from "./manage-products-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { orpc } from "@/orpc";
+import { ManageProductsDialog } from "./manage-products-dialog";
 
 const warehouseFormSchema = v.object({
 	section: v.string(),
@@ -100,21 +100,31 @@ function ProductField({
 		onSuccess: (res: any) => {
 			const createdName = res.name;
 			queryClient.setQueryData(
-				orpc.admin.warehouse.products.list.key({ input: { section, includeArchived: false } }),
+				orpc.admin.warehouse.products.list.key({
+					input: { section, includeArchived: false },
+				}),
 				(old: any) => {
 					if (!old) return { products: [createdName] };
 					const currentProducts: string[] = old.products || [];
-					if (currentProducts.some((p) => p.toLowerCase() === createdName.toLowerCase())) {
+					if (
+						currentProducts.some(
+							(p) => p.toLowerCase() === createdName.toLowerCase(),
+						)
+					) {
 						return old;
 					}
 					return {
 						...old,
-						products: [...currentProducts, createdName].sort((a, b) => a.localeCompare(b)),
+						products: [...currentProducts, createdName].sort((a, b) =>
+							a.localeCompare(b),
+						),
 					};
-				}
+				},
 			);
 			queryClient.invalidateQueries({
-				queryKey: orpc.admin.warehouse.products.list.key({ input: { section, includeArchived: false } }),
+				queryKey: orpc.admin.warehouse.products.list.key({
+					input: { section, includeArchived: false },
+				}),
 			});
 			queryClient.invalidateQueries();
 			onChange(createdName);
@@ -134,7 +144,9 @@ function ProductField({
 			return;
 		}
 
-		const duplicate = products.find((p) => p.toLowerCase() === trimmed.toLowerCase());
+		const duplicate = products.find(
+			(p) => p.toLowerCase() === trimmed.toLowerCase(),
+		);
 		if (duplicate) {
 			onChange(duplicate);
 			setIsAdding(false);
@@ -237,10 +249,13 @@ function ProductField({
 					}}
 					className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
 				>
-					<option value="">{isLoading ? "Loading products..." : "Select a product..."}</option>
-					{value && !products.some((p) => p.toLowerCase() === value.toLowerCase()) && (
-						<option value={value}>{value} (Archived)</option>
-					)}
+					<option value="">
+						{isLoading ? "Loading products..." : "Select a product..."}
+					</option>
+					{value &&
+						!products.some((p) => p.toLowerCase() === value.toLowerCase()) && (
+							<option value={value}>{value} (Archived)</option>
+						)}
 					{products.map((p) => (
 						<option key={p} value={p}>
 							{p}
@@ -262,7 +277,12 @@ function ProductField({
 	);
 }
 
-export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, onSuccess }: WarehouseDialogProps) {
+export function WarehouseDialog({
+	mode,
+	defaultSection = "JAS",
+	initialValues,
+	onSuccess,
+}: WarehouseDialogProps) {
 	const queryClient = useQueryClient();
 	const [isOpen, setIsOpen] = useState(false);
 	const [validationError, setValidationError] = useState<string | null>(null);
@@ -289,16 +309,19 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 	});
 
 	const isPending = createMutation.isPending || updateMutation.isPending;
-	const serverError = createMutation.error?.message || updateMutation.error?.message;
+	const serverError =
+		createMutation.error?.message || updateMutation.error?.message;
 
 	const form = useForm({
 		defaultValues: {
 			section: section,
-			recordDate: initialValues?.recordDate ?? new Date().toISOString().split("T")[0],
+			recordDate:
+				initialValues?.recordDate ?? new Date().toISOString().split("T")[0],
 			productName: initialValues?.productName ?? "",
 			workersCount: mode === "edit" ? (initialValues?.workersCount ?? "") : "",
 			unionCount: mode === "edit" ? (initialValues?.unionCount ?? "") : "",
-			ratePerUnload: mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "3.50",
+			ratePerUnload:
+				mode === "edit" ? (initialValues?.ratePerUnload ?? "") : "3.50",
 			totalUnloads: mode === "edit" ? (initialValues?.totalUnloads ?? "") : "",
 			status: initialValues?.status ?? "paid",
 			reason: "",
@@ -311,9 +334,19 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 			const wc = value.workersCount === "" ? 0 : Number(value.workersCount);
 			const uc = value.unionCount === "" ? 0 : Number(value.unionCount);
 			const rate = value.ratePerUnload === "" ? 0 : Number(value.ratePerUnload);
-			const unloads = value.totalUnloads === "" ? 0 : Number(value.totalUnloads);
+			const unloads =
+				value.totalUnloads === "" ? 0 : Number(value.totalUnloads);
 
-			if (isNaN(wc) || isNaN(uc) || isNaN(rate) || isNaN(unloads) || wc < 0 || uc < 0 || rate < 0 || unloads < 0) {
+			if (
+				isNaN(wc) ||
+				isNaN(uc) ||
+				isNaN(rate) ||
+				isNaN(unloads) ||
+				wc < 0 ||
+				uc < 0 ||
+				rate < 0 ||
+				unloads < 0
+			) {
 				setValidationError("Numeric values cannot be negative or invalid");
 				return;
 			}
@@ -340,7 +373,9 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 				totalUnloads: unloads,
 				unionSum: unionSalary,
 				ownStaffAmount: ownStaffSalary,
-				status: (value.status || initialValues?.status || "paid") as "paid" | "unpaid",
+				status: (value.status || initialValues?.status || "paid") as
+					| "paid"
+					| "unpaid",
 				reason: value.reason,
 			};
 
@@ -352,13 +387,16 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 		},
 	});
 
-	const handleOpenChange = useCallback((open: boolean) => {
-		setIsOpen(open);
-		if (!open) {
-			setValidationError(null);
-			form.reset();
-		}
-	}, [form]);
+	const handleOpenChange = useCallback(
+		(open: boolean) => {
+			setIsOpen(open);
+			if (!open) {
+				setValidationError(null);
+				form.reset();
+			}
+		},
+		[form],
+	);
 
 	// Prevent wheel scroll changing numbers
 	const handleWheel = (e: React.WheelEvent<HTMLInputElement>) => {
@@ -393,9 +431,14 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 						className="p-6"
 					>
 						<DialogHeader>
-							<DialogTitle>{mode === "create" ? `Add ${section} Warehouse Record` : `Edit ${section} Warehouse Record`}</DialogTitle>
+							<DialogTitle>
+								{mode === "create"
+									? `Add ${section} Warehouse Record`
+									: `Edit ${section} Warehouse Record`}
+							</DialogTitle>
 							<DialogDescription>
-								Fill in the warehouse details. All calculations update automatically.
+								Fill in the warehouse details. All calculations update
+								automatically.
 							</DialogDescription>
 						</DialogHeader>
 
@@ -520,29 +563,59 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 							{/* Calculations Preview */}
 							<form.Subscribe selector={(state) => state.values}>
 								{(values) => {
-									const wc = values.workersCount === "" || values.workersCount === undefined ? 0 : Number(values.workersCount) || 0;
-									const uc = values.unionCount === "" || values.unionCount === undefined ? 0 : Number(values.unionCount) || 0;
-									const rate = values.ratePerUnload === "" || values.ratePerUnload === undefined ? 0 : Number(values.ratePerUnload) || 0;
-									const unloads = values.totalUnloads === "" || values.totalUnloads === undefined ? 0 : Number(values.totalUnloads) || 0;
+									const wc =
+										values.workersCount === "" ||
+										values.workersCount === undefined
+											? 0
+											: Number(values.workersCount) || 0;
+									const uc =
+										values.unionCount === "" || values.unionCount === undefined
+											? 0
+											: Number(values.unionCount) || 0;
+									const rate =
+										values.ratePerUnload === "" ||
+										values.ratePerUnload === undefined
+											? 0
+											: Number(values.ratePerUnload) || 0;
+									const unloads =
+										values.totalUnloads === "" ||
+										values.totalUnloads === undefined
+											? 0
+											: Number(values.totalUnloads) || 0;
 
 									const totalLabours = wc + uc;
 									const totalValue = rate * unloads;
-									const perPersonSalary = totalLabours > 0 ? totalValue / totalLabours : 0;
+									const perPersonSalary =
+										totalLabours > 0 ? totalValue / totalLabours : 0;
 									const ownStaffSalary = perPersonSalary * wc;
 									const unionSalary = perPersonSalary * uc;
 
 									return (
 										<div className="rounded-lg border bg-muted/40 p-4 space-y-2 text-sm">
-											<h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">Calculations Preview</h3>
+											<h3 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">
+												Calculations Preview
+											</h3>
 											<div className="grid grid-cols-2 gap-y-2 pt-1 border-t">
 												<div>Total Labours:</div>
-												<div className="font-medium text-right">{totalLabours}</div>
+												<div className="font-medium text-right">
+													{totalLabours}
+												</div>
 												<div>Total Sum of Unloads:</div>
-												<div className="font-medium text-right">{formatWarehouseCurrency(totalValue)}</div>
-												<div className="font-semibold text-primary">Own Staff Salary:</div>
-												<div className="font-bold text-right text-primary">{formatWarehouseCurrency(ownStaffSalary)}</div>
-												<div className="font-semibold text-purple-600 dark:text-purple-400">Union Salary:</div>
-												<div className="font-bold text-right text-purple-600 dark:text-purple-400">{formatWarehouseCurrency(unionSalary)}</div>
+												<div className="font-medium text-right">
+													{formatWarehouseCurrency(totalValue)}
+												</div>
+												<div className="font-semibold text-primary">
+													Own Staff Salary:
+												</div>
+												<div className="font-bold text-right text-primary">
+													{formatWarehouseCurrency(ownStaffSalary)}
+												</div>
+												<div className="font-semibold text-purple-600 dark:text-purple-400">
+													Union Salary:
+												</div>
+												<div className="font-bold text-right text-purple-600 dark:text-purple-400">
+													{formatWarehouseCurrency(unionSalary)}
+												</div>
 											</div>
 										</div>
 									);
@@ -552,13 +625,19 @@ export function WarehouseDialog({ mode, defaultSection = "JAS", initialValues, o
 							{(validationError || serverError) && (
 								<Alert variant="destructive">
 									<InfoIcon className="h-4 w-4" />
-									<AlertDescription>{validationError || serverError}</AlertDescription>
+									<AlertDescription>
+										{validationError || serverError}
+									</AlertDescription>
 								</Alert>
 							)}
 						</FieldGroup>
 
 						<DialogFooter className="mt-4">
-							<Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => handleOpenChange(false)}
+							>
 								Cancel
 							</Button>
 							<Button type="submit" disabled={isPending}>
