@@ -1111,6 +1111,12 @@ def _validate_journal_entry_items(items: list) -> str | None:
                 else:
                     if amount_val < 0:
                         return "Revenue amount cannot be negative."
+                    if quantity is not None and quantity != "":
+                        try:
+                            if float(quantity) < 0:
+                                return "Quantity cannot be negative."
+                        except (ValueError, TypeError):
+                            return "Invalid quantity provided."
                     gross_revenue = amount_val
 
                 if bata_type == "fixed":
@@ -1207,12 +1213,20 @@ def orpc_create_entry(user):
                     else:
                         if bata_type == "fixed":
                             fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                            if fixed_val < 0:
+                                conn.rollback()
+                                return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                            if fixed_val > amount:
+                                conn.rollback()
+                                return rpc_error("Fixed Bata Amount cannot be greater than Revenue Amount.", 400)
                             bata_value = fixed_val
-                        elif bata_percentage:
+                        else:
                             bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                            if bata_val < 0:
+                                conn.rollback()
+                                return rpc_error("Bata Percentage cannot be negative.", 400)
                             bata_value = (amount * bata_val) / 100.0
-                        if bata_value:
-                            credit_bata_val = float(bata_value)
+                        credit_bata_val = float(bata_value or 0.0)
 
                 conn.execute(
                     """
@@ -1235,16 +1249,16 @@ def orpc_create_entry(user):
                         item.get("nextRenewalDate"),
                         item.get("expenseCategoryId"),
                         revenue_mode,
-                        quantity,
-                        per_item_rate,
+                        float(quantity) if quantity is not None and quantity != "" else None,
+                        float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else None,
                         value,
-                        bata_percentage,
+                        float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else None,
                         bata_value,
                         item.get("depo"),
                         item.get("deliveryLocation") or item.get("delivery_location"),
                         product_name,
                         bata_type,
-                        fixed_bata_amount,
+                        float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else None,
                     ),
                 )
 
@@ -1469,12 +1483,20 @@ def orpc_update_entry(user):
                         else:
                             if bata_type == "fixed":
                                 fixed_val = float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else 0.0
+                                if fixed_val < 0:
+                                    conn.rollback()
+                                    return rpc_error("Fixed Bata Amount cannot be negative.", 400)
+                                if fixed_val > amount:
+                                    conn.rollback()
+                                    return rpc_error("Fixed Bata Amount cannot be greater than Revenue Amount.", 400)
                                 bata_value = fixed_val
-                            elif bata_percentage:
+                            else:
                                 bata_val = float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else 0.0
+                                if bata_val < 0:
+                                    conn.rollback()
+                                    return rpc_error("Bata Percentage cannot be negative.", 400)
                                 bata_value = (amount * bata_val) / 100.0
-                            if bata_value:
-                                credit_bata_val = float(bata_value)
+                            credit_bata_val = float(bata_value or 0.0)
                         
                     conn.execute(
                         """
@@ -1497,16 +1519,16 @@ def orpc_update_entry(user):
                             item.get("nextRenewalDate"),
                             item.get("expenseCategoryId"),
                             revenue_mode,
-                            quantity,
-                            per_item_rate,
+                            float(quantity) if quantity is not None and quantity != "" else None,
+                            float(per_item_rate) if per_item_rate is not None and per_item_rate != "" else None,
                             value,
-                            bata_percentage,
+                            float(bata_percentage) if bata_percentage is not None and bata_percentage != "" else None,
                             bata_value,
                             item.get("depo"),
                             item.get("deliveryLocation") or item.get("delivery_location"),
                             product_name,
                             bata_type,
-                            fixed_bata_amount,
+                            float(fixed_bata_amount) if fixed_bata_amount is not None and fixed_bata_amount != "" else None,
                         ),
                     )
 
