@@ -5,6 +5,11 @@ instance_class: F1
 
 env_variables:
   SUPABASE_DATABASE_URL: "postgresql://postgres:hamdan4040!@db.gpqkhbctrtvopqvxlahe.supabase.co:5432/postgres"
+  SMTP_HOST: "smtp.gmail.com"
+  SMTP_PORT: "587"
+  SMTP_USER: "hrjastraders@gmail.com"
+  SMTP_PASSWORD: "gsqcjwgseviuodtp"
+  ADMIN_RESET_EMAIL: "anwarjas123@gmail.com"
 
 automatic_scaling:
   min_instances: 0

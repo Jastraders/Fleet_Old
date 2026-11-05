@@ -421,5 +421,25 @@ def init_db() -> None:
             pass
 
 
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS password_resets (
+                    id TEXT PRIMARY KEY,
+                    target_email TEXT NOT NULL,
+                    user_id TEXT NOT NULL,
+                    code_hash TEXT NOT NULL,
+                    attempts INTEGER DEFAULT 0,
+                    expires_at TEXT NOT NULL,
+                    used_at TEXT,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(target_email);")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_password_resets_user_id ON password_resets(user_id);")
+        except Exception:
+            pass
+
+
 def rows_to_dicts(rows: Iterable[dict]) -> List[dict[str, Any]]:
     return [dict(r) for r in rows]
