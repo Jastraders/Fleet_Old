@@ -1,5 +1,5 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
 	CheckCircle2Icon,
@@ -56,16 +56,29 @@ export function SignInForm() {
 	// Password reset dialog state
 	const [resetDialogOpen, setResetDialogOpen] = useState(false);
 	const [resetStep, setResetStep] = useState<"request" | "verify" | "done">("request");
-	const [adminEmail, setAdminEmail] = useState(DEFAULT_ADMIN_EMAIL);
 	const [resetCode, setResetCode] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [cooldown, setCooldown] = useState(0);
-	const [isRequesting, setIsRequesting] = useState(false);
-	const [isVerifying, setIsVerifying] = useState(false);
 	const [resetError, setResetError] = useState<string | null>(null);
 	const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
 	const [loginNotice, setLoginNotice] = useState<string | null>(null);
+
+	// Fetch dynamic admin email through oRPC router client
+	const resetInfoQuery = useQuery({
+		...orpc.user.auth.getAdminResetInfo.queryOptions(),
+		staleTime: 60_000,
+	});
+	const adminEmail = (resetInfoQuery.data as any)?.targetEmail || DEFAULT_ADMIN_EMAIL;
+
+	// Reset mutations via oRPC
+	const requestResetMutation = useMutation({
+		...orpc.user.auth.requestAdminResetCode.mutationOptions(),
+	});
+
+	const verifyResetMutation = useMutation({
+		...orpc.user.auth.verifyAdminResetCode.mutationOptions(),
+	});
 
 	// Cooldown timer effect
 	useEffect(() => {
@@ -75,18 +88,6 @@ export function SignInForm() {
 		}, 1000);
 		return () => clearInterval(timer);
 	}, [cooldown]);
-
-	// Fetch dynamic admin email if available
-	useEffect(() => {
-		fetch("/api/auth/admin-reset-info")
-			.then((res) => (res.ok ? res.json() : null))
-			.then((data) => {
-				if (data?.targetEmail) {
-					setAdminEmail(data.targetEmail);
-				}
-			})
-			.catch(() => {});
-	}, []);
 
 	const signInMutation = useMutation<
 		unknown,
@@ -123,27 +124,16 @@ export function SignInForm() {
 	const passwordId = useId();
 
 	const handleSendCode = async () => {
-		setIsRequesting(true);
 		setResetError(null);
 		try {
-			const res = await fetch("/api/auth/request-admin-reset-code", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({}),
-			});
-			const data = await res.json();
-			if (!res.ok) {
-				throw new Error(data.error || data.message || "Failed to send reset code");
-			}
+			const data: any = await requestResetMutation.mutateAsync({});
 			setResetStep("verify");
-			setCooldown(data.cooldownSeconds || 60);
+			setCooldown(data?.cooldownSeconds || 60);
 			setResetSuccessMsg(
-				`6-digit verification code sent to ${data.targetEmail || adminEmail}. Please check your inbox or spam folder.`
+				`6-digit verification code sent to ${data?.targetEmail || adminEmail}. Please check your inbox or spam folder.`
 			);
 		} catch (err: any) {
 			setResetError(err?.message || "Failed to send verification code. Please try again.");
-		} finally {
-			setIsRequesting(false);
 		}
 	};
 
@@ -162,29 +152,18 @@ export function SignInForm() {
 			return;
 		}
 
-		setIsVerifying(true);
 		setResetError(null);
 		try {
-			const res = await fetch("/api/auth/verify-admin-reset-code", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					code: cleanCode,
-					newPassword,
-				}),
+			await verifyResetMutation.mutateAsync({
+				code: cleanCode,
+				newPassword,
 			});
-			const data = await res.json();
-			if (!res.ok) {
-				throw new Error(data.error || data.message || "Failed to reset password");
-			}
 			setResetStep("done");
 			form.setFieldValue("email", adminEmail);
 			form.setFieldValue("password", "");
 			setLoginNotice("Password updated successfully! Please log in with your new password.");
 		} catch (err: any) {
 			setResetError(err?.message || "Failed to verify code and reset password.");
-		} finally {
-			setIsVerifying(false);
 		}
 	};
 
@@ -344,11 +323,11 @@ export function SignInForm() {
 								</Button>
 								<Button
 									type="button"
-									disabled={isRequesting}
+									disabled={requestResetMutation.isPending}
 									onClick={handleSendCode}
 									className="gap-2"
 								>
-									{isRequesting ? (
+									{requestResetMutation.isPending ? (
 										<>
 											<RefreshCwIcon className="size-4 animate-spin" />
 											Sending Code...
@@ -412,7 +391,7 @@ export function SignInForm() {
 										) : (
 											<button
 												type="button"
-												disabled={isRequesting}
+												disabled={requestResetMutation.isPending}
 												onClick={handleSendCode}
 												className="text-primary hover:underline font-medium cursor-pointer bg-transparent border-0 p-0"
 											>
@@ -462,7 +441,7 @@ export function SignInForm() {
 								<Button
 									type="button"
 									disabled={
-										isVerifying ||
+										verifyResetMutation.isPending ||
 										resetCode.trim().length !== 6 ||
 										newPassword.length < 8 ||
 										newPassword !== confirmPassword
@@ -470,7 +449,7 @@ export function SignInForm() {
 									onClick={handleVerifyAndReset}
 									className="gap-2"
 								>
-									{isVerifying ? (
+									{verifyResetMutation.isPending ? (
 										<>
 											<RefreshCwIcon className="size-4 animate-spin" />
 											Updating...
