@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
 	CheckCircle2Icon,
+	EyeIcon,
+	EyeOffIcon,
 	InfoIcon,
 	KeyRoundIcon,
 	MailIcon,
@@ -59,6 +61,9 @@ export function SignInForm() {
 	const [resetCode, setResetCode] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
+	const [showLoginPassword, setShowLoginPassword] = useState(false);
+	const [showNewPassword, setShowNewPassword] = useState(false);
+	const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 	const [cooldown, setCooldown] = useState(0);
 	const [resetError, setResetError] = useState<string | null>(null);
 	const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
@@ -230,21 +235,39 @@ export function SignInForm() {
 														setResetCode("");
 														setNewPassword("");
 														setConfirmPassword("");
+														setShowNewPassword(false);
+														setShowConfirmPassword(false);
 													}}
 													className="ml-auto text-sm text-primary underline-offset-4 hover:underline cursor-pointer bg-transparent border-0 p-0"
 												>
 													Forgot your password?
 												</button>
 											</div>
-											<Input
-												id={passwordId}
-												name={field.name}
-												value={field.state.value}
-												onBlur={field.handleBlur}
-												onChange={(e) => field.handleChange(e.target.value)}
-												type="password"
-												aria-invalid={isInvalid}
-											/>
+											<div className="relative">
+												<Input
+													id={passwordId}
+													name={field.name}
+													value={field.state.value}
+													onBlur={field.handleBlur}
+													onChange={(e) => field.handleChange(e.target.value)}
+													type={showLoginPassword ? "text" : "password"}
+													aria-invalid={isInvalid}
+													className="pr-10"
+												/>
+												<button
+													type="button"
+													onClick={() => setShowLoginPassword((prev) => !prev)}
+													className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer focus:outline-hidden bg-transparent border-0"
+													tabIndex={-1}
+													aria-label={showLoginPassword ? "Hide password" : "Show password"}
+												>
+													{showLoginPassword ? (
+														<EyeOffIcon className="size-4" />
+													) : (
+														<EyeIcon className="size-4" />
+													)}
+												</button>
+											</div>
 											{isInvalid && (
 												<FieldError errors={field.state.meta.errors} />
 											)}
@@ -403,24 +426,56 @@ export function SignInForm() {
 
 								<div className="space-y-2">
 									<FieldLabel htmlFor="new-password">New Password</FieldLabel>
-									<Input
-										id="new-password"
-										type="password"
-										value={newPassword}
-										onChange={(e) => setNewPassword(e.target.value)}
-										placeholder="Minimum 8 characters"
-									/>
+									<div className="relative">
+										<Input
+											id="new-password"
+											type={showNewPassword ? "text" : "password"}
+											value={newPassword}
+											onChange={(e) => setNewPassword(e.target.value)}
+											placeholder="Minimum 8 characters"
+											className="pr-10"
+										/>
+										<button
+											type="button"
+											onClick={() => setShowNewPassword((prev) => !prev)}
+											className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer focus:outline-hidden bg-transparent border-0"
+											tabIndex={-1}
+											aria-label={showNewPassword ? "Hide password" : "Show password"}
+										>
+											{showNewPassword ? (
+												<EyeOffIcon className="size-4" />
+											) : (
+												<EyeIcon className="size-4" />
+											)}
+										</button>
+									</div>
 								</div>
 
 								<div className="space-y-2">
 									<FieldLabel htmlFor="confirm-password">Confirm New Password</FieldLabel>
-									<Input
-										id="confirm-password"
-										type="password"
-										value={confirmPassword}
-										onChange={(e) => setConfirmPassword(e.target.value)}
-										placeholder="Re-enter new password"
-									/>
+									<div className="relative">
+										<Input
+											id="confirm-password"
+											type={showConfirmPassword ? "text" : "password"}
+											value={confirmPassword}
+											onChange={(e) => setConfirmPassword(e.target.value)}
+											placeholder="Re-enter new password"
+											className="pr-10"
+										/>
+										<button
+											type="button"
+											onClick={() => setShowConfirmPassword((prev) => !prev)}
+											className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer focus:outline-hidden bg-transparent border-0"
+											tabIndex={-1}
+											aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+										>
+											{showConfirmPassword ? (
+												<EyeOffIcon className="size-4" />
+											) : (
+												<EyeIcon className="size-4" />
+											)}
+										</button>
+									</div>
 									{confirmPassword && newPassword !== confirmPassword && (
 										<p className="text-xs text-destructive">Passwords do not match.</p>
 									)}
@@ -487,6 +542,8 @@ export function SignInForm() {
 										setResetCode("");
 										setNewPassword("");
 										setConfirmPassword("");
+										setShowNewPassword(false);
+										setShowConfirmPassword(false);
 									}}
 								>
 									Back to Login
