@@ -19,11 +19,14 @@ export const Route = createFileRoute("/dashboard")({
 
 function RouteComponent() {
 	return (
-		<SidebarProvider>
-			<AppSidebar />
-			<SidebarInset className="min-w-0 overflow-x-hidden bg-[#F3F3F3]">
-				<Outlet />
-			</SidebarInset>
-		</SidebarProvider>
+		<>
+			<div className="bg-sidebar w-1/2 h-full absolute top-0 left-0" />
+			<SidebarProvider>
+				<AppSidebar className="sticky" />
+				<SidebarInset className="min-w-0 overflow-x-hidden">
+					<Outlet />
+				</SidebarInset>
+			</SidebarProvider>
+		</>
 	);
 }
