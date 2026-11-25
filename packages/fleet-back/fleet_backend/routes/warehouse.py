@@ -169,8 +169,9 @@ def orpc_list_warehouse(user):
             params.append(product.lower())
 
         if search:
-            where_clauses.append("(LOWER(w.firm_name) LIKE ? OR LOWER(w.product_name) LIKE ?)")
-            params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
+            search_term = f"%{search.strip().lower()}%"
+            where_clauses.append("(LOWER(COALESCE(w.firm_name, '')) LIKE ? OR LOWER(COALESCE(w.product_name, '')) LIKE ?)")
+            params.extend([search_term, search_term])
 
         where_sql = f"WHERE {' AND '.join(where_clauses)}"
         rows = rows_to_dicts(

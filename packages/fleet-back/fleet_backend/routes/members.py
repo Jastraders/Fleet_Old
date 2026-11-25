@@ -29,8 +29,8 @@ def orpc_list_members(user):
     conditions = ["u.id NOT IN (SELECT user_id FROM user_roles WHERE role = 'owner')"]
     params: list[Any] = []
     if isinstance(search, str) and search.strip():
-        query = f"%{search.strip()}%"
-        conditions.append("(u.name LIKE ? OR u.email LIKE ?)")
+        query = f"%{search.strip().lower()}%"
+        conditions.append("(LOWER(COALESCE(u.name, '')) LIKE ? OR LOWER(COALESCE(u.email, '')) LIKE ?)")
         params.extend([query, query])
 
     where_clause = " AND ".join(conditions)

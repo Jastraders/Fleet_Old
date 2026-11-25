@@ -72,7 +72,8 @@ export function DriverSelectField({
 	const drivers =
 		driversData?.data.filter((driver) =>
 			normalizedSearch
-				? driver.name.toLowerCase().includes(normalizedSearch)
+				? driver.name.toLowerCase().includes(normalizedSearch) ||
+				  driver.phoneNumber?.toLowerCase().includes(normalizedSearch)
 				: true,
 		) || [];
 

@@ -74,7 +74,8 @@ export function VehicleSelectField({
 	const vehicles =
 		vehiclesData?.data.filter((vehicle) =>
 			normalizedSearch
-				? vehicle.name.toLowerCase().includes(normalizedSearch)
+				? vehicle.name.toLowerCase().includes(normalizedSearch) ||
+				  vehicle.licensePlate?.toLowerCase().includes(normalizedSearch)
 				: true,
 		) || [];
 

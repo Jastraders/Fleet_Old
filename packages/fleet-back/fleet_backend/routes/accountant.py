@@ -88,8 +88,8 @@ def orpc_list_vehicles(user):
     where_clauses: list[str] = []
     where_params: list[Any] = []
     if search:
-        where_clauses.append("(v.name LIKE ? OR v.license_plate LIKE ? OR v.model LIKE ?)")
-        search_term = f"%{search}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(v.model, '')) LIKE ?)")
+        search_term = f"%{search.strip().lower()}%"
         where_params.extend([search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
@@ -287,8 +287,8 @@ def orpc_list_drivers(user):
     where_clauses: list[str] = []
     where_params: list[Any] = []
     if search:
-        where_clauses.append("(d.name ILIKE ? OR d.phone_number ILIKE ?)")
-        search_term = f"%{search}%"
+        where_clauses.append("(LOWER(COALESCE(d.name, '')) LIKE ? OR LOWER(COALESCE(d.phone_number, '')) LIKE ?)")
+        search_term = f"%{search.strip().lower()}%"
         where_params.extend([search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
@@ -412,8 +412,8 @@ def orpc_list_categories(user):
     where_clauses: list[str] = []
     where_params: list[Any] = []
     if search:
-        where_clauses.append("c.name LIKE ?")
-        where_params.append(f"%{search}%")
+        where_clauses.append("LOWER(COALESCE(c.name, '')) LIKE ?")
+        where_params.append(f"%{search.strip().lower()}%")
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
@@ -592,9 +592,9 @@ def orpc_list_entries(user):
         where_params.append(current_end)
 
     if search:
-        search_term = f"%{search}%"
-        where_clauses.append("(j.id::text = ? OR v.name ILIKE ? OR v.license_plate ILIKE ? OR COALESCE(u.name, '') ILIKE ?)") 
-        where_params.extend([search, search_term, search_term, search_term])
+        search_term = f"%{search.strip().lower()}%"
+        where_clauses.append("(CAST(j.id AS TEXT) = ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR LOWER(COALESCE(u.name, '')) LIKE ?)")
+        where_params.extend([search.strip(), search_term, search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
 
@@ -735,11 +735,11 @@ def orpc_list_expenses(user):
         where_params.append(driver_id)
 
     if search:
-        search_term = f"%{search}%"
+        search_term = f"%{search.strip().lower()}%"
         where_clauses.append(
-            "(COALESCE(c.name, '') LIKE ? OR COALESCE(i.handler, '') LIKE ? OR COALESCE(v.name, '') LIKE ? OR COALESCE(d.name, '') LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+            "(LOWER(COALESCE(c.name, '')) LIKE ? OR LOWER(COALESCE(i.handler, '')) LIKE ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
         )
-        where_params.extend([search_term, search_term, search_term, search_term, search_term])
+        where_params.extend([search_term, search_term, search_term, search_term, f"%{search.strip()}%"])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}"
 
@@ -1662,20 +1662,20 @@ def orpc_list_bata(user):
         where_clauses.append("b.driver_id = ?")
         where_params.append(driver_id)
     elif driver_search:
-        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE LOWER(?)")
-        where_params.append(f"%{driver_search}%")
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE ?")
+        where_params.append(f"%{driver_search.strip().lower()}%")
 
     if vehicle_id:
         where_clauses.append("b.vehicle_id = ?")
         where_params.append(vehicle_id)
     elif vehicle_search:
-        search_v = f"%{vehicle_search}%"
-        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(v.license_plate, '')) LIKE LOWER(?))")
+        search_v = f"%{vehicle_search.strip().lower()}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ?)")
         where_params.extend([search_v, search_v])
 
     if product:
-        where_clauses.append("LOWER(COALESCE(b.product_name, '')) LIKE LOWER(?)")
-        where_params.append(f"%{product}%")
+        where_clauses.append("LOWER(COALESCE(b.product_name, '')) LIKE ?")
+        where_params.append(f"%{product.strip().lower()}%")
 
     if period == "custom" and start_date_str and end_date_str:
         try:
@@ -1695,8 +1695,8 @@ def orpc_list_bata(user):
         where_params.append(current_end)
 
     if search and not driver_id and not vehicle_id and not product:
-        search_term = f"%{search}%"
-        where_clauses.append("(COALESCE(d.name, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(b.product_name, '') ILIKE ?)")
+        search_term = f"%{search.strip().lower()}%"
+        where_clauses.append("(LOWER(COALESCE(d.name, '')) LIKE ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(b.product_name, '')) LIKE ?)")
         where_params.extend([search_term, search_term, search_term, search_term])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}" if where_clauses else ""
@@ -2364,20 +2364,20 @@ def orpc_list_admin_revenue(user):
         where_clauses.append("j.driver_id = ?")
         where_params.append(driver_id)
     elif driver_search:
-        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE LOWER(?)")
-        where_params.append(f"%{driver_search}%")
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE ?")
+        where_params.append(f"%{driver_search.strip().lower()}%")
 
     if vehicle_id:
         where_clauses.append("i.vehicle_id = ?")
         where_params.append(vehicle_id)
     elif vehicle_search:
-        search_v = f"%{vehicle_search}%"
-        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(v.license_plate, '')) LIKE LOWER(?))")
+        search_v = f"%{vehicle_search.strip().lower()}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ?)")
         where_params.extend([search_v, search_v])
 
     if product:
-        where_clauses.append("LOWER(COALESCE(i.product_name, '')) LIKE LOWER(?)")
-        where_params.append(f"%{product}%")
+        where_clauses.append("LOWER(COALESCE(i.product_name, '')) LIKE ?")
+        where_params.append(f"%{product.strip().lower()}%")
 
     if period == "custom" and start_date_str and end_date_str:
         try:
@@ -2397,11 +2397,11 @@ def orpc_list_admin_revenue(user):
         where_params.append(current_end)
 
     if search and not driver_id and not vehicle_id and not product:
-        search_term = f"%{search}%"
+        search_term = f"%{search.strip().lower()}%"
         where_clauses.append(
-            "(COALESCE(i.product_name, '') ILIKE ? OR COALESCE(i.depo, '') ILIKE ? OR COALESCE(i.delivery_location, '') ILIKE ? OR COALESCE(v.name, '') ILIKE ? OR COALESCE(v.license_plate, '') ILIKE ? OR COALESCE(d.name, '') ILIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+            "(LOWER(COALESCE(i.product_name, '')) LIKE ? OR LOWER(COALESCE(i.depo, '')) LIKE ? OR LOWER(COALESCE(i.delivery_location, '')) LIKE ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
         )
-        where_params.extend([search_term, search_term, search_term, search_term, search_term, search_term, search_term])
+        where_params.extend([search_term, search_term, search_term, search_term, search_term, search_term, f"%{search.strip()}%"])
 
     where_sql = f"WHERE {' AND '.join(where_clauses)}"
 
