@@ -382,18 +382,23 @@ export function ExpensesDataTable({
 
 	useEffect(() => setSearchValue(search ?? ""), [search]);
 	useEffect(() => {
+		const currentSearch = search ?? "";
+		if (searchValue === currentSearch) {
+			return;
+		}
+
 		const timer = setTimeout(() => {
 			void router.navigate({
 				to: ".",
 				search: (prev: ExpensesSearchState) => ({
 					...prev,
-					search: searchValue || undefined,
+					search: searchValue.trim() || undefined,
 					offset: 0,
 				}),
 			});
 		}, 300);
 		return () => clearTimeout(timer);
-	}, [searchValue, router]);
+	}, [searchValue, search, router]);
 
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
 		void router.navigate({

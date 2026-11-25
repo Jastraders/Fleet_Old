@@ -737,7 +737,7 @@ def orpc_list_expenses(user):
     if search:
         search_term = f"%{search.strip().lower()}%"
         where_clauses.append(
-            "(LOWER(COALESCE(c.name, '')) LIKE ? OR LOWER(COALESCE(i.handler, '')) LIKE ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
+            "(LOWER(COALESCE(c.name, '')) LIKE ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR CAST(COALESCE(i.voucher_id, 0) AS TEXT) LIKE ?)"
         )
         where_params.extend([search_term, search_term, search_term, search_term, f"%{search.strip()}%"])
 

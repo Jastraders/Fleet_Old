@@ -421,12 +421,17 @@ export function EntriesDataTable({
 	}, [search]);
 
 	useEffect(() => {
+		const currentSearch = search ?? "";
+		if (searchValue === currentSearch) {
+			return;
+		}
+
 		const timer = setTimeout(() => {
-			handleSearch(searchValue);
+			handleSearch(searchValue.trim());
 		}, 300);
 
 		return () => clearTimeout(timer);
-	}, [searchValue, handleSearch]);
+	}, [searchValue, search, handleSearch]);
 
 	const handleSort = (newSortBy: string, newSortOrder: string) => {
 		void router.navigate({
