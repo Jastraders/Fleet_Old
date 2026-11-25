@@ -21,12 +21,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	useSidebar,
-} from "@/components/ui/sidebar";
+import { useSidebar } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { orpc } from "@/orpc";
 
@@ -64,33 +59,36 @@ function AdminsSidebarUserContent() {
 	}, [signOutMutation]);
 
 	return (
-		<SidebarMenu>
-			<SidebarMenuItem>
-				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<SidebarMenuButton
-								size="lg"
-								className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-							>
-								<Avatar className="h-8 w-8">
-									<AvatarFallback>{getInitials(data.name)}</AvatarFallback>
-								</Avatar>
-								<div className="grid flex-1 text-left text-sm leading-tight">
-									<span className="truncate font-medium">{data.name}</span>
-									<span className="truncate text-xs">{data.email}</span>
-								</div>
-
-								<ChevronsUpDownIcon className="ml-auto size-4" />
-							</SidebarMenuButton>
-						}
-					/>
-					<DropdownMenuContent
-						className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-						side={isMobile ? "bottom" : "right"}
-						align="end"
-						sideOffset={4}
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={
+					<button
+						type="button"
+						className="flex w-full items-center gap-3 rounded-[10px] p-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
 					>
+						<Avatar className="size-[44px] shrink-0">
+							<AvatarFallback className="bg-[#13294b] text-[17px] font-semibold lowercase text-[#d1d9d1]">
+								{getInitials(data.name)}
+							</AvatarFallback>
+						</Avatar>
+						<div className="grid min-w-0 flex-1 leading-tight">
+							<span className="truncate text-[17px] font-semibold text-white">
+								{data.name}
+							</span>
+							<span className="truncate text-[14px] font-semibold text-[#d1d9d1]">
+								{data.email}
+							</span>
+						</div>
+						<ChevronsUpDownIcon className="ml-auto size-4 shrink-0 text-[#d1d9d1]/80" />
+					</button>
+				}
+			/>
+			<DropdownMenuContent
+				className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+				side={isMobile ? "bottom" : "right"}
+				align="end"
+				sideOffset={8}
+			>
 						<DropdownMenuGroup>
 							<DropdownMenuLabel className="p-0 font-normal">
 								<div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
@@ -137,26 +135,19 @@ function AdminsSidebarUserContent() {
 							Log out
 						</DropdownMenuItem>
 					</DropdownMenuContent>
-				</DropdownMenu>
-			</SidebarMenuItem>
-		</SidebarMenu>
+		</DropdownMenu>
 	);
 }
 
 function AdminsSidebarUserSkeleton() {
 	return (
-		<SidebarMenu>
-			<SidebarMenuItem>
-				<SidebarMenuButton size="lg" disabled>
-					<Skeleton className="h-8 w-8 rounded-lg" />
-					<div className="grid flex-1 gap-1.5 text-left text-sm leading-tight">
-						<Skeleton className="h-3.5 w-24" />
-						<Skeleton className="h-3 w-32" />
-					</div>
-					<Skeleton className="ml-auto size-4" />
-				</SidebarMenuButton>
-			</SidebarMenuItem>
-		</SidebarMenu>
+		<div className="flex w-full items-center gap-3 p-1">
+			<Skeleton className="size-[44px] shrink-0 rounded-full bg-white/15" />
+			<div className="grid flex-1 gap-1.5">
+				<Skeleton className="h-4 w-24 bg-white/15" />
+				<Skeleton className="h-3.5 w-32 bg-white/15" />
+			</div>
+		</div>
 	);
 }
 

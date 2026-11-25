@@ -1,43 +1,42 @@
-import { GalleryVerticalEnd } from "lucide-react";
-import type * as React from "react";
-import {
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarRail,
-} from "@/components/ui/sidebar";
-import { AppSidebarMainNav } from "@/routes/dashboard/-route/app-sidebar/app-sidebar-main-nav";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { SIDEBAR_NAV_SECTIONS, Sidebar } from "@/components/Sidebar";
+import { orpc } from "@/orpc";
 import { AdminsSidebarUser } from "@/routes/dashboard/-route/app-sidebar/app-sidebar-user";
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+function hasRole(user: unknown, role: string): boolean {
+	if (!user || typeof user !== "object" || !("roles" in user)) {
+		return false;
+	}
+
+	const { roles } = user as { roles?: Array<{ role?: string }> };
+	if (!Array.isArray(roles)) {
+		return false;
+	}
+
+	return roles.some((r) => r.role === role || r.role === "owner");
+}
+
+export function AppSidebar({ className }: { className?: string }) {
+	const { data: user } = useSuspenseQuery(orpc.user.auth.getMe.queryOptions());
+	const { data: notificationCount } = useSuspenseQuery(
+		orpc.general.notifications.count.queryOptions(),
+	);
+
+	const visibleSections = useMemo(
+		() =>
+			SIDEBAR_NAV_SECTIONS.filter(
+				(section) => !section.role || hasRole(user, section.role),
+			),
+		[user],
+	);
+
 	return (
-		<Sidebar collapsible="icon" {...props}>
-			<SidebarHeader>
-				<SidebarMenu>
-					<SidebarMenuItem>
-						<SidebarMenuButton size="lg">
-							<div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-								<GalleryVerticalEnd className="size-4" />
-							</div>
-							<div className="flex flex-col gap-0.5 leading-none">
-								<span className="font-medium">Fleet</span>
-								<span className="">v1.0.0</span>
-							</div>
-						</SidebarMenuButton>
-					</SidebarMenuItem>
-				</SidebarMenu>
-			</SidebarHeader>
-			<SidebarContent>
-				<AppSidebarMainNav />
-			</SidebarContent>
-			<SidebarFooter>
-				<AdminsSidebarUser />
-			</SidebarFooter>
-			<SidebarRail />
-		</Sidebar>
+		<Sidebar
+			className={className}
+			sections={visibleSections}
+			unreadNotificationsCount={notificationCount?.unread ?? 0}
+			footer={<AdminsSidebarUser />}
+		/>
 	);
 }
