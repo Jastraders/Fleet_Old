@@ -11,7 +11,7 @@ DEFAULT_SMTP_HOST = "smtp.gmail.com"
 DEFAULT_SMTP_PORT = 587
 DEFAULT_SMTP_USER = "hrjastraders@gmail.com"
 DEFAULT_SMTP_PASSWORD = "gsqcjwgseviuodtp"
-DEFAULT_ADMIN_RESET_EMAIL = "fahadrkm@gmail.com"
+DEFAULT_ADMIN_RESET_EMAIL = "anwarjas123@gmail.com"
 
 
 def get_admin_reset_email() -> str:

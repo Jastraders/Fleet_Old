@@ -49,7 +49,7 @@ const defaultValues: v.InferInput<typeof formSchema> = {
 	password: "",
 };
 
-const DEFAULT_ADMIN_EMAIL = "fahadrkm@gmail.com";
+const DEFAULT_ADMIN_EMAIL = "anwarjas123@gmail.com";
 
 export function SignInForm() {
 	const queryClient = useQueryClient();

@@ -9,7 +9,7 @@ env_variables:
   SMTP_PORT: "587"
   SMTP_USER: "hrjastraders@gmail.com"
   SMTP_PASSWORD: "gsqcjwgseviuodtp"
-  ADMIN_RESET_EMAIL: "fahadrkm@gmail.com"
+  ADMIN_RESET_EMAIL: "anwarjas123@gmail.com"
 
 automatic_scaling:
   min_instances: 0
