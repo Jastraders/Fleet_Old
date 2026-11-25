@@ -30,8 +30,8 @@ def _find_user_by_email(conn, raw_email: str | None):
         """
         SELECT * FROM users 
         WHERE LOWER(email) = ? 
-           OR (LOWER(email) = 'owner@fleet.dev' AND ? = 'anwarjas123@gmail.com')
-           OR (LOWER(email) = 'anwarjas123@gmail.com' AND ? = 'owner@fleet.dev')
+           OR (LOWER(email) = 'owner@fleet.dev' AND ? = 'fahadrkm@gmail.com')
+           OR (LOWER(email) = 'fahadrkm@gmail.com' AND ? = 'owner@fleet.dev')
         """,
         (clean_email, clean_email, clean_email),
     ).fetchone()
