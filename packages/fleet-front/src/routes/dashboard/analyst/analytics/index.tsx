@@ -1,13 +1,15 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { BellIcon } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { BellIcon, CalendarClockIcon } from "lucide-react";
 import * as v from "valibot";
-import {
-	Breadcrumb,
-	BreadcrumbItem,
-	BreadcrumbLink,
-	BreadcrumbList,
-} from "@/components/ui/breadcrumb";
+import { ExpensesDonutChart } from "@/components/dashboard/ExpensesDonutChart";
+import { FleetAlertsCard } from "@/components/dashboard/FleetAlertsCard";
+import { FleetPerformanceChart } from "@/components/dashboard/FleetPerformanceChart";
+import { KpiCards } from "@/components/dashboard/KpiCards";
+import { LiveFleetStatusCard } from "@/components/dashboard/LiveFleetStatusCard";
+import { RecentVehicleActivityCard } from "@/components/dashboard/RecentVehicleActivityCard";
+import { TruckMapCard } from "@/components/dashboard/TruckMapCard";
+import { VehicleLeaderboard } from "@/components/dashboard/VehicleLeaderboard";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -26,13 +28,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { orpc } from "@/orpc";
-import { ExpenseCategoriesStatsCard } from "@/routes/dashboard/analyst/analytics/-index/expense-categories-stats-card";
-import { SummaryStatsCards } from "@/routes/dashboard/analyst/analytics/-index/summary-stats-cards";
-import { VehicleLeaderboardCard } from "@/routes/dashboard/analyst/analytics/-index/vehicle-leaderboard-card";
-import { VehicleProfitChart } from "@/routes/dashboard/analyst/analytics/-index/vehicle-profit-chart";
 
 const periodSchema = v.picklist([
 	"all_time",
@@ -121,153 +118,182 @@ function RouteComponent() {
 		}
 	}
 
+	const activePeriodLabel =
+		period === "custom" && startDate && endDate
+			? `${startDate} - ${endDate}`
+			: periodOptions.find((o) => o.value === period)?.label;
+
 	return (
-		<>
-			<header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-				<div className="flex items-center gap-2 px-4">
-					<SidebarTrigger className="-ml-1" />
-					<Separator
-						orientation="vertical"
-						className="mr-2 data-[orientation=vertical]:h-4 self-center!"
-					/>
-					<Breadcrumb>
-						<BreadcrumbList>
-							<BreadcrumbItem className="hidden md:block">
-								<BreadcrumbLink
-									render={<Link to="/dashboard">Overview</Link>}
-								/>
-							</BreadcrumbItem>
-						</BreadcrumbList>
-					</Breadcrumb>
-				</div>
-				<div className="ml-auto mr-4 flex items-center gap-2 flex-wrap justify-end">
-					<DropdownMenu>
-						<DropdownMenuTrigger
-							render={
-								<Button variant="outline" size="icon" className="relative">
-									<BellIcon className="h-4 w-4" />
-									{notificationCount?.unread > 0 ? (
-										<span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500" />
-									) : null}
-								</Button>
-							}
-						/>
-						<DropdownMenuContent align="end" className="w-96 max-w-[90vw]">
-							<DropdownMenuLabel>Notifications</DropdownMenuLabel>
-							<DropdownMenuSeparator />
-							{unreadNotifications.length === 0 ? (
-								<div className="px-2 py-3 text-sm text-muted-foreground">
-									No new notifications.
-								</div>
-							) : (
-								unreadNotifications.slice(0, 5).map((item: any) => {
-									const meta = (() => {
-										try {
-											return item.metadata ? JSON.parse(item.metadata) : {};
-										} catch {
-											return {};
-										}
-									})();
-									return (
-										<DropdownMenuItem
-											key={item.id}
-											onClick={() =>
-												navigate({ to: "/dashboard/general/notifications" })
-											}
-											className="items-start whitespace-normal"
-										>
-											{meta.renewalType ?? "Renewal"} for{" "}
-											{meta.vehicleName ?? "vehicle"} is due in{" "}
-											{meta.daysRemaining ?? "-"} day(s).
-										</DropdownMenuItem>
-									);
-								})
-							)}
-						</DropdownMenuContent>
-					</DropdownMenu>
-
-					<div className="flex items-center gap-2">
-						<Select
-							items={periodOptions}
-							value={period}
-							onValueChange={handlePeriodChange}
-						>
-							<SelectTrigger className="w-[180px]">
-								<SelectValue placeholder="Select period" />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectGroup>
-									{periodOptions.map((option) => (
-										<SelectItem key={option.value} value={option.value}>
-											{option.label}
-										</SelectItem>
-									))}
-								</SelectGroup>
-							</SelectContent>
-						</Select>
-
-						{period === "custom" && (
-							<div className="flex items-center gap-2">
-								<Input
-									type="date"
-									value={startDate || ""}
-									onChange={(e) =>
-										navigate({
-											search: (prev) => ({
-												...prev,
-												startDate: e.target.value,
-											}),
-										})
-									}
-									className="w-[140px] h-9"
-								/>
-								<span className="text-xs text-muted-foreground">to</span>
-								<Input
-									type="date"
-									value={endDate || ""}
-									onChange={(e) =>
-										navigate({
-											search: (prev) => ({ ...prev, endDate: e.target.value }),
-										})
-									}
-									className="w-[140px] h-9"
-								/>
-							</div>
-						)}
+		<div className="min-h-full bg-[#F3F3F3] px-4 py-6 sm:px-8 sm:py-8">
+			<div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6">
+				{/* Top Header */}
+				<header className="flex flex-wrap items-center justify-between gap-4">
+					<div className="flex items-center gap-3">
+						<SidebarTrigger className="-ml-1 md:hidden" />
+						<h1 className="text-[26px] font-semibold tracking-tight text-[#111827] sm:text-[30px]">
+							Overview
+						</h1>
 					</div>
-				</div>
-			</header>
-			<div className="@container/main flex flex-1 flex-col gap-2">
-				<div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-					<SummaryStatsCards
+
+					<div className="flex flex-wrap items-center justify-end gap-3">
+						<div className="flex items-center gap-2">
+							<Select
+								items={periodOptions}
+								value={period}
+								onValueChange={handlePeriodChange}
+							>
+								<SelectTrigger className="h-[46px] min-w-[195px] rounded-[14px] border border-[#e5e7eb] bg-white/80 px-4 text-[15px] font-medium text-black shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)]">
+									<span className="flex items-center gap-2.5">
+										<CalendarClockIcon className="size-5 shrink-0 text-[#111827]" />
+										<SelectValue placeholder="Select period" />
+									</span>
+								</SelectTrigger>
+								<SelectContent>
+									<SelectGroup>
+										{periodOptions.map((option) => (
+											<SelectItem key={option.value} value={option.value}>
+												{option.label}
+											</SelectItem>
+										))}
+									</SelectGroup>
+								</SelectContent>
+							</Select>
+
+							{period === "custom" && (
+								<div className="flex items-center gap-2">
+									<Input
+										type="date"
+										value={startDate || ""}
+										onChange={(e) =>
+											navigate({
+												search: (prev) => ({
+													...prev,
+													startDate: e.target.value,
+												}),
+											})
+										}
+										className="h-[46px] w-[140px] rounded-[14px] border-[#e5e7eb] bg-white"
+									/>
+									<span className="text-xs text-muted-foreground">to</span>
+									<Input
+										type="date"
+										value={endDate || ""}
+										onChange={(e) =>
+											navigate({
+												search: (prev) => ({
+													...prev,
+													endDate: e.target.value,
+												}),
+											})
+										}
+										className="h-[46px] w-[140px] rounded-[14px] border-[#e5e7eb] bg-white"
+									/>
+								</div>
+							)}
+						</div>
+
+						<DropdownMenu>
+							<DropdownMenuTrigger
+								render={
+									<Button
+										variant="outline"
+										size="icon"
+										aria-label="Notifications"
+										className="relative size-[46px] rounded-[14px] border-[#e5e7eb] bg-white/80 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] hover:bg-white"
+									>
+										<BellIcon className="size-5 text-[#111827]" />
+										{notificationCount?.unread > 0 ? (
+											<span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-red-500" />
+										) : null}
+									</Button>
+								}
+							/>
+							<DropdownMenuContent align="end" className="w-96 max-w-[90vw]">
+								<DropdownMenuLabel>Notifications</DropdownMenuLabel>
+								<DropdownMenuSeparator />
+								{unreadNotifications.length === 0 ? (
+									<div className="px-2 py-3 text-sm text-muted-foreground">
+										No new notifications.
+									</div>
+								) : (
+									unreadNotifications.slice(0, 5).map((item: any) => {
+										const meta = (() => {
+											try {
+												return item.metadata ? JSON.parse(item.metadata) : {};
+											} catch {
+												return {};
+											}
+										})();
+										return (
+											<DropdownMenuItem
+												key={item.id}
+												onClick={() =>
+													navigate({ to: "/dashboard/general/notifications" })
+												}
+												className="items-start whitespace-normal"
+											>
+												{meta.renewalType ?? "Renewal"} for{" "}
+												{meta.vehicleName ?? "vehicle"} is due in{" "}
+												{meta.daysRemaining ?? "-"} day(s).
+											</DropdownMenuItem>
+										);
+									})
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</div>
+				</header>
+
+				{/* 6 KPI Cards */}
+				<KpiCards period={period} startDate={startDate} endDate={endDate} />
+
+				{/* Fleet Performance Bar Chart */}
+				<FleetPerformanceChart
+					period={period}
+					startDate={startDate}
+					endDate={endDate}
+				/>
+
+				{/* Live Fleet Status + Recent Activity + Truck & Map Card */}
+				<section className="rounded-[20px] bg-white p-5 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] sm:p-7">
+					<div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+						<div className="flex flex-col gap-6 xl:col-span-6">
+							<LiveFleetStatusCard
+								period={period}
+								startDate={startDate}
+								endDate={endDate}
+							/>
+							<RecentVehicleActivityCard
+								period={period}
+								startDate={startDate}
+								endDate={endDate}
+							/>
+						</div>
+						<div className="xl:col-span-6">
+							<TruckMapCard />
+						</div>
+					</div>
+				</section>
+
+				{/* Vehicle Leaderboard + Fleet Alerts */}
+				<div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+					<VehicleLeaderboard
 						period={period}
 						startDate={startDate}
 						endDate={endDate}
+						className="xl:col-span-7"
 					/>
-					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-						<VehicleProfitChart
-							period={period}
-							startDate={startDate}
-							endDate={endDate}
-							className="col-span-4"
-						/>
-					</div>
-					<div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 *:data-[slot=card]:bg-linear-to-t *:data-[slot=card]:shadow-xs @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-						<VehicleLeaderboardCard
-							period={period}
-							startDate={startDate}
-							endDate={endDate}
-							className="col-span-2"
-						/>
-						<ExpenseCategoriesStatsCard
-							period={period}
-							startDate={startDate}
-							endDate={endDate}
-							className="col-span-2"
-						/>
-					</div>
+					<FleetAlertsCard className="xl:col-span-5" />
 				</div>
+
+				{/* Expenses by Category Donut Chart */}
+				<ExpensesDonutChart
+					period={period}
+					startDate={startDate}
+					endDate={endDate}
+					periodLabel={activePeriodLabel}
+				/>
 			</div>
-		</>
+		</div>
 	);
 }
