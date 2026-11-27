@@ -39,7 +39,7 @@ const chartConfig = {
 	},
 } satisfies ChartConfig;
 
-const chartDataMinWidth = (vehicleCount: number) => vehicleCount * 130;
+const chartDataMinWidth = (vehicleCount: number) => vehicleCount * 105;
 
 function FleetPerformanceChartSkeleton({ className }: { className?: string }) {
 	return (
@@ -74,7 +74,7 @@ function FleetPerformanceChartContent({
 		}),
 	});
 
-	const minChartWidth = Math.max(chartDataMinWidth(fleetStats.length), 560);
+	const minChartWidth = Math.max(chartDataMinWidth(fleetStats.length), 460);
 
 	const chartData = fleetStats.map((vehicle) => ({
 		vehicleName: vehicle.vehicleName,
@@ -99,16 +99,16 @@ function FleetPerformanceChartContent({
 	return (
 		<section
 			className={cn(
-				"rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] sm:p-8",
+				"rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)]",
 				className,
 			)}
 		>
 			<div className="flex items-start justify-between gap-4">
 				<div>
-					<h2 className="text-[22px] font-semibold leading-tight text-[#1f2939] sm:text-[26px]">
+					<h2 className="text-[20px] font-semibold leading-tight text-[#1f2939] sm:text-[22px]">
 						Fleet Performance
 					</h2>
-					<p className="mt-1 text-[15px] text-[#666] sm:text-[17px]">
+					<p className="mt-1 text-[14px] text-[#666] sm:text-[15px]">
 						Profit vs Expenses trends over time
 					</p>
 				</div>
@@ -119,9 +119,9 @@ function FleetPerformanceChartContent({
 								variant="outline"
 								size="icon"
 								aria-label="Export Fleet Performance chart"
-								className="size-11 rounded-[8px] border-[#e5e7eb] bg-white shadow-[0px_2px_4px_rgba(0,0,0,0.12)] hover:bg-neutral-50"
+								className="size-10 rounded-[10px] border-[#e5e7eb] bg-white shadow-[0px_2px_4px_rgba(0,0,0,0.08)] hover:bg-neutral-50"
 							>
-								<DownloadIcon className="size-5 text-[#1f2939]" />
+								<DownloadIcon className="size-4 text-[#1f2939]" />
 							</Button>
 						}
 					/>
@@ -139,11 +139,11 @@ function FleetPerformanceChartContent({
 				</DropdownMenu>
 			</div>
 
-			<div className="mt-6 overflow-x-auto" ref={chartContainerRef}>
+			<div className="mt-5 overflow-x-auto" ref={chartContainerRef}>
 				<div style={{ minWidth: `${minChartWidth}px` }}>
 					<ChartContainer
 						config={chartConfig}
-						className="aspect-auto h-[290px] w-full"
+						className="aspect-auto h-[250px] w-full"
 					>
 						<BarChart accessibilityLayer data={chartData} barGap={6}>
 							<CartesianGrid

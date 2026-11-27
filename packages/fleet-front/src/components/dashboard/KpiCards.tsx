@@ -67,19 +67,19 @@ function formatTrend(change: number | null): string {
 
 function KpiCardsSkeleton() {
 	return (
-		<div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{Array.from({ length: 6 }).map((_, idx) => (
 				<div
 					key={`kpi-skeleton-${idx}`}
-					className="h-[172px] rounded-[28px] border-[0.71px] border-[#dbd6d6] p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] backdrop-blur-[7.5px]"
+					className="h-[138px] rounded-[20px] border border-[#dbd6d6] p-5 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)] backdrop-blur-[7.5px]"
 					style={KPI_GRADIENT_STYLE}
 				>
 					<div className="flex items-start justify-between">
-						<Skeleton className="h-5 w-28" />
-						<Skeleton className="size-10 rounded-[10px]" />
+						<Skeleton className="h-4 w-28" />
+						<Skeleton className="size-9 rounded-[10px]" />
 					</div>
-					<Skeleton className="mt-4 h-9 w-36" />
-					<Skeleton className="mt-6 h-4 w-40" />
+					<Skeleton className="mt-3 h-8 w-32" />
+					<Skeleton className="mt-4 h-3.5 w-36" />
 				</div>
 			))}
 		</div>
@@ -163,7 +163,7 @@ function KpiCardsContent({ period, startDate, endDate }: KpiCardsProps) {
 	];
 
 	return (
-		<div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+		<div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 			{cards.map((card) => {
 				const Icon = card.icon;
 				const isPositive =
@@ -173,40 +173,40 @@ function KpiCardsContent({ period, startDate, endDate }: KpiCardsProps) {
 				return (
 					<div
 						key={card.key}
-						className="flex min-h-[172px] flex-col justify-between rounded-[28px] border-[0.71px] border-[#dbd6d6] p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] backdrop-blur-[7.5px]"
+						className="flex min-h-[138px] flex-col justify-between rounded-[20px] border border-[#dbd6d6] p-5 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)] backdrop-blur-[7.5px] transition-shadow hover:shadow-[0px_4px_14px_0px_rgba(0,0,0,0.12)]"
 						style={KPI_GRADIENT_STYLE}
 					>
 						<div className="flex items-start justify-between gap-3">
 							<div className="min-w-0">
-								<p className="text-[17px] font-semibold leading-snug text-[#545454]">
+								<p className="text-[15px] font-semibold leading-snug text-[#545454]">
 									{card.title}
 								</p>
-								<p className="mt-2.5 truncate text-[28px] font-bold leading-tight text-[#1f2937] tabular-nums">
+								<p className="mt-1.5 truncate text-[26px] font-bold leading-tight text-[#111827] tabular-nums">
 									{card.value}
 								</p>
 							</div>
 							<div
 								className={cn(
-									"flex size-10 shrink-0 items-center justify-center rounded-[10px]",
+									"flex size-9 shrink-0 items-center justify-center rounded-[10px]",
 									card.iconBoxClass,
 								)}
 							>
-								<Icon className="size-5 stroke-[1.8]" />
+								<Icon className="size-[18px] stroke-[1.8]" />
 							</div>
 						</div>
 
-						<div className="mt-4 flex items-center gap-1.5 text-[15px] font-normal">
+						<div className="mt-3 flex items-center gap-1.5 text-[13px] font-medium">
 							{isPositive ? (
 								<TrendingUpIcon
 									className={cn(
-										"size-4 shrink-0",
+										"size-3.5 shrink-0",
 										isGood ? "text-[#1fb362]" : "text-[#b31f1f]",
 									)}
 								/>
 							) : (
 								<TrendingDownIcon
 									className={cn(
-										"size-4 shrink-0",
+										"size-3.5 shrink-0",
 										isGood ? "text-[#1fb362]" : "text-[#b31f1f]",
 									)}
 								/>

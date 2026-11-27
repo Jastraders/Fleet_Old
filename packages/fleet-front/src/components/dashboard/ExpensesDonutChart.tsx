@@ -148,22 +148,22 @@ function ExpensesDonutChartContent({
 	return (
 		<section
 			className={cn(
-				"rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] sm:p-8",
+				"rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)]",
 				className,
 			)}
 		>
 			<div className="flex flex-wrap items-start justify-between gap-4">
 				<div>
-					<h2 className="text-[22px] font-semibold leading-tight text-black sm:text-[26px]">
+					<h2 className="text-[20px] font-semibold leading-tight text-black sm:text-[22px]">
 						Expenses by Category
 					</h2>
-					<p className="mt-1 text-[15px] text-[#666] sm:text-[17px]">
+					<p className="mt-1 text-[14px] text-[#666] sm:text-[15px]">
 						Breakdown of expenses for selected period
 					</p>
 				</div>
 				<div className="flex items-center gap-3">
 					{periodLabel && (
-						<span className="text-[16px] font-medium text-black sm:text-[20px]">
+						<span className="text-[15px] font-medium text-[#111827] sm:text-[17px]">
 							{periodLabel}
 						</span>
 					)}
@@ -174,7 +174,7 @@ function ExpensesDonutChartContent({
 									variant="outline"
 									size="icon"
 									aria-label="Export Expenses chart"
-									className="size-10 rounded-[8px] border-[#e5e7eb] bg-white shadow-[0px_2px_4px_rgba(0,0,0,0.12)] hover:bg-neutral-50"
+									className="size-10 rounded-[10px] border-[#e5e7eb] bg-white shadow-[0px_2px_4px_rgba(0,0,0,0.08)] hover:bg-neutral-50"
 								>
 									<DownloadIcon className="size-4 text-[#1f2939]" />
 								</Button>
@@ -214,7 +214,7 @@ function ExpensesDonutChartContent({
 						<ChartContainer
 							id="expense-category-donut"
 							config={chartConfig}
-							className="aspect-square w-full max-w-[300px]"
+							className="aspect-square w-full max-w-[320px]"
 						>
 							<PieChart>
 								<ChartTooltip cursor={false} content={<CustomTooltip />} />
@@ -222,37 +222,45 @@ function ExpensesDonutChartContent({
 									data={chartData}
 									dataKey="amount"
 									nameKey="name"
-									innerRadius={68}
-									outerRadius={116}
+									innerRadius={72}
+									outerRadius={122}
 									strokeWidth={3}
 								/>
 							</PieChart>
 						</ChartContainer>
 					</div>
 
-					<div className="space-y-4 lg:col-span-7">
-						{chartData.map((entry) => (
-							<div
-								key={entry.category}
-								className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-6 text-[15px]"
-							>
-								<div className="flex min-w-0 items-center gap-3.5">
-									<span
-										className="size-[15px] shrink-0 rounded-[2px]"
-										style={{ backgroundColor: entry.fill }}
-									/>
-									<span className="truncate font-medium text-black">
-										{entry.name}
+					<div className="flex flex-col lg:col-span-7">
+						<div className="max-h-[300px] divide-y divide-neutral-100 overflow-y-auto pr-2 [scrollbar-width:thin]">
+							{chartData.map((entry) => (
+								<div
+									key={entry.category}
+									className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 py-2.5 text-[14px]"
+								>
+									<div className="flex min-w-0 items-center gap-3">
+										<span
+											className="size-3.5 shrink-0 rounded-[3px]"
+											style={{ backgroundColor: entry.fill }}
+										/>
+										<span className="truncate font-medium text-[#111827]">
+											{entry.name}
+										</span>
+									</div>
+									<span className="font-medium text-[#545454] tabular-nums">
+										{formatINR(entry.amount)}
+									</span>
+									<span className="w-12 text-right font-medium text-[#545454] tabular-nums">
+										{totalAmount > 0
+											? `${entry.percentage.toFixed(1)}%`
+											: "0.0%"}
 									</span>
 								</div>
-								<span className="font-medium text-[#545454] tabular-nums">
-									{formatINR(entry.amount)}
-								</span>
-								<span className="w-14 text-right font-medium text-[#545454] tabular-nums">
-									{totalAmount > 0 ? `${entry.percentage.toFixed(1)}%` : "0.0%"}
-								</span>
-							</div>
-						))}
+							))}
+						</div>
+						<div className="mt-3 flex items-center justify-between border-t border-neutral-200 pt-3 text-[14px] font-semibold text-[#111827]">
+							<span>Total ({chartData.length} categories)</span>
+							<span className="tabular-nums">{formatINR(totalAmount)}</span>
+						</div>
 					</div>
 				</div>
 			)}

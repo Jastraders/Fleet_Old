@@ -75,32 +75,32 @@ function LiveFleetStatusContent({
 	];
 
 	return (
-		<div className="rounded-[15px] bg-white p-6 shadow-[0px_2px_4px_rgba(0,0,0,0.12)]">
+		<div className="rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)]">
 			<div className="flex items-start justify-between gap-4">
 				<div>
-					<h3 className="text-[22px] font-semibold leading-tight text-black">
+					<h3 className="text-[20px] font-semibold leading-tight text-black">
 						Live Fleet Status
 					</h3>
-					<p className="mt-1 text-[16px] text-[#666]">
+					<p className="mt-1 text-[14px] text-[#666]">
 						Real-time vehicle updates
 					</p>
 				</div>
 				<Link
 					to="/dashboard/accountant/vehicles"
-					className="text-[16px] font-normal text-black underline underline-offset-4 hover:text-[#18325e]"
+					className="text-[14px] font-medium text-black underline underline-offset-4 hover:text-[#18325e]"
 				>
 					see all
 				</Link>
 			</div>
 
-			<div className="mt-7 space-y-6">
+			<div className="mt-6 space-y-5">
 				{rows.map((row) => (
-					<div key={row.label} className="space-y-2.5">
-						<div className="flex items-center justify-between text-[17px] font-medium">
+					<div key={row.label} className="space-y-2">
+						<div className="flex items-center justify-between text-[15px] font-medium">
 							<span className={row.textColor}>{row.label}</span>
 							<span className={row.textColor}>{row.count}</span>
 						</div>
-						<div className="h-[13px] w-full overflow-hidden rounded-full bg-[#e9ecef]">
+						<div className="h-[11px] w-full overflow-hidden rounded-full bg-[#e9ecef]">
 							<div
 								className={`h-full rounded-full transition-all duration-500 ${row.barColor}`}
 								style={{

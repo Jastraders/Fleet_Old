@@ -191,7 +191,7 @@ function SidebarInner({
 			)}
 		>
 			{/* Brand Header */}
-			<div className="flex items-center gap-3.5 px-5 pt-8 pb-5">
+			<div className="flex items-center gap-3 px-5 pt-6 pb-4">
 				<div className="flex size-8 shrink-0 items-center justify-center text-white">
 					<TruckIcon className="size-[22px] stroke-[1.75]" />
 				</div>
@@ -208,19 +208,19 @@ function SidebarInner({
 			{/* Navigation Sections */}
 			<nav
 				aria-label="Dashboard navigation"
-				className="flex-1 overflow-y-auto px-2 pb-4"
+				className="flex-1 overflow-y-auto px-2 pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent]"
 			>
 				{sections.map((section, sectionIndex) => (
 					<div key={section.id}>
 						{sectionIndex > 0 && (
-							<div className="mx-2 my-3 h-px bg-[#344238]" />
+							<div className="mx-2 my-2.5 h-px bg-[#344238]" />
 						)}
-						<div className="px-3 pb-2 pt-1">
-							<span className="text-[13px] font-medium text-[#8f9b91]">
+						<div className="px-3 pb-1.5 pt-0.5">
+							<span className="text-[12px] font-medium text-[#8f9b91]">
 								{section.label}
 							</span>
 						</div>
-						<ul className="flex flex-col gap-1">
+						<ul className="flex flex-col gap-0.5">
 							{section.items.map((item) => {
 								const Icon = item.icon;
 								const hasUnread =
@@ -231,9 +231,9 @@ function SidebarInner({
 										<li key={item.label}>
 											<span
 												aria-disabled="true"
-												className="flex cursor-not-allowed items-center gap-3.5 rounded-[10px] px-3 py-2.5 text-[15px] font-medium text-[#d1d9d1]/75"
+												className="flex cursor-not-allowed items-center gap-3 rounded-[10px] px-3 py-2 text-[14px] font-medium text-[#d1d9d1]/70"
 											>
-												<Icon className="size-[18px] shrink-0 stroke-[1.75]" />
+												<Icon className="size-[17px] shrink-0 stroke-[1.75]" />
 												<span className="truncate">{item.label}</span>
 											</span>
 										</li>
@@ -256,9 +256,9 @@ function SidebarInner({
 												className:
 													"text-[#d1d5d1] hover:bg-white/10 hover:text-white",
 											}}
-											className="flex items-center gap-3.5 rounded-[10px] px-3 py-2.5 text-[15px] font-medium transition-colors"
+											className="flex items-center gap-3 rounded-[10px] px-3 py-2 text-[14px] font-medium transition-colors"
 										>
-											<Icon className="size-[18px] shrink-0 stroke-[1.75]" />
+											<Icon className="size-[17px] shrink-0 stroke-[1.75]" />
 											<span className="truncate">{item.label}</span>
 											{hasUnread && (
 												<span className="ml-auto size-2 shrink-0 rounded-full bg-red-500" />
@@ -276,7 +276,7 @@ function SidebarInner({
 			{footer && (
 				<div className="mt-auto">
 					<div className="mx-2 h-px bg-[#344238]" />
-					<div className="px-4 py-4">{footer}</div>
+					<div className="px-4 py-3.5">{footer}</div>
 				</div>
 			)}
 		</div>
@@ -304,17 +304,25 @@ export function Sidebar({ className, ...props }: SidebarProps) {
 	}
 
 	return (
-		<aside
-			data-state={state}
-			className={cn(
-				"hidden md:block shrink-0 transition-[width] duration-200 ease-linear overflow-hidden",
-				state === "collapsed" ? "w-0" : "w-[260px]",
-				className,
-			)}
-		>
-			<div className="sticky top-0 h-svh w-[260px]">
-				<SidebarInner {...props} />
-			</div>
-		</aside>
+		<>
+			<div
+				className={cn(
+					"hidden md:block shrink-0 transition-[width] duration-200 ease-linear",
+					state === "collapsed" ? "w-0" : "w-[260px]",
+				)}
+			/>
+			<aside
+				data-state={state}
+				className={cn(
+					"hidden md:flex fixed inset-y-0 left-0 z-30 h-svh transition-[width] duration-200 ease-linear overflow-hidden",
+					state === "collapsed" ? "w-0" : "w-[260px]",
+					className,
+				)}
+			>
+				<div className="h-full w-[260px] shrink-0">
+					<SidebarInner {...props} />
+				</div>
+			</aside>
+		</>
 	);
 }

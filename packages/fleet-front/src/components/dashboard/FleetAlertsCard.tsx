@@ -122,28 +122,28 @@ function FleetAlertsContent({ className }: FleetAlertsCardProps) {
 	return (
 		<section
 			className={cn(
-				"rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] sm:p-8",
+				"flex h-full flex-col rounded-[20px] bg-white p-6 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.08)]",
 				className,
 			)}
 		>
 			<div className="flex items-start justify-between gap-4">
 				<div>
-					<h2 className="text-[22px] font-semibold leading-tight text-black sm:text-[26px]">
+					<h2 className="text-[20px] font-semibold leading-tight text-black sm:text-[22px]">
 						Fleet Alerts
 					</h2>
-					<p className="mt-1 text-[15px] text-[#666] sm:text-[17px]">
+					<p className="mt-1 text-[14px] text-[#666] sm:text-[15px]">
 						Important fleet updates and warnings
 					</p>
 				</div>
 				<Link
 					to="/dashboard/general/notifications"
-					className="text-[16px] font-normal text-black underline underline-offset-4 hover:text-[#18325e]"
+					className="text-[14px] font-medium text-black underline underline-offset-4 hover:text-[#18325e]"
 				>
 					see all
 				</Link>
 			</div>
 
-			<div className="mt-6 space-y-3.5">
+			<div className="mt-5 flex-1 space-y-3">
 				{alerts.map((alert) => {
 					const Icon = alert.icon;
 					const isDanger = alert.variant === "danger";

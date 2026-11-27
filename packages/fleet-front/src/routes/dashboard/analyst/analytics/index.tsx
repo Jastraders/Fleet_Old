@@ -124,8 +124,8 @@ function RouteComponent() {
 			: periodOptions.find((o) => o.value === period)?.label;
 
 	return (
-		<div className="min-h-full bg-[#F3F3F3] px-4 py-6 sm:px-8 sm:py-8">
-			<div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6">
+		<div className="min-h-full bg-[#F3F3F3] px-4 py-6 sm:px-6 lg:px-8">
+			<div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
 				{/* Top Header */}
 				<header className="flex flex-wrap items-center justify-between gap-4">
 					<div className="flex items-center gap-3">
@@ -255,25 +255,23 @@ function RouteComponent() {
 				/>
 
 				{/* Live Fleet Status + Recent Activity + Truck & Map Card */}
-				<section className="rounded-[20px] bg-white p-5 shadow-[0px_2px_8px_0px_rgba(0,0,0,0.12)] sm:p-7">
-					<div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-						<div className="flex flex-col gap-6 xl:col-span-6">
-							<LiveFleetStatusCard
-								period={period}
-								startDate={startDate}
-								endDate={endDate}
-							/>
-							<RecentVehicleActivityCard
-								period={period}
-								startDate={startDate}
-								endDate={endDate}
-							/>
-						</div>
-						<div className="xl:col-span-6">
-							<TruckMapCard />
-						</div>
+				<div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+					<div className="flex flex-col gap-6 xl:col-span-6">
+						<LiveFleetStatusCard
+							period={period}
+							startDate={startDate}
+							endDate={endDate}
+						/>
+						<RecentVehicleActivityCard
+							period={period}
+							startDate={startDate}
+							endDate={endDate}
+						/>
 					</div>
-				</section>
+					<div className="xl:col-span-6">
+						<TruckMapCard />
+					</div>
+				</div>
 
 				{/* Vehicle Leaderboard + Fleet Alerts */}
 				<div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
