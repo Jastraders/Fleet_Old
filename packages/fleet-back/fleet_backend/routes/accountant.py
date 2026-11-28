@@ -591,6 +591,26 @@ def orpc_list_entries(user):
         where_clauses.append("SUBSTR(COALESCE(t.transaction_date, j.created_at), 1, 10) <= ?")
         where_params.append(current_end)
 
+    driver_id = payload.get("driverId")
+    driver_search = payload.get("driverSearch")
+    vehicle_id = payload.get("vehicleId")
+    vehicle_search = payload.get("vehicleSearch")
+
+    if driver_id:
+        where_clauses.append("j.driver_id = ?")
+        where_params.append(driver_id)
+    elif driver_search:
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE ?")
+        where_params.append(f"%{driver_search.strip().lower()}%")
+
+    if vehicle_id:
+        where_clauses.append("j.vehicle_id = ?")
+        where_params.append(vehicle_id)
+    elif vehicle_search:
+        search_v = f"%{vehicle_search.strip().lower()}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ?)")
+        where_params.extend([search_v, search_v])
+
     if search:
         search_term = f"%{search.strip().lower()}%"
         where_clauses.append("(CAST(j.id AS TEXT) = ? OR LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ? OR LOWER(COALESCE(d.name, '')) LIKE ? OR LOWER(COALESCE(u.name, '')) LIKE ?)")
@@ -730,9 +750,33 @@ def orpc_list_expenses(user):
         where_params.append(current_end)
 
     driver_id = payload.get("driverId")
+    driver_search = payload.get("driverSearch")
+    vehicle_id = payload.get("vehicleId")
+    vehicle_search = payload.get("vehicleSearch")
+    category_id = payload.get("categoryId")
+    category_search = payload.get("categorySearch")
+
     if driver_id:
         where_clauses.append("j.driver_id = ?")
         where_params.append(driver_id)
+    elif driver_search:
+        where_clauses.append("LOWER(COALESCE(d.name, '')) LIKE ?")
+        where_params.append(f"%{driver_search.strip().lower()}%")
+
+    if vehicle_id:
+        where_clauses.append("i.vehicle_id = ?")
+        where_params.append(vehicle_id)
+    elif vehicle_search:
+        search_v = f"%{vehicle_search.strip().lower()}%"
+        where_clauses.append("(LOWER(COALESCE(v.name, '')) LIKE ? OR LOWER(COALESCE(v.license_plate, '')) LIKE ?)")
+        where_params.extend([search_v, search_v])
+
+    if category_id:
+        where_clauses.append("i.expense_category_id = ?")
+        where_params.append(category_id)
+    elif category_search:
+        where_clauses.append("LOWER(COALESCE(c.name, '')) LIKE ?")
+        where_params.append(f"%{category_search.strip().lower()}%")
 
     if search:
         search_term = f"%{search.strip().lower()}%"

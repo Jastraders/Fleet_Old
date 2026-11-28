@@ -22,6 +22,12 @@ const querySchema = v.object({
 	offset: v.optional(v.fallback(v.number(), 0), 0),
 	limit: v.optional(v.fallback(v.number(), 20), 20),
 	search: v.optional(v.string()),
+	driverId: v.optional(v.string()),
+	driverSearch: v.optional(v.string()),
+	vehicleId: v.optional(v.string()),
+	vehicleSearch: v.optional(v.string()),
+	categoryId: v.optional(v.string()),
+	categorySearch: v.optional(v.string()),
 	period: v.optional(v.fallback(periodSchema, "all_time"), "all_time"),
 	startDate: v.optional(v.string()),
 	endDate: v.optional(v.string()),
@@ -61,6 +67,12 @@ export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 			offset,
 			limit,
 			search,
+			driverId,
+			driverSearch,
+			vehicleId,
+			vehicleSearch,
+			categoryId,
+			categorySearch,
 			period,
 			startDate,
 			endDate,
@@ -71,6 +83,12 @@ export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 		offset,
 		limit,
 		search,
+		driverId,
+		driverSearch,
+		vehicleId,
+		vehicleSearch,
+		categoryId,
+		categorySearch,
 		period,
 		startDate,
 		endDate,
@@ -90,12 +108,18 @@ export const Route = createFileRoute("/dashboard/accountant/expenses/")({
 					limit: query.limit,
 					offset: query.offset,
 					search: query.search,
+					driverId: query.driverId,
+					driverSearch: query.driverSearch,
+					vehicleId: query.vehicleId,
+					vehicleSearch: query.vehicleSearch,
+					categoryId: query.categoryId,
+					categorySearch: query.categorySearch,
 					period: query.period,
 					startDate: isDateRangeInvalid ? undefined : query.startDate,
 					endDate: isDateRangeInvalid ? undefined : query.endDate,
 					sortBy: query.sortBy,
 					sortOrder: query.sortOrder,
-				},
+				} as any,
 			}),
 		);
 	},
@@ -131,17 +155,32 @@ function ExpensesList() {
 				limit: query.limit,
 				offset: query.offset,
 				search: query.search,
+				driverId: query.driverId,
+				driverSearch: query.driverSearch,
+				vehicleId: query.vehicleId,
+				vehicleSearch: query.vehicleSearch,
+				categoryId: query.categoryId,
+				categorySearch: query.categorySearch,
 				period: query.period,
 				startDate: isDateRangeInvalid ? undefined : query.startDate,
 				endDate: isDateRangeInvalid ? undefined : query.endDate,
 				sortBy: query.sortBy,
 				sortOrder: query.sortOrder,
-			},
+			} as any,
 		}),
 	});
 
 	const isFiltered =
-		(query.period && query.period !== "all_time") || Boolean(query.search);
+		(query.period && query.period !== "all_time") ||
+		Boolean(
+			query.search ||
+				query.driverId ||
+				query.driverSearch ||
+				query.vehicleId ||
+				query.vehicleSearch ||
+				query.categoryId ||
+				query.categorySearch,
+		);
 	if ((!data || data.meta.total === 0) && !isFiltered) {
 		return <ExpensesEmptyState />;
 	}
@@ -155,6 +194,12 @@ function ExpensesList() {
 				offset={query.offset}
 				limit={query.limit}
 				search={query.search}
+				driverId={query.driverId}
+				driverSearch={query.driverSearch}
+				vehicleId={query.vehicleId}
+				vehicleSearch={query.vehicleSearch}
+				categoryId={query.categoryId}
+				categorySearch={query.categorySearch}
 				period={query.period}
 				startDate={query.startDate}
 				endDate={query.endDate}

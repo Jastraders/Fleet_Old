@@ -1,4 +1,4 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
 	type ColumnDef,
@@ -14,10 +14,18 @@ import {
 	CalendarIcon,
 	PlusIcon,
 	RotateCcwIcon,
+	SearchIcon,
+	TruckIcon,
+	UserIcon,
+	XIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import {
+	FilterAutocomplete,
+	type FilterOption,
+} from "@/components/ui/filter-autocomplete";
 import { Input } from "@/components/ui/input";
 import {
 	Select,
@@ -350,6 +358,10 @@ export interface EntriesDataTableProps {
 	offset: number;
 	limit: number;
 	search?: string;
+	driverId?: string;
+	driverSearch?: string;
+	vehicleId?: string;
+	vehicleSearch?: string;
 	period?:
 		| "all_time"
 		| "last_7d"
@@ -374,6 +386,10 @@ type EntriesSearchState = {
 	offset: number;
 	limit: number;
 	search?: string;
+	driverId?: string;
+	driverSearch?: string;
+	vehicleId?: string;
+	vehicleSearch?: string;
 	period?: EntriesDataTableProps["period"];
 	startDate?: string;
 	endDate?: string;
@@ -388,6 +404,10 @@ export function EntriesDataTable({
 	offset,
 	limit,
 	search,
+	driverId,
+	driverSearch,
+	vehicleId,
+	vehicleSearch,
 	period,
 	startDate,
 	endDate,
@@ -401,6 +421,109 @@ export function EntriesDataTable({
 
 	const [searchValue, setSearchValue] = useState(search ?? "");
 	const [isDownloading, setIsDownloading] = useState(false);
+
+	const { data: driversDataRaw, isLoading: isLoadingDrivers } = useQuery({
+		...orpc.accountant.drivers.list.queryOptions({
+			input: { offset: 0, limit: 500 },
+		}),
+	});
+	const { data: vehiclesDataRaw, isLoading: isLoadingVehicles } = useQuery({
+		...orpc.accountant.vehicles.list.queryOptions({
+			input: { offset: 0, limit: 500 },
+		}),
+	});
+
+	const driverOptions: FilterOption[] = useMemo(() => {
+		const list = (driversDataRaw as any)?.data || [];
+		return list.map((d: any) => ({
+			id: d.id,
+			label: d.name,
+			sublabel: d.phoneNumber || undefined,
+		}));
+	}, [driversDataRaw]);
+
+	const vehicleOptions: FilterOption[] = useMemo(() => {
+		const list = (vehiclesDataRaw as any)?.data || [];
+		return list.map((v: any) => ({
+			id: v.id,
+			label: v.name || v.licensePlate || "Unnamed",
+			sublabel: v.licensePlate ? v.licensePlate.toUpperCase() : undefined,
+		}));
+	}, [vehiclesDataRaw]);
+
+	const activeDriverLabel = useMemo(() => {
+		if (driverId) {
+			return (
+				driverOptions.find((d) => d.id === driverId)?.label ||
+				driverSearch ||
+				""
+			);
+		}
+		return driverSearch || "";
+	}, [driverId, driverSearch, driverOptions]);
+
+	const activeVehicleLabel = useMemo(() => {
+		if (vehicleId) {
+			return (
+				vehicleOptions.find((v) => v.id === vehicleId)?.label ||
+				vehicleSearch ||
+				""
+			);
+		}
+		return vehicleSearch || "";
+	}, [vehicleId, vehicleSearch, vehicleOptions]);
+
+	const handleDriverSelect = (opt: FilterOption | null) => {
+		void router.navigate({
+			to: ".",
+			search: (prev: EntriesSearchState) => ({
+				...prev,
+				driverId: opt?.id || undefined,
+				driverSearch: !opt?.id && opt?.value ? opt.value : undefined,
+				offset: 0,
+			}),
+		});
+	};
+
+	const handleVehicleSelect = (opt: FilterOption | null) => {
+		void router.navigate({
+			to: ".",
+			search: (prev: EntriesSearchState) => ({
+				...prev,
+				vehicleId: opt?.id || undefined,
+				vehicleSearch: !opt?.id && opt?.value ? opt.value : undefined,
+				offset: 0,
+			}),
+		});
+	};
+
+	const hasActiveFilters = Boolean(
+		search ||
+			driverId ||
+			driverSearch ||
+			vehicleId ||
+			vehicleSearch ||
+			(period && period !== "all_time"),
+	);
+
+	const handleResetAllFilters = () => {
+		setSearchValue("");
+		void router.navigate({
+			to: ".",
+			search: (prev: EntriesSearchState) => ({
+				...prev,
+				search: undefined,
+				driverId: undefined,
+				driverSearch: undefined,
+				vehicleId: undefined,
+				vehicleSearch: undefined,
+				period: "all_time",
+				startDate: undefined,
+				endDate: undefined,
+				offset: 0,
+			}),
+		});
+	};
 
 	const handleSearch = useCallback(
 		(value: string) => {
@@ -536,12 +659,16 @@ export function EntriesDataTable({
 							limit: 10000,
 							offset: 0,
 							search: search,
+							driverId: driverId,
+							driverSearch: driverSearch,
+							vehicleId: vehicleId,
+							vehicleSearch: vehicleSearch,
 							period: period,
 							startDate: isDateRangeInvalid ? undefined : startDate,
 							endDate: isDateRangeInvalid ? undefined : endDate,
 							sortBy: sortBy,
 							sortOrder: sortOrder,
-						},
+						} as any,
 					}),
 				);
 				if (fullResult?.data) {
@@ -596,16 +723,71 @@ export function EntriesDataTable({
 						disabled={isDownloading || total === 0}
 						onDownload={handleDownload}
 					/>
-					<Input
-						placeholder="Search journal entries..."
-						value={searchValue}
-						onChange={(e) => setSearchValue(e.currentTarget.value)}
-					/>
 					<Button onClick={handleCreateEntry}>
 						<PlusIcon className="h-4 w-4" />
 						New Entry
 					</Button>
 				</div>
+			</div>
+
+			{/* Multi-Filter & Search Bar */}
+			<div className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-2xs">
+				<div className="relative flex-1 min-w-[200px]">
+					<SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+					<Input
+						placeholder="Search entry, vehicle, driver..."
+						value={searchValue}
+						onChange={(e) => setSearchValue(e.currentTarget.value)}
+						className="h-9 pl-9 pr-8"
+					/>
+					{searchValue && (
+						<button
+							type="button"
+							aria-label="Clear search"
+							onClick={() => setSearchValue("")}
+							className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+						>
+							<XIcon className="h-3.5 w-3.5" />
+						</button>
+					)}
+				</div>
+
+				<FilterAutocomplete
+					value={activeDriverLabel}
+					selectedId={driverId}
+					onSelect={handleDriverSelect}
+					placeholder="Filter driver..."
+					icon={<UserIcon className="h-4 w-4 text-muted-foreground" />}
+					options={driverOptions}
+					isLoading={isLoadingDrivers}
+					className="flex-1 min-w-[180px]"
+					ariaLabel="Filter by driver"
+				/>
+
+				<FilterAutocomplete
+					value={activeVehicleLabel}
+					selectedId={vehicleId}
+					onSelect={handleVehicleSelect}
+					placeholder="Filter vehicle..."
+					icon={<TruckIcon className="h-4 w-4 text-muted-foreground" />}
+					options={vehicleOptions}
+					isLoading={isLoadingVehicles}
+					className="flex-1 min-w-[180px]"
+					ariaLabel="Filter by vehicle"
+				/>
+
+				{hasActiveFilters && (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={handleResetAllFilters}
+						className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+						title="Reset all filters"
+					>
+						<RotateCcwIcon className="h-3.5 w-3.5 mr-1" />
+						Reset
+					</Button>
+				)}
 			</div>
 
 			<div className="flex flex-wrap items-center justify-end gap-4 rounded-lg border bg-card p-3 shadow-2xs">
