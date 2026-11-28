@@ -124,8 +124,8 @@ function RouteComponent() {
 			: periodOptions.find((o) => o.value === period)?.label;
 
 	return (
-		<div className="min-h-full bg-[#F3F3F3] px-4 py-6 sm:px-6 lg:px-8">
-			<div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6">
+		<div className="min-h-full w-full bg-[#F3F3F3] px-4 py-6 sm:px-6 lg:px-7">
+			<div className="flex w-full flex-col gap-6">
 				{/* Top Header */}
 				<header className="flex flex-wrap items-center justify-between gap-4">
 					<div className="flex items-center gap-3">
